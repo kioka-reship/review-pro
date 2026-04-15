@@ -42,9 +42,8 @@ const res = await fetch("/api/generate", {
     answers,
     style,
   }),
-});
-  });
-  const data = await res.json();
+ });
+const data = await res.json();
 return data.text || "";
 
 function StarRating({ value, onChange }) {
