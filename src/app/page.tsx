@@ -1005,7 +1005,7 @@ export default function EndUserScreen() {
               {step === "welcome"
                 ? "はじめる →"
                 : step === "q3"
-                ? "✨ 口コミ文を1000パターン作成する"
+                ? "✨ 口コミ文を3パターン作成する"
                 : "次へ →"}
             </button>
           )}
