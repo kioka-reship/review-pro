@@ -34,18 +34,21 @@ async function generateReview(store, answers, style) {
 
 宣伝文にならず、リアルで温かみのある口コミ文のみを出力してください。前置き・説明は不要です。`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+  store,
+  answers,
+  style,
+}),
       model: "claude-sonnet-4-20250514",
       max_tokens: 1000,
       messages: [{ role: "user", content: prompt }],
     }),
   });
   const data = await res.json();
-  return data.content?.[0]?.text || "";
-}
+return data.text || "";
 
 function StarRating({ value, onChange }) {
   const [hover, setHover] = useState(0);
