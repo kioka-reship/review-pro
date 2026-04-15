@@ -18,25 +18,19 @@ export async function POST(req: Request) {
 
 宣伝文にならず、リアルで温かみのある口コミ文のみを出力してください。前置き・説明は不要です。`;
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-
-    if (!apiKey) {
-      return Response.json({
-        text: "ANTHROPIC_API_KEY が未設定です。",
-      });
-    }
-
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 300,
-        messages: [{ role: "user", content: prompt }],
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "あなたは自然な口コミを書くプロです。" },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
       }),
     });
 
@@ -44,13 +38,11 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       return Response.json({
-        text: `Claude APIエラー: ${data?.error?.message || "不明なエラー"}`,
+        text: `OpenAIエラー: ${data?.error?.message || "不明なエラー"}`,
       });
     }
 
-    const text =
-      data?.content?.find((item: any) => item?.type === "text")?.text ||
-      "文章を取得できませんでした。";
+    const text = data?.choices?.[0]?.message?.content || "";
 
     return Response.json({ text });
   } catch (error: any) {
