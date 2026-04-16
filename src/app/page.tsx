@@ -39,19 +39,44 @@ const STORE: Store = {
   placeId: "https://g.page/r/CY_iloKyq51SEBM/review",
 };
 
-const QUESTIONS = [
-  { id: "rating", label: "今日の施術はいかがでしたか？", type: "stars" },
+42行目からQUESTIONSの定義が終わる行まで（] as const;の行）を全部選択して、以下に書き換えてください：
+typescriptconst QUESTIONS = [
+  { id: "rating", label: "今日のご体験はいかがでしたか？", type: "stars" },
+  {
+    id: "menu",
+    label: "ご注文のメニューは？",
+    type: "select",
+    options: ["チャーシュー麺", "ネギラーメン", "餃子", "チャーハン", "その他"],
+  },
+  {
+    id: "party",
+    label: "何人でご来店でしたか？",
+    type: "select",
+    options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"],
+  },
   {
     id: "highlight",
     label: "良かった点を教えてください",
     type: "multi",
-    options: ["施術の効果", "スタッフの対応", "サロンの清潔感", "価格・コスパ", "予約のしやすさ"],
+    options: ["料理・味", "スタッフの接客", "お店の雰囲気", "価格・コスパ", "立地・アクセス"],
   },
   {
     id: "feel",
     label: "一言でいうと？",
     type: "select",
-    options: ["また来たい！", "友人に勧めたい", "期待以上だった", "安心して通える"],
+    options: ["また来たい！", "友人に勧めたい", "期待以上だった", "安心して頼める"],
+  },
+  {
+    id: "gender",
+    label: "性別を教えてください",
+    type: "select",
+    options: ["男性", "女性", "回答しない"],
+  },
+  {
+    id: "age",
+    label: "年代を教えてください",
+    type: "select",
+    options: ["10代", "20代", "30代", "40代", "50代以上"],
   },
 ] as const;
 
