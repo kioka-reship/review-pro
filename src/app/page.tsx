@@ -62,6 +62,8 @@ const STYLES: StyleType[] = [
   { key: "formal", label: "丁寧", emoji: "✨", prompt: "丁寧で落ち着いた、信頼感のある文体で" },
 ];
 
+const STEP_ORDER = ["welcome", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "generating", "done"];
+
 async function generateReview(store: Store, answers: Answers, style: StyleType) {
   const res = await fetch("/api/generate", {
     method: "POST",
@@ -134,9 +136,13 @@ export default function EndUserScreen() {
   const [copied, setCopied] = useState(false);
   const [regenCount, setRegenCount] = useState(0);
 
-  const steps = ["welcome", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "generating", "done"];
-  const currentIndex = steps.indexOf(step);
+  const currentIndex = STEP_ORDER.indexOf(step);
   const progress = step === "done" ? 100 : step === "generating" ? 90 : ((currentIndex - 1) / 7) * 100;
+
+  const goBack = () => {
+    const prevStep = STEP_ORDER[currentIndex - 1];
+    if (prevStep) setStep(prevStep);
+  };
 
   const canNext = () => {
     if (step === "q1") return answers.rating > 0;
@@ -192,8 +198,6 @@ export default function EndUserScreen() {
     });
   };
 
-  const qLabel = (n: number) => `Q${n} / 7`;
-
   const SelectButtons = ({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) => (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
       {options.map((opt) => {
@@ -209,6 +213,17 @@ export default function EndUserScreen() {
       })}
     </div>
   );
+
+  // 戻るボタン（q1以降で表示）
+  const BackButton = () => {
+    if (!["q1","q2","q3","q4","q5","q6","q7"].includes(step)) return null;
+    return (
+      <button onClick={goBack}
+        style={{ background: "none", border: "none", color: "#aaa", fontFamily: "inherit", fontSize: "13px", cursor: "pointer", padding: "8px 0", display: "flex", alignItems: "center", gap: "4px", marginBottom: "4px" }}>
+        ← 前の質問に戻る
+      </button>
+    );
+  };
 
   return (
     <>
@@ -257,7 +272,8 @@ export default function EndUserScreen() {
           {/* Q1: 星評価 */}
           {step === "q1" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>{qLabel(1)}</p>
+              <BackButton />
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q1 / 7</p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 32px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[0].label}</h2>
               <StarRating value={answers.rating} onChange={(v) => setAnswers({ ...answers, rating: v })} />
             </div>
@@ -266,7 +282,8 @@ export default function EndUserScreen() {
           {/* Q2: メニュー */}
           {step === "q2" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>{qLabel(2)}</p>
+              <BackButton />
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q2 / 7</p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[1].label}</h2>
               <SelectButtons options={QUESTIONS[1].options} value={answers.menu} onChange={(v) => setAnswers({ ...answers, menu: v })} />
             </div>
@@ -275,7 +292,8 @@ export default function EndUserScreen() {
           {/* Q3: 人数 */}
           {step === "q3" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>{qLabel(3)}</p>
+              <BackButton />
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q3 / 7</p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[2].label}</h2>
               <SelectButtons options={QUESTIONS[2].options} value={answers.party} onChange={(v) => setAnswers({ ...answers, party: v })} />
             </div>
@@ -284,7 +302,8 @@ export default function EndUserScreen() {
           {/* Q4: 良かった点 */}
           {step === "q4" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>{qLabel(4)}</p>
+              <BackButton />
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q4 / 7</p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 6px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[3].label}</h2>
               <p style={{ textAlign: "center", color: "#aaa", fontSize: "12px", margin: "0 0 20px" }}>複数選択OK</p>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -307,7 +326,8 @@ export default function EndUserScreen() {
           {/* Q5: 一言 */}
           {step === "q5" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>{qLabel(5)}</p>
+              <BackButton />
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q5 / 7</p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[4].label}</h2>
               <SelectButtons options={QUESTIONS[4].options} value={answers.feel} onChange={(v) => setAnswers({ ...answers, feel: v })} />
             </div>
@@ -316,7 +336,8 @@ export default function EndUserScreen() {
           {/* Q6: 性別 */}
           {step === "q6" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>{qLabel(6)}</p>
+              <BackButton />
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q6 / 7</p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[5].label}</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 {QUESTIONS[5].options.map((opt) => {
@@ -337,7 +358,8 @@ export default function EndUserScreen() {
           {/* Q7: 年代 */}
           {step === "q7" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>{qLabel(7)}</p>
+              <BackButton />
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q7 / 7</p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[6].label}</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 {QUESTIONS[6].options.map((opt) => {
@@ -422,6 +444,10 @@ export default function EndUserScreen() {
                     この文章でGoogleに投稿する
                   </>
                 )}
+              </button>
+              <button onClick={() => { setStep("welcome"); setAnswers({ rating: 0, menu: "", party: "", highlight: [], feel: "", gender: "", age: "" }); setReviews({ casual: "", honest: "", formal: "" }); setCopied(false); setRegenCount(0); }}
+                style={{ width: "100%", marginTop: "10px", padding: "12px", borderRadius: "12px", border: "1.5px solid #E5E7EB", background: "transparent", color: "#888", fontFamily: "inherit", fontSize: "14px", cursor: "pointer" }}>
+                ← 最初からやり直す
               </button>
             </div>
           )}
