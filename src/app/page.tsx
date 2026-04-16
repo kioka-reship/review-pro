@@ -299,16 +299,19 @@ export default function EndUserScreen() {
   const [copied, setCopied] = useState(false);
   const [regenCount, setRegenCount] = useState(0);
 
-  const steps = ["welcome", "q1", "q2", "q3", "generating", "done"];
+  const steps = ["welcome", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "generating", "done"];
   const currentIndex = steps.indexOf(step);
   const progress =
     step === "done" ? 100 : step === "generating" ? 90 : ((currentIndex - 1) / 3) * 100;
 
   const canNext = () => {
-    if (step === "q1") return answers.rating > 0;
-    if (step === "q2") return answers.highlight.length > 0;
-    if (step === "q3") return answers.feel !== "";
-    return true;
+if (step === "q1") return answers.rating > 0;
+if (step === "q2") return answers.menu !== "";
+if (step === "q3") return answers.party !== "";
+if (step === "q4") return answers.highlight.length > 0;
+if (step === "q5") return answers.feel !== "";
+if (step === "q6") return answers.gender !== "";
+if (step === "q7") return answers.age !== "";
   };
 
   const generateAll = async (currentAnswers: Answers) => {
@@ -340,21 +343,14 @@ export default function EndUserScreen() {
   };
 
   const handleNext = async () => {
-    if (step === "welcome") {
-      setStep("q1");
-      return;
-    }
-    if (step === "q1") {
-      setStep("q2");
-      return;
-    }
-    if (step === "q2") {
-      setStep("q3");
-      return;
-    }
-    if (step === "q3") {
-      await generateAll(answers);
-    }
+if (step === "welcome") { setStep("q1"); return; }
+if (step === "q1") { setStep("q2"); return; }
+if (step === "q2") { setStep("q3"); return; }
+if (step === "q3") { setStep("q4"); return; }
+if (step === "q4") { setStep("q5"); return; }
+if (step === "q5") { setStep("q6"); return; }
+if (step === "q6") { setStep("q7"); return; }
+if (step === "q7") { await generateAll(answers); }
   };
 
   const handleRegen = async () => {
@@ -561,96 +557,25 @@ export default function EndUserScreen() {
                   textAlign: "center",
                 }}
               >
-                Q1 / 3
-              </p>
-              <h2
-                style={{
-                  fontSize: "20px",
-                  fontWeight: "900",
-                  color: "#1a2533",
-                  margin: "0 0 32px",
-                  textAlign: "center",
-                  lineHeight: 1.4,
-                }}
-              >
-                {QUESTIONS[0].label}
-              </h2>
-              <StarRating
-                value={answers.rating}
-                onChange={(v) => setAnswers({ ...answers, rating: v })}
-              />
+{step === "q1" && (
+            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q1 / 7</p>
+              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 32px", textAlign: "center", lineHeight: 1.4 }}>今日のご体験はいかがでしたか？</h2>
+              <StarRating value={answers.rating} onChange={(v) => setAnswers({ ...answers, rating: v })} />
             </div>
           )}
 
           {step === "q2" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p
-                style={{
-                  fontSize: "11px",
-                  fontWeight: "700",
-                  color: "#2C7A4B",
-                  letterSpacing: "0.1em",
-                  margin: "0 0 8px",
-                  textAlign: "center",
-                }}
-              >
-                Q2 / 3
-              </p>
-              <h2
-                style={{
-                  fontSize: "20px",
-                  fontWeight: "900",
-                  color: "#1a2533",
-                  margin: "0 0 6px",
-                  textAlign: "center",
-                  lineHeight: 1.4,
-                }}
-              >
-                {QUESTIONS[1].label}
-              </h2>
-              <p
-                style={{
-                  textAlign: "center",
-                  color: "#aaa",
-                  fontSize: "12px",
-                  margin: "0 0 20px",
-                }}
-              >
-                複数選択OK
-              </p>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q2 / 7</p>
+              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>ご注文のメニューは？</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 {QUESTIONS[1].options.map((opt) => {
-                  const sel = answers.highlight.includes(opt);
+                  const sel = answers.menu === opt;
                   return (
-                    <button
-                      key={opt}
-                      onClick={() =>
-                        setAnswers({
-                          ...answers,
-                          highlight: sel
-                            ? answers.highlight.filter((v) => v !== opt)
-                            : [...answers.highlight, opt],
-                        })
-                      }
-                      style={{
-                        padding: "15px 18px",
-                        borderRadius: "12px",
-                        border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
-                        background: sel ? "#F0FAF4" : "#fff",
-                        color: sel ? "#1a3a2a" : "#555",
-                        fontFamily: "inherit",
-                        fontSize: "15px",
-                        fontWeight: sel ? "700" : "400",
-                        cursor: "pointer",
-                        transition: "all 0.18s",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
+                    <button key={opt} onClick={() => setAnswers({ ...answers, menu: opt })}
+                      style={{ padding: "16px 10px", borderRadius: "14px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`, background: sel ? "#2C7A4B" : "#fff", color: sel ? "#fff" : "#555", fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer", transition: "all 0.18s", textAlign: "center" }}>
                       {opt}
-                      {sel && <span style={{ color: "#2C7A4B", fontSize: "16px" }}>✓</span>}
                     </button>
                   );
                 })}
@@ -660,66 +585,13 @@ export default function EndUserScreen() {
 
           {step === "q3" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p
-                style={{
-                  fontSize: "11px",
-                  fontWeight: "700",
-                  color: "#2C7A4B",
-                  letterSpacing: "0.1em",
-                  margin: "0 0 8px",
-                  textAlign: "center",
-                }}
-              >
-                Q3 / 3
-              </p>
-              <h2
-                style={{
-                  fontSize: "20px",
-                  fontWeight: "900",
-                  color: "#1a2533",
-                  margin: "0 0 24px",
-                  textAlign: "center",
-                  lineHeight: 1.4,
-                }}
-              >
-                {QUESTIONS[2].label}
-              </h2>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "10px",
-                }}
-              >
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q3 / 7</p>
+              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>何人でご来店でしたか？</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 {QUESTIONS[2].options.map((opt) => {
-                  const sel = answers.feel === opt;
+                  const sel = answers.party === opt;
                   return (
-                    <button
-                      key={opt}
-                      onClick={() => setAnswers({ ...answers, feel: opt })}
-                      style={{
-                        padding: "20px 10px",
-                        borderRadius: "14px",
-                        border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
-                        background: sel ? "#2C7A4B" : "#fff",
-                        color: sel ? "#fff" : "#555",
-                        fontFamily: "inherit",
-                        fontSize: "14px",
-                        fontWeight: "700",
-                        cursor: "pointer",
-                        transition: "all 0.18s",
-                        textAlign: "center",
-                      }}
-                    >
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
+                    <button key={opt} on
           {step === "generating" && (
             <div
               style={{
@@ -1013,7 +885,7 @@ export default function EndUserScreen() {
             </div>
           )}
 
-          {["welcome", "q1", "q2", "q3"].includes(step) && (
+          {["welcome", "q1", "q2", "q3", "q4", "q5", "q6", "q7"].includes(step) && (
             <button
               onClick={handleNext}
               disabled={!canNext()}
@@ -1037,7 +909,7 @@ export default function EndUserScreen() {
             >
               {step === "welcome"
                 ? "はじめる →"
-                : step === "q3"
+                : step === "q7"
                 ? "✨ 口コミ文を3パターン作成する"
                 : "次へ →"}
             </button>
