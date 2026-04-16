@@ -559,7 +559,7 @@ if (step === "q7") { await generateAll(answers); }
               >
 {step === "q1" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q1 / 7</p>
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q1 / 7 7 7 7 7 7 7 7</p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 32px", textAlign: "center", lineHeight: 1.4 }}>今日のご体験はいかがでしたか？</h2>
               <StarRating value={answers.rating} onChange={(v) => setAnswers({ ...answers, rating: v })} />
             </div>
@@ -567,7 +567,7 @@ if (step === "q7") { await generateAll(answers); }
 
           {step === "q2" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q2 / 7</p>
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q2 / 7 7 7</p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>ご注文のメニューは？</h2>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 {QUESTIONS[1].options.map((opt) => {
@@ -585,7 +585,7 @@ if (step === "q7") { await generateAll(answers); }
 
           {step === "q3" && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q3 / 7</p>
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q3 / 7 7</p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>何人でご来店でしたか？</h2>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 {QUESTIONS[2].options.map((opt) => {
