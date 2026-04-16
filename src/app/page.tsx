@@ -34,9 +34,9 @@ type Reviews = {
 };
 
 const STORE: Store = {
-  name: "博多ラーメン 一風堂風",
+  name: "Plus Belle",
   type: "飲食店",
-  placeId: "https://g.page/r/CY_iloKyq91SEAE/review",
+  placeId: "https://g.page/r/CY_iloKyq51SEBM/review",
 };
 
 const QUESTIONS = [
