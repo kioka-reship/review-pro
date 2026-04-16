@@ -187,7 +187,7 @@ export default function AdminPage() {
               ログイン
             </button>
             <p style={{ fontSize: "11px", color: "#ccc", textAlign: "center", marginTop: "16px" }}>
-              admin@yourservice.com / admin123
+              kioka.reship@gmail.com / Katsu0815!?
             </p>
           </div>
         </div>
