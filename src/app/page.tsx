@@ -35,23 +35,23 @@ type Reviews = {
 
 const STORE: Store = {
   name: "Plus Belle",
-  type: "飲食店",
+  type: "美容脱毛サロン",
   placeId: "https://g.page/r/CY_iloKyq51SEBM/review",
 };
 
 const QUESTIONS = [
-  { id: "rating", label: "今日のご体験はいかがでしたか？", type: "stars" },
+  { id: "rating", label: "今日の施術はいかがでしたか？", type: "stars" },
   {
     id: "highlight",
     label: "良かった点を教えてください",
     type: "multi",
-    options: ["料理・味", "スタッフの接客", "お店の雰囲気", "価格・コスパ", "立地・アクセス"],
+    options: ["施術の効果", "スタッフの対応", "サロンの清潔感", "価格・コスパ", "予約のしやすさ"],
   },
   {
     id: "feel",
     label: "一言でいうと？",
     type: "select",
-    options: ["また来たい！", "友人に勧めたい", "期待以上だった", "安心して頼める"],
+    options: ["また来たい！", "友人に勧めたい", "期待以上だった", "安心して通える"],
   },
 ] as const;
 
