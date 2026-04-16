@@ -36,7 +36,7 @@ type Reviews = {
 const STORE: Store = {
   name: "博多ラーメン 一風堂風",
   type: "飲食店",
-  placeId: "ChIJxxxxxx",
+  placeId: "https://g.page/r/CY_iloKyq91SEAE/review",
 };
 
 const QUESTIONS = [
@@ -348,7 +348,7 @@ export default function EndUserScreen() {
       setCopied(true);
       setTimeout(() => {
         window.open(
-          `https://search.google.com/local/writereview?placeid=${STORE.placeId}`,
+          STORE.placeId,
           "_blank"
         );
       }, 500);
