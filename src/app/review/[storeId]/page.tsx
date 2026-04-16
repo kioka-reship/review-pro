@@ -246,7 +246,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
     const text = reviews[selectedStyle];
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
-      setTimeout(() => window.open(`https://search.google.com/local/writereview?placeid=${store.place_id}`, "_blank"), 500);
+      setTimeout(() => window.open(`{store.place_id}`, "_blank"), 500);
     });
   };
 
