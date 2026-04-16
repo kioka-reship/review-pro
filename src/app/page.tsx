@@ -43,7 +43,6 @@ const STORE: Store = {
   placeId: "https://g.page/r/CY_iloKyq51SEBM/review",
 };
 
-42行目からQUESTIONSの定義が終わる行まで（] as const;の行）を全部選択して、以下に書き換えてください：
 const QUESTIONS = [
   { id: "rating", label: "今日のご体験はいかがでしたか？", type: "stars" },
   {
