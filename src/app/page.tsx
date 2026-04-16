@@ -10,8 +10,12 @@ type Store = {
 
 type Answers = {
   rating: number;
+  menu: string;
+  party: string;
   highlight: string[];
   feel: string;
+  gender: string;
+  age: string;
 };
 
 type StyleType = {
@@ -274,8 +278,12 @@ export default function EndUserScreen() {
   const [step, setStep] = useState("welcome");
   const [answers, setAnswers] = useState<Answers>({
     rating: 0,
+    menu: "",
+    party: "",
     highlight: [],
     feel: "",
+    gender: "",
+    age: "",
   });
   const [reviews, setReviews] = useState<Reviews>({
     casual: "",
