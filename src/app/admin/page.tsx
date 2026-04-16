@@ -58,7 +58,7 @@ export default function AdminPage() {
   const [qrStore, setQrStore] = useState<Store | null>(null);
 
   const handleLogin = () => {
-    if (email === "admin@yourservice.com" && password === "admin123") {
+    if (email === "kioka.reship@gmail.com" && password === "Katsu0815!?") {
       setAuthed(true);
       fetchStores();
     } else {
@@ -187,7 +187,7 @@ export default function AdminPage() {
               ログイン
             </button>
             <p style={{ fontSize: "11px", color: "#ccc", textAlign: "center", marginTop: "16px" }}>
-              kioka.reship@gmail.com / Katsu0815!?
+               / 
             </p>
           </div>
         </div>
