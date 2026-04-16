@@ -44,7 +44,7 @@ const STORE: Store = {
 };
 
 42行目からQUESTIONSの定義が終わる行まで（] as const;の行）を全部選択して、以下に書き換えてください：
-typescriptconst QUESTIONS = [
+const QUESTIONS = [
   { id: "rating", label: "今日のご体験はいかがでしたか？", type: "stars" },
   {
     id: "menu",
