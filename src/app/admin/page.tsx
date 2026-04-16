@@ -193,16 +193,36 @@ export default function AdminPage() {
     setActiveTab("questions");
   };
 
-  const handleSaveQuestions = async () => {
-    if (!selectedStore) return;
-    await fetch("/api/admin/questions", {
-      method: "PUT",
+const handleSaveQuestions = async () => {
+  if (!selectedStore) return;
+
+  let questionsToSave = questions;
+
+  // 質問が0件の場合はAPIにデフォルト質問を生成させる
+  if (questionsToSave.length === 0) {
+    const res = await fetch(`/api/admin/stores`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store_id: selectedStore.id, questions }),
+      body: JSON.stringify({ id: selectedStore.id, resetQuestions: true, type: selectedStore.type }),
     });
-    await fetchStores(); // 即時反映
-    alert("✅ 質問を保存しました！");
-  };
+    if (res.ok) {
+      await fetchStores();
+      const qRes = await fetch(`/api/admin/questions?store_id=${selectedStore.id}`);
+      const qData = await qRes.json();
+      setQuestions(qData.questions || []);
+      alert("✅ デフォルト質問を登録しました！");
+      return;
+    }
+  }
+
+  await fetch("/api/admin/questions", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ store_id: selectedStore.id, questions: questionsToSave }),
+  });
+  await fetchStores();
+  alert("✅ 質問を保存しました！");
+};
 
   const updateOption = (qIdx: number, oIdx: number, value: string) => {
     const next = [...questions];
