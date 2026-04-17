@@ -31,12 +31,11 @@ const PLAN_LABELS: Record<string, string> = {
   premium: "プレミアム ¥9,800",
 };
 
-const STATUS_OPTIONS = ["契約中", "入金待ち", "決済失敗", "停止中"];
+const STATUS_OPTIONS = ["契約中", "入金待ち", "停止中"];
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   "契約中":  { bg: "#ECFDF5", color: "#065F46" },
   "入金待ち": { bg: "#FFFBEB", color: "#92400E" },
-  "決済失敗": { bg: "#FFF7ED", color: "#9A3412" },
   "停止中":  { bg: "#FEF2F2", color: "#991B1B" },
 };
 
@@ -375,12 +374,18 @@ const handleDeleteStore = async (store: Store) => {
   setDeleteLoading(false);
 };
   
-  const handleLogin = () => {
-    if (email === "kioka.reship@gmail.com" && password === "Katsu0815!?") {
+const handleLogin = async () => {
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (res.ok) {
       setAuthed(true);
       fetchStores();
     } else {
-      setLoginError("メールアドレスまたはパスワードが違います");
+      const data = await res.json();
+      setLoginError(data.error || "ログインに失敗しました");
     }
   };
 
