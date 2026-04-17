@@ -31,11 +31,12 @@ const PLAN_LABELS: Record<string, string> = {
   premium: "プレミアム ¥9,800",
 };
 
-const STATUS_OPTIONS = ["契約中", "入金待ち", "停止中"];
+const STATUS_OPTIONS = ["契約中", "入金待ち", "決済失敗", "停止中"];
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   "契約中":  { bg: "#ECFDF5", color: "#065F46" },
   "入金待ち": { bg: "#FFFBEB", color: "#92400E" },
+  "決済失敗": { bg: "#FFF7ED", color: "#9A3412" },
   "停止中":  { bg: "#FEF2F2", color: "#991B1B" },
 };
 
@@ -355,6 +356,25 @@ export default function AdminPage() {
   const [addLoading, setAddLoading] = useState(false);
   const [qrStore, setQrStore] = useState<Store | null>(null);
 
+  const [deleteConfirm, setDeleteConfirm] = useState<Store | null>(null);
+const [deleteLoading, setDeleteLoading] = useState(false);
+
+const handleDeleteStore = async (store: Store) => {
+  setDeleteLoading(true);
+  const res = await fetch("/api/admin/stores", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: store.id }),
+  });
+  if (res.ok) {
+    setDeleteConfirm(null);
+    await fetchStores();
+  } else {
+    alert("❌ 削除に失敗しました");
+  }
+  setDeleteLoading(false);
+};
+  
   const handleLogin = () => {
     if (email === "kioka.reship@gmail.com" && password === "Katsu0815!?") {
       setAuthed(true);
@@ -558,6 +578,7 @@ export default function AdminPage() {
                               <div style={{ display: "flex", gap: "6px" }}>
                                 <button onClick={() => handleEditStore(s)} style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>編集</button>
                                 <button onClick={() => handleEditQuestions(s)} style={{ background: "#EFF6FF", border: "none", color: "#2563EB", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>質問</button><button onClick={() => handleGeneratePaymentLink(s)} style={{ background: "#F0F9FF", border: "none", color: "#0369A1", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>💳 支払い</button>
+                                <button onClick={() => setDeleteConfirm(s)} style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>🗑️ 削除</button>
                               </div>
                             </td>
                           </tr>
@@ -710,6 +731,30 @@ export default function AdminPage() {
         </div>
       )}
 
+      {deleteConfirm && (
+  <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+    <div style={{ background: "#fff", borderRadius: "20px", padding: "32px", maxWidth: "380px", width: "100%", textAlign: "center" }}>
+      <div style={{ fontSize: "40px", marginBottom: "16px" }}>🗑️</div>
+      <h3 style={{ margin: "0 0 8px", color: "#1a2533" }}>店舗を削除しますか？</h3>
+      <p style={{ color: "#888", fontSize: "14px", margin: "0 0 8px" }}>
+        <strong style={{ color: "#1a2533" }}>{deleteConfirm.name}</strong>
+      </p>
+      <p style={{ color: "#DC2626", fontSize: "13px", margin: "0 0 24px" }}>
+        この操作は取り消せません。店舗データと質問データがすべて削除されます。
+      </p>
+      <div style={{ display: "flex", gap: "12px" }}>
+        <button onClick={() => setDeleteConfirm(null)}
+          style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1.5px solid #E5E7EB", background: "#fff", fontFamily: "inherit", fontSize: "14px", cursor: "pointer" }}>
+          キャンセル
+        </button>
+        <button onClick={() => handleDeleteStore(deleteConfirm)} disabled={deleteLoading}
+          style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none", background: "#DC2626", color: "#fff", fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer" }}>
+          {deleteLoading ? "削除中..." : "削除する"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {qrStore && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
           <div style={{ background: "#fff", borderRadius: "20px", padding: "32px", maxWidth: "360px", width: "100%", textAlign: "center" }}>
