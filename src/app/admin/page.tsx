@@ -564,6 +564,11 @@ const handleLogin = async () => {
                           <tr key={s.id} style={{ borderBottom: "1px solid #F8F8F8" }}>
                             <td style={{ padding: "14px 12px", fontWeight: "600", color: "#1a2533" }}>
                               <div>{s.name}</div>
+                              <div style={{ fontSize: "11px", color: "#aaa", marginTop: "2px" }}>{APP_URL}/review/{s.id}</div><div>{s.name}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+                                <span style={{ fontSize: "11px", color: "#888", fontFamily: "monospace", background: "#F4F6F9", padding: "2px 6px", borderRadius: "4px" }}>{s.id}</span>
+                                <button onClick={() => navigator.clipboard.writeText(s.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "11px", color: "#aaa", padding: "0" }} title="IDをコピー">📋</button>
+                              </div>
                               <div style={{ fontSize: "11px", color: "#aaa", marginTop: "2px" }}>{APP_URL}/review/{s.id}</div>
                             </td>
                             <td style={{ padding: "14px 12px", color: "#888" }}>{s.type}</td>
