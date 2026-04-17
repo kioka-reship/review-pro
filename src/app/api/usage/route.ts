@@ -7,8 +7,8 @@ const supabase = createClient(
 );
 
 const PLAN_LIMITS: Record<string, number> = {
-  light: 30,
-  standard: 100,
+  light: 10,
+  standard: 30,
   premium: 99999,
 };
 
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const yearMonth = new Date().toISOString().slice(0, 7);
-  const limit = PLAN_LIMITS[plan] ?? 30;
+  const limit = PLAN_LIMITS[plan] ?? 10;
 
   // 今月の利用数を取得
   const { data: usage } = await supabase
