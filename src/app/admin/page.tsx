@@ -552,7 +552,7 @@ const handleLogin = async () => {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                     <thead>
                       <tr style={{ borderBottom: "2px solid #F0F0F0" }}>
-                        {["店舗名", "業種", "プラン", "契約状態", "QR", "操作"].map(h => (
+                        {["店舗名", "店舗ID", "業種", "プラン", "契約状態", "QR", "操作"].map(h => (
                           <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#888", fontWeight: "600", fontSize: "12px" }}>{h}</th>
                         ))}
                       </tr>
@@ -571,6 +571,12 @@ const handleLogin = async () => {
                               </div>
                               <div style={{ fontSize: "11px", color: "#aaa", marginTop: "2px" }}>{APP_URL}/review/{s.id}</div>
                             </td>
+                            <td style={{ padding: "14px 12px" }}>
+  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+    <span style={{ fontSize: "11px", color: "#888", fontFamily: "monospace", background: "#F4F6F9", padding: "2px 6px", borderRadius: "4px" }}>{s.id}</span>
+    <button onClick={() => navigator.clipboard.writeText(s.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", color: "#aaa", padding: "0" }} title="IDをコピー">📋</button>
+  </div>
+</td>
                             <td style={{ padding: "14px 12px", color: "#888" }}>{s.type}</td>
                             <td style={{ padding: "14px 12px" }}>
                               <span style={{ background: "#F0FAF4", color: "#2C7A4B", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "600" }}>{PLAN_LABELS[s.plan] || s.plan}</span>
