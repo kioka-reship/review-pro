@@ -81,8 +81,24 @@ export async function POST(req: NextRequest) {
   try {
     switch (eventType) {
 
-      // 決済成功 → 契約中
-      case "payment.updated": {
+// 決済成功 → 契約中 / 決済失敗 → 決済失敗
+case "payment.updated": {
+  const payment = data?.payment;
+  const customerId = payment?.customer_id;
+  if (!customerId) break;
+
+  const storeId = await findStoreBySquareId("square_customer_id", customerId);
+  if (!storeId) { console.log("[Webhook] store not found:", customerId); break; }
+
+  if (payment?.status === "COMPLETED") {
+    await updateStoreStatus(storeId, "契約中");
+    console.log("[Webhook] → 契約中:", storeId);
+  } else if (payment?.status === "FAILED") {
+    await updateStoreStatus(storeId, "決済失敗");
+    console.log("[Webhook] → 決済失敗:", storeId);
+  }
+  break;
+}
         const payment = data?.payment;
         const customerId = payment?.customer_id;
         if (!customerId) break;
@@ -120,8 +136,8 @@ export async function POST(req: NextRequest) {
         const storeId = await findStoreBySquareId("square_subscription_id", subscriptionId);
         if (!storeId) { console.log("[Webhook] store not found:", subscriptionId); break; }
 
-        await updateStoreStatus(storeId, "停止中");
-        console.log("[Webhook] → 停止中（課金失敗）:", storeId);
+        await updateStoreStatus(storeId, "決済失敗");
+        console.log("[Webhook] → 決済失敗（課金失敗）:", storeId);
         break;
       }
 
