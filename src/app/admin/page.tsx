@@ -379,6 +379,20 @@ export default function AdminPage() {
 
   const handleEditStore = (store: Store) => { setEditStore({ ...store }); setEditMsg(""); };
 
+  const handleGeneratePaymentLink = async (store: Store) => {
+  const res = await fetch("/api/square/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ storeId: store.id, plan: store.plan }),
+  });
+  const data = await res.json();
+  if (data.url) {
+    await navigator.clipboard.writeText(data.url);
+    alert(`✅ 支払いリンクをコピーしました！\n\n${data.url}\n\nオーナーに送ってください。`);
+  } else {
+    alert("❌ エラー: " + (data.error || "不明なエラー"));
+  }
+};
   const handleSaveEdit = async () => {
     if (!editStore) return;
     setEditLoading(true);
@@ -543,7 +557,7 @@ export default function AdminPage() {
                             <td style={{ padding: "14px 12px" }}>
                               <div style={{ display: "flex", gap: "6px" }}>
                                 <button onClick={() => handleEditStore(s)} style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>編集</button>
-                                <button onClick={() => handleEditQuestions(s)} style={{ background: "#EFF6FF", border: "none", color: "#2563EB", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>質問</button>
+                                <button onClick={() => handleEditQuestions(s)} style={{ background: "#EFF6FF", border: "none", color: "#2563EB", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>質問</button><button onClick={() => handleGeneratePaymentLink(s)} style={{ background: "#F0F9FF", border: "none", color: "#0369A1", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>💳 支払い</button>
                               </div>
                             </td>
                           </tr>
