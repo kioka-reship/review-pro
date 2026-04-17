@@ -50,3 +50,20 @@ export async function PATCH(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
 }
+
+// 店舗削除
+export async function DELETE(req: NextRequest) {
+  const { id } = await req.json();
+
+  if (!id) {
+    return NextResponse.json({ error: "id は必須です" }, { status: 400 });
+  }
+
+  // 質問データも一緒に削除
+  await supabase.from("questions").delete().eq("store_id", id);
+
+  const { error } = await supabase.from("stores").delete().eq("id", id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}
