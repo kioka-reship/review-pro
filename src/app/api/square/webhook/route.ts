@@ -99,19 +99,7 @@ case "payment.updated": {
   }
   break;
 }
-        const payment = data?.payment;
-        const customerId = payment?.customer_id;
-        if (!customerId) break;
-
-        const storeId = await findStoreBySquareId("square_customer_id", customerId);
-        if (!storeId) { console.log("[Webhook] store not found:", customerId); break; }
-
-        if (payment?.status === "COMPLETED") {
-          await updateStoreStatus(storeId, "契約中");
-          console.log("[Webhook] → 契約中:", storeId);
-        }
-        break;
-      }
+       
 
       // 請求書支払い完了 → 契約中
       case "invoice.payment_made": {
