@@ -10,9 +10,9 @@ const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = "https://connect.squareup.com/v2";
 
 const PLAN_PRICES: Record<string, { amount: number; name: string; catalogId?: string }> = {
-  light:    { amount: 298000, name: "REVIEW PRO ライト（月10件）" },
-  standard: { amount: 598000, name: "REVIEW PRO スタンダード（月30件）" },
-  premium:  { amount: 980000, name: "REVIEW PRO プレミアム（無制限）" },
+  light:    { amount: 2980,  name: "REVIEW PRO ライト（月10件）" },
+  standard: { amount: 5980,  name: "REVIEW PRO スタンダード（月30件）" },
+  premium:  { amount: 9800,  name: "REVIEW PRO プレミアム（無制限）" },
 };
 
 export async function POST(req: NextRequest) {
