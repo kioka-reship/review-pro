@@ -4,7 +4,7 @@ import { createHmac } from "crypto";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 function verifySquareSignature(req: NextRequest, body: string): boolean {
@@ -75,8 +75,8 @@ export async function POST(req: NextRequest) {
           await updateStoreStatus(storeId, "契約中");
           console.log("[Webhook] → 契約中:", storeId);
         } else if (payment?.status === "FAILED") {
-          await updateStoreStatus(storeId, "決済失敗");
-          console.log("[Webhook] → 決済失敗:", storeId);
+          await updateStoreStatus(storeId, "停止中");
+          console.log("[Webhook] → 停止中:", storeId);
         }
         break;
       }
@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
         if (!subscriptionId) break;
         const storeId = await findStoreBySquareId("square_subscription_id", subscriptionId);
         if (!storeId) { console.log("[Webhook] store not found:", subscriptionId); break; }
-        await updateStoreStatus(storeId, "決済失敗");
-        console.log("[Webhook] → 決済失敗（課金失敗）:", storeId);
+        await updateStoreStatus(storeId, "停止中");
+        console.log("[Webhook] → 停止中（課金失敗）:", storeId);
         break;
       }
 
