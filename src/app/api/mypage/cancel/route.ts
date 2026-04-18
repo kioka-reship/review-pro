@@ -7,34 +7,39 @@ const supabase = createClient(
 );
 
 export async function POST(req: NextRequest) {
-  const { store_id, option_id } = await req.json();
-  if (!store_id || !option_id) {
-    return NextResponse.json({ error: "store_id and option_id required" }, { status: 400 });
+  const { store_id, reason } = await req.json();
+  if (!store_id) {
+    return NextResponse.json({ error: "store_id required" }, { status: 400 });
   }
 
-  // 翌月5日を解約反映日に設定
+  // 翌月末を解約反映日に設定
   const now = new Date();
-  const effectiveDate = new Date(now.getFullYear(), now.getMonth() + 1, 5);
+  const effectiveDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
 
-  const { error } = await supabase
-    .from("option_subscriptions")
-    .update({
-      status: "cancel_scheduled",
-      cancel_requested_at: now.toISOString(),
-      cancel_effective_date: effectiveDate.toISOString().split("T")[0],
-      updated_at: now.toISOString(),
-    })
-    .eq("id", option_id)
-    .eq("store_id", store_id);
+  // 解約申請を保存
+  const { error } = await supabase.from("cancellation_requests").insert({
+    store_id,
+    request_type: "store",
+    reason,
+    requested_at: now.toISOString(),
+    effective_date: effectiveDate.toISOString().split("T")[0],
+    status: "pending",
+  });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // ステータスを解約予約に更新
+  await supabase.from("stores").update({
+    status: "解約予約",
+    updated_at: now.toISOString(),
+  }).eq("id", store_id);
 
   // 監査ログ
   await supabase.from("audit_logs").insert({
     store_id,
     actor: "customer",
-    action: "option_cancel_requested",
-    detail: { option_id, cancel_effective_date: effectiveDate.toISOString().split("T")[0] },
+    action: "cancellation_requested",
+    detail: { reason, effective_date: effectiveDate.toISOString().split("T")[0] },
   });
 
   return NextResponse.json({ success: true });
