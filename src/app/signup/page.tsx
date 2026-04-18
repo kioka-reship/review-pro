@@ -171,10 +171,11 @@ export default function SignupPage() {
             <h2 style={{ margin: "0 0 20px", fontSize: "16px", color: "#1a2533" }}>② 基本情報を入力</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
               {[
-                { label: "会社名", key: "company_name", placeholder: "合同会社Relationship", required: false },
-                { label: "店舗名 *", key: "store_name", placeholder: "Plus Belle", required: true },
-                { label: "オーナー名 *", key: "owner_name", placeholder: "田中 太郎", required: true },
-                { label: "担当者名", key: "contact_name", placeholder: "田中 花子", required: false },
+             { label: "会社名", key: "company_name", placeholder: "個人事業主の場合は屋号または氏名", required: false },
+{ label: "店舗名 *", key: "store_name", placeholder: "対象となる店舗名", required: true },
+{ label: "オーナー名 *", key: "owner_name", placeholder: "田中 太郎", required: true },
+{ label: "担当者名", key: "contact_name", placeholder: "田中 花子", required: false },
+{ label: "メールアドレス *", key: "email", placeholder: "受信できるもの。ログインIDになります", required: true },
                 { label: "メールアドレス *", key: "email", placeholder: "owner@example.com", required: true },
                 { label: "パスワード *", key: "password", placeholder: "8文字以上", required: true },
                 { label: "GoogleマップURL *", key: "place_id", placeholder: "https://g.page/r/xxxx/review", required: true },
