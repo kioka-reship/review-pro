@@ -14,6 +14,8 @@ type Store = {
   created_at: string;
   square_customer_id?: string;
   square_subscription_id?: string;
+  company_name?: string;
+  referral_code?: string;
 };
 
 type Question = {
@@ -31,12 +33,15 @@ const PLAN_LABELS: Record<string, string> = {
   premium: "プレミアム ¥9,800",
 };
 
-const STATUS_OPTIONS = ["契約中", "入金待ち", "停止中"];
+const STATUS_OPTIONS = ["契約中", "入金待ち", "停止中", "仮申込", "解約予約", "解約済"];
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   "契約中":  { bg: "#ECFDF5", color: "#065F46" },
   "入金待ち": { bg: "#FFFBEB", color: "#92400E" },
   "停止中":  { bg: "#FEF2F2", color: "#991B1B" },
+  "仮申込":  { bg: "#EFF6FF", color: "#1D4ED8" },
+  "解約予約": { bg: "#FFF7ED", color: "#9A3412" },
+  "解約済":  { bg: "#F3F4F6", color: "#6B7280" },
 };
 
 const INDUSTRY_OPTIONS = [
@@ -344,7 +349,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState("");
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"stores" | "add" | "questions">("stores");
+  const [activeTab, setActiveTab] = useState<"stores" | "add" | "questions" | "cancels" | "logs">("stores");
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [editStore, setEditStore] = useState<Store | null>(null);
@@ -354,6 +359,27 @@ export default function AdminPage() {
   const [addMsg, setAddMsg] = useState("");
   const [addLoading, setAddLoading] = useState(false);
   const [qrStore, setQrStore] = useState<Store | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [cancelRequests, setCancelRequests] = useState<any[]>([]);
+
+  const fetchAuditLogs = async () => {
+    const res = await fetch("/api/admin/audit-logs");
+    const data = await res.json();
+    setAuditLogs(data.logs || []);
+  };
+
+  const fetchCancelRequests = async () => {
+    const res = await fetch("/api/admin/cancel-requests");
+    const data = await res.json();
+    setCancelRequests(data.requests || []);
+  };
+
+  const filteredStores = stores.filter(s =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const [deleteConfirm, setDeleteConfirm] = useState<Store | null>(null);
 const [deleteLoading, setDeleteLoading] = useState(false);
@@ -533,7 +559,12 @@ const handleLogin = async () => {
             ))}
           </div>
           <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
-            {[{ key: "stores", label: "🏪 店舗一覧" }, { key: "add", label: "➕ 店舗追加" }].map(t => (
+            {[
+  { key: "stores", label: "🏪 店舗一覧" },
+  { key: "add", label: "➕ 店舗追加" },
+  { key: "cancels", label: "🚪 解約申請" },
+  { key: "logs", label: "📋 監査ログ" },
+].map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key as any)}
                 style={{ padding: "10px 20px", borderRadius: "10px", border: "none", background: activeTab === t.key ? "#2C7A4B" : "#fff", color: activeTab === t.key ? "#fff" : "#555", fontFamily: "inherit", fontSize: "14px", fontWeight: "600", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 {t.label}
@@ -545,7 +576,11 @@ const handleLogin = async () => {
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
                 <h2 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>契約店舗一覧</h2>
-                <button onClick={fetchStores} style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>🔄 更新</button>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="店舗名・メール・IDで検索"
+                    style={{ padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "12px", outline: "none", width: "200px" }} />
+                  <button onClick={fetchStores} style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>🔄 更新</button>
+                </div>
               </div>
               {loading ? <p style={{ color: "#888" }}>読み込み中...</p> : (
                 <div style={{ overflowX: "auto" }}>
@@ -558,7 +593,7 @@ const handleLogin = async () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {stores.map(s => {
+                      {filteredStores.map(s => {
                         const sc = STATUS_COLORS[s.status] || STATUS_COLORS["停止中"];
                         return (
                           <tr key={s.id} style={{ borderBottom: "1px solid #F8F8F8" }}>
@@ -645,6 +680,59 @@ const handleLogin = async () => {
             </div>
           )}
 
+          {activeTab === "cancels" && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+                <h2 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>解約申請一覧</h2>
+                <button onClick={fetchCancelRequests} style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>🔄 更新</button>
+              </div>
+              {cancelRequests.length === 0 ? (
+                <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>解約申請はありません</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {cancelRequests.map((r: any) => (
+                    <div key={r.id} style={{ padding: "16px", background: "#F4F6F9", borderRadius: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <span style={{ fontWeight: "600", fontSize: "13px" }}>{r.store_id}</span>
+                        <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "20px", background: r.status === "pending" ? "#FFFBEB" : "#ECFDF5", color: r.status === "pending" ? "#92400E" : "#065F46", fontWeight: "600" }}>
+                          {r.status === "pending" ? "対応待ち" : "対応済"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#888" }}>申請日：{new Date(r.requested_at).toLocaleDateString("ja-JP")}</div>
+                      <div style={{ fontSize: "12px", color: "#888" }}>解約予定日：{r.effective_date}</div>
+                      {r.reason && <div style={{ fontSize: "12px", color: "#555", marginTop: "8px" }}>理由：{r.reason}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "logs" && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+                <h2 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>監査ログ</h2>
+                <button onClick={fetchAuditLogs} style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>🔄 更新</button>
+              </div>
+              {auditLogs.length === 0 ? (
+                <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>ログがありません</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {auditLogs.map((log: any) => (
+                    <div key={log.id} style={{ padding: "12px 16px", background: "#F4F6F9", borderRadius: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <span style={{ fontWeight: "600", fontSize: "12px", color: "#1a2533" }}>{log.action}</span>
+                        <span style={{ fontSize: "11px", color: "#888", marginLeft: "8px" }}>{log.store_id}</span>
+                        {log.actor && <span style={{ fontSize: "11px", color: "#aaa", marginLeft: "8px" }}>by {log.actor}</span>}
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#aaa" }}>{new Date(log.created_at).toLocaleString("ja-JP")}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
           {activeTab === "questions" && selectedStore && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", maxWidth: "600px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
