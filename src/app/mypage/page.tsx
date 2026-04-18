@@ -181,4 +181,142 @@ export default function MyPage() {
           {activeTab === "home" && store && (
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a25
+                <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>契約情報</h2>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                  {[
+                    { label: "店舗名", value: store.name },
+                    { label: "プラン", value: PLAN_LABELS[store.plan] || store.plan },
+                    { label: "契約状態", value: store.status },
+                    { label: "次回請求日", value: store.next_billing_date || "未設定" },
+                  ].map((item, i) => (
+                    <div key={i} style={{ background: "#F4F6F9", borderRadius: "10px", padding: "14px" }}>
+                      <div style={{ fontSize: "11px", color: "#888", marginBottom: "4px" }}>{item.label}</div>
+                      <div style={{ fontWeight: "700", color: "#1a2533" }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {usage && (
+                <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                  <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>今月の利用状況</h2>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "13px", color: "#888" }}>利用回数</span>
+                    <span style={{ fontWeight: "700", color: "#1a2533" }}>{usage.used} / {usage.limit >= 99999 ? "無制限" : `${usage.limit}回`}</span>
+                  </div>
+                  {usage.limit < 99999 && (
+                    <div style={{ background: "#F4F6F9", borderRadius: "8px", height: "12px", overflow: "hidden" }}>
+                      <div style={{ background: "#2C7A4B", height: "100%", width: `${Math.min((usage.used / usage.limit) * 100, 100)}%`, borderRadius: "8px", transition: "width 0.3s" }} />
+                    </div>
+                  )}
+                  <div style={{ fontSize: "12px", color: "#888", marginTop: "8px" }}>
+                    残り {usage.limit >= 99999 ? "無制限" : `${Math.max(usage.limit - usage.used, 0)}回`}
+                  </div>
+                </div>
+              )}
+
+              {options.length > 0 && (
+                <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                  <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>契約中のオプション</h2>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {options.map(opt => (
+                      <div key={opt.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", background: "#F4F6F9", borderRadius: "10px" }}>
+                        <div>
+                          <div style={{ fontWeight: "600", fontSize: "13px" }}>{opt.option_name}</div>
+                          {opt.cancel_effective_date && (
+                            <div style={{ fontSize: "11px", color: "#E53E3E", marginTop: "2px" }}>{opt.cancel_effective_date} 停止予定</div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <span style={{ fontWeight: "700", color: "#2C7A4B" }}>¥{opt.amount.toLocaleString()}/月</span>
+                          {opt.status === "active" && (
+                            <button onClick={() => handleOptionCancel(opt.id)}
+                              style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
+                              解約申請
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 請求履歴 */}
+          {activeTab === "billing" && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <h2 style={{ margin: "0 0 20px", fontSize: "16px", color: "#1a2533" }}>請求履歴</h2>
+              {invoices.length === 0 ? (
+                <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>請求履歴がありません</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {invoices.map(inv => (
+                    <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px", background: "#F4F6F9", borderRadius: "10px" }}>
+                      <div>
+                        <div style={{ fontWeight: "600", fontSize: "13px" }}>{inv.description}</div>
+                        <div style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString("ja-JP") : new Date(inv.created_at).toLocaleDateString("ja-JP")}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <span style={{ fontWeight: "700" }}>¥{inv.amount.toLocaleString()}</span>
+                        <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "20px", background: inv.status === "paid" ? "#ECFDF5" : "#FEF2F2", color: inv.status === "paid" ? "#065F46" : "#991B1B", fontWeight: "600" }}>
+                          {inv.status === "paid" ? "支払済" : inv.status === "pending" ? "未払い" : "失敗"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* QRコード */}
+          {activeTab === "qr" && store && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", textAlign: "center" }}>
+              <h2 style={{ margin: "0 0 8px", fontSize: "16px", color: "#1a2533" }}>口コミ投稿QRコード</h2>
+              <p style={{ color: "#888", fontSize: "13px", margin: "0 0 24px" }}>このQRコードをお店に設置してください</p>
+              <div style={{ background: "#F4F6F9", borderRadius: "12px", padding: "16px", marginBottom: "16px" }}>
+                <code style={{ fontSize: "12px", color: "#555", wordBreak: "break-all" }}>{APP_URL}/review/{store.id}</code>
+              </div>
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`${APP_URL}/review/${store.id}`)}`}
+                alt="QRコード" style={{ width: "240px", height: "240px", borderRadius: "8px", marginBottom: "20px" }} />
+              <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+                <a href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${APP_URL}/review/${store.id}`)}&format=png`}
+                  download="qrcode.png"
+                  style={{ padding: "10px 20px", borderRadius: "10px", background: "#2C7A4B", color: "#fff", fontWeight: "600", fontSize: "13px", textDecoration: "none" }}>
+                  📥 PNG保存
+                </a>
+                <a href={`/api/mypage/qr-pdf?store_id=${store.id}`}
+                  style={{ padding: "10px 20px", borderRadius: "10px", background: "#1a2533", color: "#fff", fontWeight: "600", fontSize: "13px", textDecoration: "none" }}>
+                  📄 A4 POP印刷用
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* 解約申請 */}
+          {activeTab === "cancel" && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>解約申請</h2>
+              <div style={{ background: "#FFFBEB", border: "1px solid #F59E0B", borderRadius: "10px", padding: "16px", marginBottom: "20px", fontSize: "13px", color: "#92400E" }}>
+                ⚠️ 解約申請後、翌月末をもってサービスを停止します。<br />
+                データは解約後90日間保持されます。
+              </div>
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ fontSize: "12px", fontWeight: "600", color: "#555", display: "block", marginBottom: "6px" }}>解約理由（任意）</label>
+                <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={4} placeholder="解約理由をお聞かせください（任意）"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none", resize: "vertical" }} />
+              </div>
+              {cancelMsg && <p style={{ color: cancelMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontSize: "13px", fontWeight: "600", marginBottom: "16px" }}>{cancelMsg}</p>}
+              <button onClick={handleCancelRequest}
+                style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "none", background: "#DC2626", color: "#fff", fontFamily: "inherit", fontSize: "15px", fontWeight: "700", cursor: "pointer" }}>
+                解約申請を送信する
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
