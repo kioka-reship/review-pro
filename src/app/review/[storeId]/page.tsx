@@ -5,7 +5,7 @@ type Store = {
   id: string;
   name: string;
   type: string;
-  place_id: string;
+  place_id: string;QV
   plan: string;
   status: string;
 };
