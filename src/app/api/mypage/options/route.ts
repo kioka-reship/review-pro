@@ -1,3 +1,23 @@
+export const dynamic = "force-dynamic";
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const store_id = searchParams.get("store_id");
+
+  if (!store_id) {
+    return NextResponse.json({ error: "store_id required" }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("option_subscriptions")
+    .select("*")
+    .eq("store_id", store_id)
+    .neq("status", "canceled");
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ options: data });
+}
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
