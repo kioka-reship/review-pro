@@ -503,7 +503,7 @@ export default function MyPage() {
                       ) : (
                         <>
                           {/* プレミアムは質問文も編集可 */}
-                          {store.plan === "premium" ? (
+                          {(store.plan === "premium" || store.plan === "standard") ? (
                             <input
                               value={q.label}
                               onChange={e => updateQuestionLabel(qi, e.target.value)}
