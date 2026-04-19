@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 
 type Store = {
@@ -11,10 +10,13 @@ type Store = {
   status: string;
 };
 
-type Answers = {
-  rating: number;
-  highlight: string[];
-  feel: string;
+type Question = {
+  id: number;
+  store_id: string;
+  order_num: number;
+  label: string;
+  type: string;
+  options: string[] | null;
 };
 
 type StyleType = {
@@ -24,81 +26,8 @@ type StyleType = {
   prompt: string;
 };
 
-type LoadingStates = {
-  casual: boolean;
-  honest: boolean;
-  formal: boolean;
-};
-
-type Reviews = {
-  casual: string;
-  honest: string;
-  formal: string;
-};
-
-const QUESTIONS_BY_TYPE: Record<string, typeof DEFAULT_QUESTIONS> = {
-  美容脱毛: [
-    { id: "rating", label: "今日の施術はいかがでしたか？", type: "stars", options: [] },
-    {
-      id: "highlight",
-      label: "特に良かった点は？",
-      type: "multi",
-      options: ["施術の効果", "スタッフの対応", "サロンの清潔感", "価格・コスパ", "予約のしやすさ"],
-    },
-    {
-      id: "feel",
-      label: "一言でいうと？",
-      type: "select",
-      options: ["また来たい！", "友人に勧めたい", "期待以上だった", "安心して通える"],
-    },
-  ],
-  飲食店: [
-    { id: "rating", label: "今日のご体験はいかがでしたか？", type: "stars", options: [] },
-    {
-      id: "highlight",
-      label: "良かった点を教えてください",
-      type: "multi",
-      options: ["料理・味", "スタッフの接客", "お店の雰囲気", "価格・コスパ", "立地・アクセス"],
-    },
-    {
-      id: "feel",
-      label: "一言でいうと？",
-      type: "select",
-      options: ["また来たい！", "友人に勧めたい", "期待以上だった", "安心して頼める"],
-    },
-  ],
-  美容室: [
-    { id: "rating", label: "今日のご体験はいかがでしたか？", type: "stars", options: [] },
-    {
-      id: "highlight",
-      label: "特に良かった点は？",
-      type: "multi",
-      options: ["仕上がり・技術", "スタッフの対応", "お店の清潔感", "価格・コスパ", "予約のしやすさ"],
-    },
-    {
-      id: "feel",
-      label: "一言でいうと？",
-      type: "select",
-      options: ["また来たい！", "指名したい！", "イメージ通り！", "リラックスできた"],
-    },
-  ],
-};
-
-const DEFAULT_QUESTIONS = [
-  { id: "rating", label: "今日のご体験はいかがでしたか？", type: "stars", options: [] as string[] },
-  {
-    id: "highlight",
-    label: "良かった点を教えてください",
-    type: "multi",
-    options: ["スタッフの対応", "品質・技術", "価格・コスパ", "清潔感・雰囲気", "立地・アクセス"],
-  },
-  {
-    id: "feel",
-    label: "一言でいうと？",
-    type: "select",
-    options: ["また来たい！", "友人に勧めたい", "期待以上だった", "安心して頼める"],
-  },
-];
+type LoadingStates = { casual: boolean; honest: boolean; formal: boolean; };
+type Reviews = { casual: string; honest: string; formal: string; };
 
 const RATING_LABELS = ["", "残念でした", "もう少し", "普通", "良かった！", "最高でした！"];
 const RATING_EMOJI = ["", "😞", "😐", "🙂", "😊", "🤩"];
@@ -146,16 +75,14 @@ function ReviewCard({ text, style, selected, onSelect, loading }: {
           <span style={{ fontSize: "12px", fontWeight: "700", color: selected ? "#2C7A4B" : "#888" }}>{style.label}</span>
         </div>
         {selected && (
-          <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#2C7A4B",
-            display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#2C7A4B", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ color: "#fff", fontSize: "13px" }}>✓</span>
           </div>
         )}
       </div>
       {loading ? (
         <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0" }}>
-          <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: "2px solid #E5E7EB",
-            borderTop: "2px solid #2C7A4B", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+          <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: "2px solid #E5E7EB", borderTop: "2px solid #2C7A4B", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
           <span style={{ fontSize: "13px", color: "#aaa" }}>生成中...</span>
         </div>
       ) : (
@@ -167,10 +94,12 @@ function ReviewCard({ text, style, selected, onSelect, loading }: {
 
 export default function ReviewPage({ params }: { params: { storeId: string } }) {
   const [store, setStore] = useState<Store | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [step, setStep] = useState("welcome");
-  const [answers, setAnswers] = useState<Answers>({ rating: 0, highlight: [], feel: "" });
+  const [currentQ, setCurrentQ] = useState(0);
+  const [step, setStep] = useState<"welcome" | "questions" | "generating" | "done">("welcome");
+  const [answers, setAnswers] = useState<Record<string, any>>({});
   const [reviews, setReviews] = useState<Reviews>({ casual: "", honest: "", formal: "" });
   const [loadingStates, setLoadingStates] = useState<LoadingStates>({ casual: false, honest: false, formal: false });
   const [selectedStyle, setSelectedStyle] = useState<StyleType["key"]>("casual");
@@ -178,48 +107,87 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const [regenCount, setRegenCount] = useState(0);
 
   useEffect(() => {
-    fetch(`/api/store?id=${params.storeId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) { setNotFound(true); }
-        else { setStore(data); }
-        setLoading(false);
-      })
-      .catch(() => { setNotFound(true); setLoading(false); });
+    const fetchData = async () => {
+      try {
+        const storeRes = await fetch(`/api/store?id=${params.storeId}`);
+        const storeData = await storeRes.json();
+        if (storeData.error) { setNotFound(true); setLoading(false); return; }
+        setStore(storeData);
+
+        const qRes = await fetch(`/api/admin/questions?store_id=${params.storeId}`);
+        const qData = await qRes.json();
+        setQuestions(qData.questions || []);
+      } catch {
+        setNotFound(true);
+      }
+      setLoading(false);
+    };
+    fetchData();
   }, [params.storeId]);
 
-  const questions = store ? (QUESTIONS_BY_TYPE[store.type] || DEFAULT_QUESTIONS) : DEFAULT_QUESTIONS;
-  const progress = step === "done" ? 100 : step === "generating" ? 90 : (["q1","q2","q3"].indexOf(step) / 3) * 100;
+  const totalQ = questions.length;
+  const progress = step === "done" ? 100 : step === "generating" ? 95 : step === "questions" ? ((currentQ) / totalQ) * 100 : 0;
+
+  const currentQuestion = questions[currentQ];
 
   const canNext = () => {
-    if (step === "q1") return answers.rating > 0;
-    if (step === "q2") return answers.highlight.length > 0;
-    if (step === "q3") return answers.feel !== "";
+    if (step !== "questions" || !currentQuestion) return true;
+    const ans = answers[currentQuestion.id];
+    if (currentQuestion.type === "stars") return (ans || 0) > 0;
+    if (currentQuestion.type === "multi") return Array.isArray(ans) && ans.length > 0;
+    if (currentQuestion.type === "select") return !!ans;
     return true;
   };
 
-  const generateAll = async (currentAnswers: Answers) => {
+  const buildAnswersForGenerate = () => {
+    const result: any = { rating: 0, menu: "", party: "", highlight: [], feel: "", gender: "", age: "" };
+    questions.forEach(q => {
+      const ans = answers[q.id];
+      if (q.type === "stars") result.rating = ans || 0;
+      else if (q.type === "multi") result.highlight = ans || [];
+      else {
+        if (q.label.includes("メニュー") || q.label.includes("ご注文")) result.menu = ans || "";
+        else if (q.label.includes("人数") || q.label.includes("人数")) result.party = ans || "";
+        else if (q.label.includes("一言")) result.feel = ans || "";
+        else if (q.label.includes("性別")) result.gender = ans || "";
+        else if (q.label.includes("年代")) result.age = ans || "";
+        else if (!result.feel) result.feel = ans || "";
+      }
+    });
+    return result;
+  };
+
+  const generateAll = async () => {
     if (!store) return;
     setStep("generating");
+    const builtAnswers = buildAnswersForGenerate();
     const results = await Promise.all(
       STYLES.map((s) =>
         fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ store: { name: store.name, type: store.type, placeId: store.place_id }, answers: currentAnswers, style: s }),
+          body: JSON.stringify({ store: { id: store.id, name: store.name, type: store.type, placeId: store.place_id }, answers: builtAnswers, style: s }),
         }).then((r) => r.json()).then((d) => d.text || "").catch(() => "")
       )
     );
-    const newReviews = { casual: results[0], honest: results[1], formal: results[2] };
-    setReviews(newReviews);
+    setReviews({ casual: results[0], honest: results[1], formal: results[2] });
     setStep("done");
   };
 
   const handleNext = async () => {
-    if (step === "welcome") { setStep("q1"); return; }
-    if (step === "q1") { setStep("q2"); return; }
-    if (step === "q2") { setStep("q3"); return; }
-    if (step === "q3") { await generateAll(answers); }
+    if (step === "welcome") { setStep("questions"); return; }
+    if (step === "questions") {
+      if (currentQ < totalQ - 1) {
+        setCurrentQ(c => c + 1);
+      } else {
+        await generateAll();
+      }
+    }
+  };
+
+  const handleBack = () => {
+    if (currentQ > 0) setCurrentQ(c => c - 1);
+    else setStep("welcome");
   };
 
   const handleRegen = async () => {
@@ -229,10 +197,11 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
     setLoadingStates((prev) => ({ ...prev, [selectedStyle]: true }));
     setRegenCount((c) => c + 1);
     try {
+      const builtAnswers = buildAnswersForGenerate();
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ store: { name: store.name, type: store.type, placeId: store.place_id }, answers, style }),
+        body: JSON.stringify({ store: { id: store.id, name: store.name, type: store.type, placeId: store.place_id }, answers: builtAnswers, style }),
       });
       const data = await res.json();
       setReviews((prev) => ({ ...prev, [selectedStyle]: data.text || "" }));
@@ -251,7 +220,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   };
 
   if (loading) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ width: "48px", height: "48px", borderRadius: "50%", border: "4px solid #E8F5ED", borderTop: "4px solid #2C7A4B", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
         <p style={{ color: "#888", fontSize: "14px" }}>読み込み中...</p>
@@ -260,7 +229,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   );
 
   if (notFound) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔍</div>
         <h2 style={{ color: "#1a2533", margin: "0 0 8px" }}>ページが見つかりません</h2>
@@ -282,13 +251,15 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
       `}</style>
 
       <div style={{ minHeight: "100vh", maxWidth: "480px", margin: "0 auto", background: "#fff", display: "flex", flexDirection: "column", fontFamily: "'Noto Sans JP', sans-serif" }}>
+
+        {/* ヘッダー */}
         <div style={{ background: "linear-gradient(135deg, #0F1923 0%, #1a3a2a 100%)", padding: "20px 20px 22px", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: "-30px", right: "-20px", width: "120px", height: "120px", borderRadius: "50%", background: "rgba(44,122,75,0.15)" }} />
           <div style={{ position: "relative" }}>
             <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", marginBottom: "4px" }}>口コミ投稿フォーム</div>
             <div style={{ fontSize: "17px", fontWeight: "900", color: "#fff" }}>{store?.name}</div>
           </div>
-          {!["welcome", "generating"].includes(step) && (
+          {step === "questions" && (
             <div style={{ marginTop: "14px", height: "4px", background: "rgba(255,255,255,0.12)", borderRadius: "4px" }}>
               <div style={{ height: "100%", background: "#5BBF8A", borderRadius: "4px", width: `${progress}%`, transition: "width 0.5s ease" }} />
             </div>
@@ -296,6 +267,8 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
         </div>
 
         <div style={{ flex: 1, padding: "28px 20px 32px", display: "flex", flexDirection: "column" }}>
+
+          {/* ウェルカム */}
           {step === "welcome" && (
             <div style={{ animation: "fadeUp 0.4s ease", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
               <div style={{ fontSize: "60px", marginBottom: "16px" }}>🙏</div>
@@ -303,65 +276,79 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
                 ご来店ありがとう<br />ございました！
               </h2>
               <p style={{ color: "#888", fontSize: "14px", lineHeight: 1.8, margin: "0 0 32px" }}>
-                3つの質問に答えるだけで<br />AIが口コミ文を自動で作ります
+                {totalQ}つの質問に答えるだけで<br />AIが口コミ文を自動で作ります
               </p>
               <div style={{ width: "100%", maxWidth: "280px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                {["⚡ 30秒で完了", "📱 選ぶだけ・入力不要", "✨ AIが3パターン生成"].map((t, i) => (
+                {["⚡ 約1分で完了", "📱 選ぶだけ・入力不要", "✨ AIが3パターン生成"].map((t, i) => (
                   <div key={i} style={{ background: "#F4F9F6", borderRadius: "10px", padding: "11px 16px", fontSize: "13px", fontWeight: "600", color: "#2C7A4B", textAlign: "left" }}>{t}</div>
                 ))}
               </div>
             </div>
           )}
 
-          {step === "q1" && (
+          {/* 質問 */}
+          {step === "questions" && currentQuestion && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q1 / 3</p>
-              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 32px", textAlign: "center", lineHeight: 1.4 }}>{questions[0].label}</h2>
-              <StarRating value={answers.rating} onChange={(v) => setAnswers({ ...answers, rating: v })} />
+              <button onClick={handleBack}
+                style={{ background: "none", border: "none", color: "#aaa", fontFamily: "inherit", fontSize: "13px", cursor: "pointer", padding: "0 0 8px", display: "flex", alignItems: "center", gap: "4px" }}>
+                ← 前の質問に戻る
+              </button>
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>
+                Q{currentQ + 1} / {totalQ}
+              </p>
+              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>
+                {currentQuestion.label}
+              </h2>
+
+              {/* 星評価 */}
+              {currentQuestion.type === "stars" && (
+                <StarRating value={answers[currentQuestion.id] || 0} onChange={(v) => setAnswers({ ...answers, [currentQuestion.id]: v })} />
+              )}
+
+              {/* 複数選択 */}
+              {currentQuestion.type === "multi" && currentQuestion.options && (
+                <>
+                  <p style={{ textAlign: "center", color: "#aaa", fontSize: "12px", margin: "-12px 0 20px" }}>複数選択OK</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {currentQuestion.options.map((opt) => {
+                      const sel = (answers[currentQuestion.id] || []).includes(opt);
+                      return (
+                        <button key={opt} onClick={() => {
+                          const prev = answers[currentQuestion.id] || [];
+                          setAnswers({ ...answers, [currentQuestion.id]: sel ? prev.filter((v: string) => v !== opt) : [...prev, opt] });
+                        }}
+                          style={{ padding: "15px 18px", borderRadius: "12px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
+                            background: sel ? "#F0FAF4" : "#fff", color: sel ? "#1a3a2a" : "#555",
+                            fontFamily: "inherit", fontSize: "15px", fontWeight: sel ? "700" : "400",
+                            cursor: "pointer", transition: "all 0.18s", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          {opt}{sel && <span style={{ color: "#2C7A4B", fontSize: "16px" }}>✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* 一択 */}
+              {currentQuestion.type === "select" && currentQuestion.options && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  {currentQuestion.options.map((opt) => {
+                    const sel = answers[currentQuestion.id] === opt;
+                    return (
+                      <button key={opt} onClick={() => setAnswers({ ...answers, [currentQuestion.id]: opt })}
+                        style={{ padding: "18px 10px", borderRadius: "14px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
+                          background: sel ? "#2C7A4B" : "#fff", color: sel ? "#fff" : "#555",
+                          fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer", transition: "all 0.18s", textAlign: "center" }}>
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
-          {step === "q2" && (
-            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q2 / 3</p>
-              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 6px", textAlign: "center", lineHeight: 1.4 }}>{questions[1].label}</h2>
-              <p style={{ textAlign: "center", color: "#aaa", fontSize: "12px", margin: "0 0 20px" }}>複数選択OK</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {questions[1].options.map((opt) => {
-                  const sel = answers.highlight.includes(opt);
-                  return (
-                    <button key={opt} onClick={() => setAnswers({ ...answers, highlight: sel ? answers.highlight.filter((v) => v !== opt) : [...answers.highlight, opt] })}
-                      style={{ padding: "15px 18px", borderRadius: "12px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`, background: sel ? "#F0FAF4" : "#fff",
-                        color: sel ? "#1a3a2a" : "#555", fontFamily: "inherit", fontSize: "15px", fontWeight: sel ? "700" : "400",
-                        cursor: "pointer", transition: "all 0.18s", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      {opt}{sel && <span style={{ color: "#2C7A4B", fontSize: "16px" }}>✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {step === "q3" && (
-            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q3 / 3</p>
-              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{questions[2].label}</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                {questions[2].options.map((opt) => {
-                  const sel = answers.feel === opt;
-                  return (
-                    <button key={opt} onClick={() => setAnswers({ ...answers, feel: opt })}
-                      style={{ padding: "20px 10px", borderRadius: "14px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
-                        background: sel ? "#2C7A4B" : "#fff", color: sel ? "#fff" : "#555",
-                        fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer", transition: "all 0.18s", textAlign: "center" }}>
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
+          {/* 生成中 */}
           {step === "generating" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
               <div style={{ position: "relative", width: "72px", height: "72px", marginBottom: "20px" }}>
@@ -379,6 +366,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
             </div>
           )}
 
+          {/* 完成 */}
           {step === "done" && (
             <div style={{ animation: "fadeUp 0.4s ease" }}>
               <div style={{ textAlign: "center", marginBottom: "20px" }}>
@@ -395,9 +383,9 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "16px" }}>
                 <button onClick={handleRegen} disabled={Object.values(loadingStates).some(Boolean)}
                   style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 20px", borderRadius: "10px",
-                    border: "1.5px solid #E5E7EB", background: "#fff", color: "#555", fontFamily: "inherit",
-                    fontSize: "13px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}>
-                  <span style={{ fontSize: "16px", display: "inline-block", animation: loadingStates[selectedStyle] ? "spin 0.7s linear infinite" : "none" }}>🔄</span>
+                    border: "1.5px solid #E5E7EB", background: "#fff", color: "#555",
+                    fontFamily: "inherit", fontSize: "13px", fontWeight: "600", cursor: "pointer" }}>
+                  <span style={{ fontSize: "16px", animation: loadingStates[selectedStyle] ? "spin 0.7s linear infinite" : "none", display: "inline-block" }}>🔄</span>
                   選択中の文章を再生成
                 </button>
                 {regenCount > 0 && <span style={{ fontSize: "11px", color: "#aaa" }}>（{regenCount}回再生成済み）</span>}
@@ -430,16 +418,22 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
                   </>
                 )}
               </button>
+              <button onClick={() => { setStep("welcome"); setCurrentQ(0); setAnswers({}); setReviews({ casual: "", honest: "", formal: "" }); setCopied(false); setRegenCount(0); }}
+                style={{ width: "100%", marginTop: "10px", padding: "12px", borderRadius: "12px", border: "1.5px solid #E5E7EB", background: "transparent", color: "#888", fontFamily: "inherit", fontSize: "14px", cursor: "pointer" }}>
+                ← 最初からやり直す
+              </button>
             </div>
           )}
 
-          {["welcome", "q1", "q2", "q3"].includes(step) && (
+          {/* 次へボタン */}
+          {(step === "welcome" || step === "questions") && (
             <button onClick={handleNext} disabled={!canNext()}
               style={{ width: "100%", padding: "18px", marginTop: "24px", borderRadius: "16px", border: "none",
                 background: canNext() ? "linear-gradient(135deg, #2C7A4B, #3DA66A)" : "#E5E7EB",
                 color: canNext() ? "#fff" : "#aaa", fontFamily: "inherit", fontSize: "16px", fontWeight: "700",
-                cursor: canNext() ? "pointer" : "not-allowed", boxShadow: canNext() ? "0 4px 16px rgba(44,122,75,0.3)" : "none", transition: "all 0.2s" }}>
-              {step === "welcome" ? "はじめる →" : step === "q3" ? "✨ 口コミ文を3パターン作成する" : "次へ →"}
+                cursor: canNext() ? "pointer" : "not-allowed",
+                boxShadow: canNext() ? "0 4px 16px rgba(44,122,75,0.3)" : "none", transition: "all 0.2s" }}>
+              {step === "welcome" ? "はじめる →" : currentQ === totalQ - 1 ? "✨ 口コミ文を3パターン作成する" : "次へ →"}
             </button>
           )}
         </div>
