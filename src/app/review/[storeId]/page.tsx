@@ -5,9 +5,10 @@ type Store = {
   id: string;
   name: string;
   type: string;
-  place_id: string;QV
+  place_id: string;
   plan: string;
   status: string;
+  low_review_pro?: boolean;
 };
 
 type Question = {
@@ -36,6 +37,11 @@ const STYLES: StyleType[] = [
   { key: "casual", label: "フレンドリー", emoji: "😊", prompt: "フレンドリーで話し言葉っぽい、親しみやすい文体で" },
   { key: "honest", label: "リアル", emoji: "🎯", prompt: "本音っぽく、飾らないリアルな体験談として" },
   { key: "formal", label: "丁寧", emoji: "✨", prompt: "丁寧で落ち着いた、信頼感のある文体で" },
+];
+
+const LOW_REVIEW_ISSUES = [
+  "スタッフの対応", "待ち時間", "施術の効果", "清潔感", "価格・コスパ",
+  "予約のしにくさ", "設備・環境", "説明不足",
 ];
 
 function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -98,13 +104,18 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [currentQ, setCurrentQ] = useState(0);
-  const [step, setStep] = useState<"welcome" | "questions" | "generating" | "done">("welcome");
+  const [step, setStep] = useState<"welcome" | "questions" | "generating" | "done" | "low_review" | "low_review_done">("welcome");
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [reviews, setReviews] = useState<Reviews>({ casual: "", honest: "", formal: "" });
   const [loadingStates, setLoadingStates] = useState<LoadingStates>({ casual: false, honest: false, formal: false });
   const [selectedStyle, setSelectedStyle] = useState<StyleType["key"]>("casual");
   const [copied, setCopied] = useState(false);
   const [regenCount, setRegenCount] = useState(0);
+  const [hasLowReviewPro, setHasLowReviewPro] = useState(false);
+  const [lowReviewIssues, setLowReviewIssues] = useState<string[]>([]);
+  const [lowReviewComment, setLowReviewComment] = useState("");
+  const [lowReviewSubmitting, setLowReviewSubmitting] = useState(false);
+  const [currentRating, setCurrentRating] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -113,6 +124,12 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
         const storeData = await storeRes.json();
         if (storeData.error) { setNotFound(true); setLoading(false); return; }
         setStore(storeData);
+
+        // 低評価対策PROの契約確認
+        const optRes = await fetch(`/api/mypage/options?store_id=${params.storeId}`);
+        const optData = await optRes.json();
+        const hasOpt = (optData.options || []).some((o: any) => o.option_key === "low_review_pro" && o.status === "active");
+        setHasLowReviewPro(hasOpt);
 
         const qRes = await fetch(`/api/admin/questions?store_id=${params.storeId}`);
         const qData = await qRes.json();
@@ -126,8 +143,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   }, [params.storeId]);
 
   const totalQ = questions.length;
-  const progress = step === "done" ? 100 : step === "generating" ? 95 : step === "questions" ? ((currentQ) / totalQ) * 100 : 0;
-
+  const progress = step === "questions" ? ((currentQ) / totalQ) * 100 : 0;
   const currentQuestion = questions[currentQ];
 
   const canNext = () => {
@@ -147,7 +163,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
       else if (q.type === "multi") result.highlight = ans || [];
       else {
         if (q.label.includes("メニュー") || q.label.includes("ご注文")) result.menu = ans || "";
-        else if (q.label.includes("人数") || q.label.includes("人数")) result.party = ans || "";
+        else if (q.label.includes("人数")) result.party = ans || "";
         else if (q.label.includes("一言")) result.feel = ans || "";
         else if (q.label.includes("性別")) result.gender = ans || "";
         else if (q.label.includes("年代")) result.age = ans || "";
@@ -177,6 +193,15 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const handleNext = async () => {
     if (step === "welcome") { setStep("questions"); return; }
     if (step === "questions") {
+      // 星評価の後に低評価チェック
+      if (currentQuestion?.type === "stars") {
+        const rating = answers[currentQuestion.id] || 0;
+        setCurrentRating(rating);
+        if (rating <= 2 && hasLowReviewPro) {
+          setStep("low_review");
+          return;
+        }
+      }
       if (currentQ < totalQ - 1) {
         setCurrentQ(c => c + 1);
       } else {
@@ -188,6 +213,23 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const handleBack = () => {
     if (currentQ > 0) setCurrentQ(c => c - 1);
     else setStep("welcome");
+  };
+
+  const handleLowReviewSubmit = async () => {
+    if (!store) return;
+    setLowReviewSubmitting(true);
+    await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        store_id: store.id,
+        rating: currentRating,
+        issues: lowReviewIssues,
+        comment: lowReviewComment,
+      }),
+    });
+    setLowReviewSubmitting(false);
+    setStep("low_review_done");
   };
 
   const handleRegen = async () => {
@@ -300,12 +342,10 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
                 {currentQuestion.label}
               </h2>
 
-              {/* 星評価 */}
               {currentQuestion.type === "stars" && (
                 <StarRating value={answers[currentQuestion.id] || 0} onChange={(v) => setAnswers({ ...answers, [currentQuestion.id]: v })} />
               )}
 
-              {/* 複数選択 */}
               {currentQuestion.type === "multi" && currentQuestion.options && (
                 <>
                   <p style={{ textAlign: "center", color: "#aaa", fontSize: "12px", margin: "-12px 0 20px" }}>複数選択OK</p>
@@ -329,7 +369,6 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
                 </>
               )}
 
-              {/* 一択 */}
               {currentQuestion.type === "select" && currentQuestion.options && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                   {currentQuestion.options.map((opt) => {
@@ -345,6 +384,70 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 低評価フォーム */}
+          {step === "low_review" && (
+            <div style={{ animation: "fadeUp 0.4s ease", flex: 1 }}>
+              <div style={{ textAlign: "center", marginBottom: "24px" }}>
+                <div style={{ fontSize: "48px", marginBottom: "12px" }}>🙏</div>
+                <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 8px" }}>
+                  貴重なご意見をお聞かせください
+                </h2>
+                <p style={{ color: "#888", fontSize: "13px", lineHeight: 1.8 }}>
+                  ご不満な点を教えていただくことで<br />サービス改善に活かします
+                </p>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#1a2533", marginBottom: "12px" }}>
+                  改善してほしい点は？（複数選択可）
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                  {LOW_REVIEW_ISSUES.map(issue => {
+                    const sel = lowReviewIssues.includes(issue);
+                    return (
+                      <button key={issue} onClick={() => setLowReviewIssues(prev => sel ? prev.filter(i => i !== issue) : [...prev, issue])}
+                        style={{ padding: "12px 8px", borderRadius: "10px", border: `2px solid ${sel ? "#E53E3E" : "#E5E7EB"}`,
+                          background: sel ? "#FEF2F2" : "#fff", color: sel ? "#991B1B" : "#555",
+                          fontFamily: "inherit", fontSize: "13px", fontWeight: sel ? "700" : "400",
+                          cursor: "pointer", transition: "all 0.18s", textAlign: "center" }}>
+                        {issue}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "24px" }}>
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#1a2533", marginBottom: "8px" }}>
+                  詳しく教えてください（任意）
+                </p>
+                <textarea value={lowReviewComment} onChange={e => setLowReviewComment(e.target.value)}
+                  rows={4} placeholder="ご不満な点や改善してほしいことをご自由にお書きください"
+                  style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+              </div>
+
+              <button onClick={handleLowReviewSubmit} disabled={lowReviewSubmitting}
+                style={{ width: "100%", padding: "16px", borderRadius: "14px", border: "none",
+                  background: "linear-gradient(135deg, #2C7A4B, #3DA66A)", color: "#fff",
+                  fontFamily: "inherit", fontSize: "16px", fontWeight: "700", cursor: "pointer" }}>
+                {lowReviewSubmitting ? "送信中..." : "ご意見を送る"}
+              </button>
+            </div>
+          )}
+
+          {/* 低評価送信完了 */}
+          {step === "low_review_done" && (
+            <div style={{ animation: "fadeUp 0.4s ease", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+              <div style={{ fontSize: "60px", marginBottom: "16px" }}>💚</div>
+              <h2 style={{ fontSize: "22px", fontWeight: "900", color: "#1a2533", margin: "0 0 12px" }}>
+                ご意見ありがとうございます
+              </h2>
+              <p style={{ color: "#888", fontSize: "14px", lineHeight: 1.8, margin: "0 0 32px" }}>
+                いただいたご意見はサービス改善に<br />活かしてまいります。<br />またのご来店をお待ちしております。
+              </p>
             </div>
           )}
 
