@@ -118,20 +118,17 @@ export async function POST(req: NextRequest) {
         const customerId = payment?.customer_id;
         const buyerEmail = payment?.buyer_email_address;
         const paymentId = payment?.id;
-        const orderId = payment?.order_id;
 
         if (payment?.status === "COMPLETED") {
           let storeId = customerId ? await findStoreByCustomerId(customerId) : null;
           if (!storeId && buyerEmail) storeId = await findPendingStoreByEmail(buyerEmail);
           if (!storeId) { console.log("[Webhook] store not found:", paymentId); break; }
 
-          // 店舗情報取得
           const { data: store } = await supabase
             .from("stores")
             .select("*")
             .eq("id", storeId)
             .single();
-
           if (!store) break;
 
           if (customerId) {
@@ -140,13 +137,11 @@ export async function POST(req: NextRequest) {
               .eq("id", storeId);
           }
 
-          // invoices更新
           await supabase.from("invoices")
             .update({ status: "paid", paid_at: new Date().toISOString(), square_payment_id: paymentId })
             .eq("store_id", storeId)
             .eq("status", "pending");
 
-          // アップグレード決済かどうかチェック
           const { data: planHistory } = await supabase
             .from("plan_histories")
             .select("*")
@@ -157,48 +152,26 @@ export async function POST(req: NextRequest) {
             .limit(1);
 
           if (planHistory && planHistory.length > 0) {
-            // アップグレード決済成功 → プランを更新
             const history = planHistory[0];
             await supabase.from("stores")
               .update({ plan: history.to_plan, updated_at: new Date().toISOString() })
               .eq("id", storeId);
-
             await supabase.from("plan_histories")
               .update({ square_payment_id: paymentId })
               .eq("id", history.id);
-
-            await writeAuditLog(storeId, "plan_upgraded", {
-              from: history.from_plan,
-              to: history.to_plan,
-              payment_id: paymentId,
-            });
-
-            // アップグレードメール送信
-            const tmpl = emailTemplates.upgraded(
-              store.name,
-              PLAN_LABELS[history.from_plan] || history.from_plan,
-              PLAN_LABELS[history.to_plan] || history.to_plan,
-              history.amount_charged || 0,
-            );
+            await writeAuditLog(storeId, "plan_upgraded", { from: history.from_plan, to: history.to_plan, payment_id: paymentId });
+            const tmpl = emailTemplates.upgraded(store.name, PLAN_LABELS[history.from_plan] || history.from_plan, PLAN_LABELS[history.to_plan] || history.to_plan, history.amount_charged || 0);
             await sendEmail({ to: store.email, ...tmpl, storeId });
             console.log("[Webhook] → アップグレード完了:", storeId);
 
           } else if (store.status === "pending_payment") {
-            // 新規契約決済成功 → 契約中に
             await updateStoreStatus(storeId, "契約中");
             await writeAuditLog(storeId, "payment_completed", { payment_id: paymentId });
-
-            // ウェルカムメール送信
-            const tmpl = emailTemplates.welcome(
-              store.name,
-              store.email,
-              PLAN_LABELS[store.plan] || store.plan,
-            );
+            const tmpl = emailTemplates.welcome(store.name, store.email, PLAN_LABELS[store.plan] || store.plan);
             await sendEmail({ to: store.email, ...tmpl, storeId });
             console.log("[Webhook] → 契約中（新規）:", storeId);
 
           } else {
-            // OP追加決済成功
             const { data: pendingOption } = await supabase
               .from("option_subscriptions")
               .select("*")
@@ -213,8 +186,6 @@ export async function POST(req: NextRequest) {
               await supabase.from("option_subscriptions")
                 .update({ square_payment_id: paymentId })
                 .eq("id", opt.id);
-
-              // OP追加メール送信
               const tmpl = emailTemplates.optionAdded(store.name, opt.option_name, opt.amount);
               await sendEmail({ to: store.email, ...tmpl, storeId });
               console.log("[Webhook] → OP追加完了:", opt.option_name);
@@ -228,7 +199,6 @@ export async function POST(req: NextRequest) {
           let storeId = customerId ? await findStoreByCustomerId(customerId) : null;
           if (!storeId && buyerEmail) storeId = await findPendingStoreByEmail(buyerEmail);
           if (!storeId) break;
-
           await updateStoreStatus(storeId, "停止中");
           await writeAuditLog(storeId, "payment_failed", { payment_id: paymentId });
           console.log("[Webhook] → 停止中:", storeId);
@@ -240,9 +210,43 @@ export async function POST(req: NextRequest) {
         const invoice = data?.invoice;
         const subscriptionId = invoice?.subscription_id;
         if (!subscriptionId) break;
-
         const { data: stores } = await supabase
           .from("stores")
           .select("id")
           .eq("square_subscription_id", subscriptionId);
         if (!stores || stores.length !== 1) break;
+        const storeId = stores[0].id;
+        await updateStoreStatus(storeId, "契約中");
+        await writeAuditLog(storeId, "invoice_paid", { subscription_id: subscriptionId });
+        console.log("[Webhook] → 契約中（請求書）:", storeId);
+        break;
+      }
+
+      case "invoice.scheduled_charge_failed": {
+        const invoice = data?.invoice;
+        const subscriptionId = invoice?.subscription_id;
+        if (!subscriptionId) break;
+        const { data: stores } = await supabase
+          .from("stores")
+          .select("id")
+          .eq("square_subscription_id", subscriptionId);
+        if (!stores || stores.length !== 1) break;
+        const storeId = stores[0].id;
+        await updateStoreStatus(storeId, "停止中");
+        await writeAuditLog(storeId, "charge_failed", { subscription_id: subscriptionId });
+        console.log("[Webhook] → 停止中（課金失敗）:", storeId);
+        break;
+      }
+
+      default:
+        console.log("[Webhook] unhandled event:", eventType);
+    }
+
+    await markAsProcessed(eventId, eventType, payload);
+    return NextResponse.json({ received: true });
+
+  } catch (err: any) {
+    console.error("[Webhook] error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
