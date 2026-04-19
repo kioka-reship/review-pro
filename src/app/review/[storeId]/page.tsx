@@ -125,11 +125,15 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
         if (storeData.error) { setNotFound(true); setLoading(false); return; }
         setStore(storeData);
 
-        // 低評価対策PROの契約確認
-        const optRes = await fetch(`/api/mypage/options?store_id=${params.storeId}`);
-        const optData = await optRes.json();
-        const hasOpt = (optData.options || []).some((o: any) => o.option_key === "low_review_pro" && o.status === "active");
-        setHasLowReviewPro(hasOpt);
+       // 低評価対策PROの契約確認
+        try {
+          const optRes = await fetch(`/api/mypage/options?store_id=${params.storeId}`);
+          if (optRes.ok) {
+            const optData = await optRes.json();
+            const hasOpt = (optData.options || []).some((o: any) => o.option_key === "low_review_pro" && o.status === "active");
+            setHasLowReviewPro(hasOpt);
+          }
+        } catch { /* オプション取得失敗時は無視 */ }
 
         const qRes = await fetch(`/api/admin/questions?store_id=${params.storeId}`);
         const qData = await qRes.json();
