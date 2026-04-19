@@ -33,6 +33,15 @@ type OptionSub = {
   cancel_effective_date: string | null;
 };
 
+type Question = {
+  id: number;
+  store_id: string;
+  order_num: number;
+  label: string;
+  type: string;
+  options: string[] | null;
+};
+
 const PLAN_LABELS: Record<string, string> = {
   light: "ライト",
   standard: "スタンダード",
@@ -50,7 +59,59 @@ export default function MyPage() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [options, setOptions] = useState<OptionSub[]>([]);
-  const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "cancel">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "questions" | "cancel">("home");
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [questionsSaved, setQuestionsSaved] = useState(false);
+
+  const fetchQuestions = async (storeId: string) => {
+    const res = await fetch(`/api/admin/questions?store_id=${storeId}`);
+    const data = await res.json();
+    setQuestions(data.questions || []);
+  };
+
+  const handleSaveQuestions = async () => {
+    if (!store) return;
+    setQuestionsLoading(true);
+    await fetch("/api/admin/questions", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store_id: store.id, questions }),
+    });
+    setQuestionsLoading(false);
+    setQuestionsSaved(true);
+    setTimeout(() => setQuestionsSaved(false), 2000);
+  };
+
+  const updateQuestionLabel = (idx: number, value: string) => {
+    const next = [...questions];
+    next[idx].label = value.slice(0, 50);
+    setQuestions(next);
+  };
+
+  const updateOption = (qIdx: number, oIdx: number, value: string) => {
+    const next = [...questions];
+    if (next[qIdx].options) {
+      next[qIdx].options![oIdx] = value.slice(0, 30);
+      setQuestions(next);
+    }
+  };
+
+  const addOption = (qIdx: number) => {
+    const next = [...questions];
+    if (next[qIdx].options && next[qIdx].options!.length < 8) {
+      next[qIdx].options!.push("新しい選択肢");
+      setQuestions(next);
+    }
+  };
+
+  const removeOption = (qIdx: number, oIdx: number) => {
+    const next = [...questions];
+    if (next[qIdx].options && next[qIdx].options!.length > 2) {
+      next[qIdx].options!.splice(oIdx, 1);
+      setQuestions(next);
+    }
+  };
   const [planMsg, setPlanMsg] = useState("");
   const [optionMsg, setOptionMsg] = useState("");
 
@@ -232,11 +293,15 @@ export default function MyPage() {
               { key: "home", label: "🏠 ホーム" },
               { key: "plan", label: "📋 プラン変更" },
               ...(store?.plan === "standard" || store?.plan === "premium" ? [{ key: "options", label: "➕ オプション" }] : []),
+              ...(store?.plan !== "light" ? [{ key: "questions", label: "❓ 質問設定" }] : []),
               { key: "billing", label: "💳 請求履歴" },
               { key: "qr", label: "📱 QRコード" },
               { key: "cancel", label: "🚪 解約" },
             ].map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key as any)}
+              <button key={t.key} onClick={() => {
+                setActiveTab(t.key as any);
+                if (t.key === "questions" && store) fetchQuestions(store.id);
+              }}
                 style={{ padding: "10px 20px", borderRadius: "10px", border: "none", background: activeTab === t.key ? "#2C7A4B" : "#fff", color: activeTab === t.key ? "#fff" : "#555", fontFamily: "inherit", fontSize: "14px", fontWeight: "600", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 {t.label}
               </button>
@@ -412,6 +477,79 @@ export default function MyPage() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+{/* 質問設定 */}
+          {activeTab === "questions" && store && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <h2 style={{ margin: "0 0 8px", fontSize: "16px", color: "#1a2533" }}>質問設定</h2>
+              <p style={{ color: "#888", fontSize: "13px", margin: "0 0 20px" }}>
+                {store.plan === "standard" ? "質問の選択肢を変更できます。" : "質問の文章・選択肢を自由に編集できます。並び替えも可能です。"}
+              </p>
+
+              {questions.length === 0 ? (
+                <p style={{ color: "#aaa", textAlign: "center", padding: "20px" }}>質問が設定されていません</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {questions.map((q, qi) => (
+                    <div key={q.id} style={{ border: "1.5px solid #E5E7EB", borderRadius: "12px", padding: "16px" }}>
+                      <div style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", marginBottom: "8px" }}>
+                        Q{qi + 1} {q.type === "stars" ? "⭐ 星評価（固定）" : q.type === "multi" ? "☑️ 複数選択" : "🔘 一択"}
+                      </div>
+
+                      {q.type === "stars" ? (
+                        <p style={{ margin: 0, color: "#aaa", fontSize: "13px" }}>{q.label}（変更不可）</p>
+                      ) : (
+                        <>
+                          {/* プレミアムは質問文も編集可 */}
+                          {store.plan === "premium" ? (
+                            <input
+                              value={q.label}
+                              onChange={e => updateQuestionLabel(qi, e.target.value)}
+                              maxLength={50}
+                              style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", marginBottom: "10px", boxSizing: "border-box", outline: "none" }}
+                            />
+                          ) : (
+                            <p style={{ margin: "0 0 10px", fontSize: "13px", color: "#555", fontWeight: "600" }}>{q.label}</p>
+                          )}
+
+                          {/* 選択肢 */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            {q.options?.map((opt, oi) => (
+                              <div key={oi} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                <input
+                                  value={opt}
+                                  onChange={e => updateOption(qi, oi, e.target.value)}
+                                  maxLength={30}
+                                  style={{ flex: 1, padding: "7px 10px", borderRadius: "8px", border: "1px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none" }}
+                                />
+                                {store.plan === "premium" && (
+                                  <button onClick={() => removeOption(qi, oi)}
+                                    style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "6px", padding: "6px 10px", fontSize: "12px", cursor: "pointer" }}>✕</button>
+                                )}
+                              </div>
+                            ))}
+                            {store.plan === "premium" && (q.options?.length || 0) < 8 && (
+                              <button onClick={() => addOption(qi)}
+                                style={{ padding: "7px", borderRadius: "8px", border: "1.5px dashed #E5E7EB", background: "none", color: "#888", fontFamily: "inherit", fontSize: "12px", cursor: "pointer" }}>
+                                ＋ 選択肢を追加
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {questions.length > 0 && (
+                <button onClick={handleSaveQuestions} disabled={questionsLoading}
+                  style={{ width: "100%", marginTop: "20px", padding: "14px", borderRadius: "12px", border: "none", background: questionsSaved ? "#1A5C38" : "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", fontFamily: "inherit", fontSize: "15px", fontWeight: "700", cursor: "pointer" }}>
+                  {questionsLoading ? "保存中..." : questionsSaved ? "✅ 保存しました！" : "💾 保存する"}
+                </button>
+              )}
             </div>
           )}
           
