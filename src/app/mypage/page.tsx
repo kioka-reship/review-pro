@@ -50,7 +50,71 @@ export default function MyPage() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [options, setOptions] = useState<OptionSub[]>([]);
-  const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "cancel">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "cancel">("home");
+  const [planMsg, setPlanMsg] = useState("");
+  const [optionMsg, setOptionMsg] = useState("");
+
+  const OPTION_LIST = [
+    { key: "low_review_pro", name: "低評価対策PRO", price: 2980 },
+    { key: "ai_reply", name: "AI口コミ自動返信", price: 1980 },
+    { key: "feedback_list", name: "フィードバック一覧", price: 1480 },
+    { key: "monthly_report", name: "月次自動レポート", price: 980 },
+  ];
+
+  const PLAN_PRICES: Record<string, { price: number; setupFee: number; name: string }> = {
+    light:    { price: 2980,  setupFee: 0,     name: "ライト" },
+    standard: { price: 5980,  setupFee: 9800,  name: "スタンダード" },
+    premium:  { price: 9800,  setupFee: 19800, name: "プレミアム" },
+  };
+
+  const handlePlanChange = async (newPlan: string) => {
+    if (!store) return;
+    const currentPlan = store.plan;
+    if (currentPlan === newPlan) return;
+
+    const isUpgrade = (
+      (currentPlan === "light" && (newPlan === "standard" || newPlan === "premium")) ||
+      (currentPlan === "standard" && newPlan === "premium")
+    );
+
+    const confirmMsg = isUpgrade
+      ? `${PLAN_PRICES[newPlan].name}にアップグレードします。差額が即時決済されます。よろしいですか？`
+      : `${PLAN_PRICES[newPlan].name}にダウングレードします。次回請求日から反映されます。よろしいですか？`;
+
+    if (!confirm(confirmMsg)) return;
+
+    const res = await fetch("/api/mypage/plan-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store_id: store.id, current_plan: currentPlan, new_plan: newPlan }),
+    });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else if (res.ok) {
+      setPlanMsg("✅ ダウングレードを受け付けました。次回請求日から反映されます。");
+      setStore({ ...store, plan: newPlan });
+    } else {
+      setPlanMsg("❌ エラーが発生しました: " + (data.error || "不明なエラー"));
+    }
+  };
+
+  const handleOptionAdd = async (optionKey: string, optionName: string, price: number) => {
+    if (!store) return;
+    if (!confirm(`${optionName}（¥${price.toLocaleString()}/月）を追加します。即時決済されます。よろしいですか？`)) return;
+
+    const res = await fetch("/api/mypage/option-add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store_id: store.id, option_key: optionKey, option_name: optionName, price }),
+    });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      setOptionMsg("❌ エラーが発生しました: " + (data.error || "不明なエラー"));
+    }
+  };
   const [loading, setLoading] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelMsg, setCancelMsg] = useState("");
@@ -166,6 +230,8 @@ export default function MyPage() {
           <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
             {[
               { key: "home", label: "🏠 ホーム" },
+              { key: "plan", label: "📋 プラン変更" },
+              ...(store?.plan === "standard" || store?.plan === "premium" ? [{ key: "options", label: "➕ オプション" }] : []),
               { key: "billing", label: "💳 請求履歴" },
               { key: "qr", label: "📱 QRコード" },
               { key: "cancel", label: "🚪 解約" },
@@ -244,6 +310,111 @@ export default function MyPage() {
             </div>
           )}
 
+          {/* プラン変更 */}
+          {activeTab === "plan" && store && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <h2 style={{ margin: "0 0 8px", fontSize: "16px", color: "#1a2533" }}>プラン変更</h2>
+              <p style={{ color: "#888", fontSize: "13px", margin: "0 0 20px" }}>
+                アップグレードは即時反映・即時差額決済。ダウングレードは次回請求日から反映。
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {[
+                  { key: "light", name: "ライト", price: 2980, features: ["月10回", "QR口コミ導線", "管理画面"] },
+                  { key: "standard", name: "スタンダード", price: 5980, features: ["月20回", "QR口コミ導線", "オプション追加可"] },
+                  { key: "premium", name: "プレミアム", price: 9800, features: ["無制限", "全機能込み", "優先サポート"], recommended: true },
+                ].map(p => (
+                  <div key={p.key} style={{ border: `2px solid ${store.plan === p.key ? "#2C7A4B" : "#E5E7EB"}`, borderRadius: "12px", padding: "16px", background: store.plan === p.key ? "#F0FAF4" : "#fff", position: "relative" }}>
+                    {p.recommended && <span style={{ position: "absolute", top: "-10px", right: "16px", background: "#2C7A4B", color: "#fff", fontSize: "11px", fontWeight: "700", padding: "2px 10px", borderRadius: "20px" }}>⭐ おすすめ</span>}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <div style={{ fontWeight: "700", fontSize: "15px" }}>{p.name}</div>
+                      <div style={{ fontWeight: "800", color: "#2C7A4B" }}>¥{p.price.toLocaleString()}/月</div>
+                    </div>
+                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" }}>
+                      {p.features.map(f => <span key={f} style={{ background: "#F4F6F9", color: "#555", fontSize: "11px", padding: "2px 8px", borderRadius: "20px" }}>{f}</span>)}
+                    </div>
+                    {store.plan === p.key ? (
+                      <div style={{ textAlign: "center", padding: "8px", background: "#ECFDF5", borderRadius: "8px", color: "#065F46", fontSize: "13px", fontWeight: "600" }}>現在のプラン</div>
+                    ) : (
+                      <button onClick={() => handlePlanChange(p.key)}
+                        style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", fontFamily: "inherit", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>
+                        {["light", "standard", "premium"].indexOf(p.key) > ["light", "standard", "premium"].indexOf(store.plan) ? "アップグレード" : "ダウングレード"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {planMsg && <p style={{ color: planMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontSize: "13px", fontWeight: "600", marginTop: "16px" }}>{planMsg}</p>}
+            </div>
+          )}
+
+          {/* オプション */}
+          {activeTab === "options" && store && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* OP追加（スタンダードのみ） */}
+              {store.plan === "standard" && (
+                <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                  <h2 style={{ margin: "0 0 8px", fontSize: "16px", color: "#1a2533" }}>オプション追加</h2>
+                  <p style={{ color: "#888", fontSize: "13px", margin: "0 0 16px" }}>追加時点で即時決済。以降は毎月自動課金されます。</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {OPTION_LIST.map(opt => {
+                      const alreadyAdded = options.some(o => o.option_key === opt.key && o.status !== "canceled");
+                      return (
+                        <div key={opt.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px", background: "#F4F6F9", borderRadius: "10px" }}>
+                          <div>
+                            <div style={{ fontWeight: "600", fontSize: "13px" }}>{opt.name}</div>
+                            <div style={{ fontSize: "12px", color: "#2C7A4B", fontWeight: "700", marginTop: "2px" }}>¥{opt.price.toLocaleString()}/月</div>
+                          </div>
+                          {alreadyAdded ? (
+                            <span style={{ fontSize: "12px", padding: "4px 12px", borderRadius: "20px", background: "#ECFDF5", color: "#065F46", fontWeight: "600" }}>契約中</span>
+                          ) : (
+                            <button onClick={() => handleOptionAdd(opt.key, opt.name, opt.price)}
+                              style={{ background: "linear-gradient(135deg,#2C7A4B,#3DA66A)", border: "none", color: "#fff", borderRadius: "8px", padding: "6px 16px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>
+                              追加する
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {optionMsg && <p style={{ color: optionMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontSize: "13px", fontWeight: "600", marginTop: "12px" }}>{optionMsg}</p>}
+                </div>
+              )}
+
+              {/* 契約中OP一覧・解約申請 */}
+              <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>契約中のオプション</h2>
+                {options.length === 0 ? (
+                  <p style={{ color: "#aaa", textAlign: "center", padding: "20px" }}>契約中のオプションはありません</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {options.map(opt => (
+                      <div key={opt.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", background: "#F4F6F9", borderRadius: "10px" }}>
+                        <div>
+                          <div style={{ fontWeight: "600", fontSize: "13px" }}>{opt.option_name}</div>
+                          {opt.cancel_effective_date && (
+                            <div style={{ fontSize: "11px", color: "#E53E3E", marginTop: "2px" }}>{opt.cancel_effective_date} 停止予定</div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <span style={{ fontWeight: "700", color: "#2C7A4B" }}>¥{opt.amount.toLocaleString()}/月</span>
+                          {opt.status === "active" && (
+                            <button onClick={() => handleOptionCancel(opt.id)}
+                              style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
+                              解約申請
+                            </button>
+                          )}
+                          {opt.status === "cancel_scheduled" && (
+                            <span style={{ fontSize: "11px", color: "#E53E3E", fontWeight: "600" }}>解約予約済</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
           {/* 請求履歴 */}
           {activeTab === "billing" && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
