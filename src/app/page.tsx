@@ -1,474 +1,305 @@
-"use client";
+import Link from "next/link";
 
-import { useState } from "react";
-
-type Store = {
-  name: string;
-  type: string;
-  placeId: string;
-};
-
-type Answers = {
-  rating: number;
-  menu: string;
-  party: string;
-  highlight: string[];
-  feel: string;
-  gender: string;
-  age: string;
-};
-
-type StyleType = {
-  key: "casual" | "honest" | "formal";
-  label: string;
-  emoji: string;
-  prompt: string;
-};
-
-type LoadingStates = {
-  casual: boolean;
-  honest: boolean;
-  formal: boolean;
-};
-
-type Reviews = {
-  casual: string;
-  honest: string;
-  formal: string;
-};
-
-const STORE: Store = {
-  name: "Plus Belle",
-  type: "美容脱毛",
-  placeId: "https://g.page/r/CY_iloKyq51SEBM/review",
-};
-
-const QUESTIONS = [
-  { id: "rating", label: "今日のご体験はいかがでしたか？", type: "stars", options: [] as string[] },
-  { id: "menu", label: "ご利用のメニューは？", type: "select", options: ["全身脱毛", "顔脱毛", "VIO脱毛", "脚脱毛", "その他"] },
-  { id: "party", label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-  { id: "highlight", label: "特に良かった点は？", type: "multi", options: ["施術の効果", "スタッフの対応", "サロンの清潔感", "価格・コスパ", "予約のしやすさ"] },
-  { id: "feel", label: "一言でいうと？", type: "select", options: ["また来たい！", "友人に勧めたい", "期待以上だった", "安心して通える"] },
-  { id: "gender", label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-  { id: "age", label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-];
-
-const RATING_LABELS = ["", "残念でした", "もう少し", "普通", "良かった！", "最高でした！"];
-const RATING_EMOJI = ["", "😞", "😐", "🙂", "😊", "🤩"];
-
-const STYLES: StyleType[] = [
-  { key: "casual", label: "フレンドリー", emoji: "😊", prompt: "フレンドリーで話し言葉っぽい、親しみやすい文体で" },
-  { key: "honest", label: "リアル", emoji: "🎯", prompt: "本音っぽく、飾らないリアルな体験談として" },
-  { key: "formal", label: "丁寧", emoji: "✨", prompt: "丁寧で落ち着いた、信頼感のある文体で" },
-];
-
-const STEP_ORDER = ["welcome", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "generating", "done"];
-
-async function generateReview(store: Store, answers: Answers, style: StyleType) {
-  const res = await fetch("/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ store, answers, style }),
-  });
-  const data = await res.json();
-  return data.text || "";
-}
-
-function StarRating({ value, onChange }: { value: number; onChange: (value: number) => void }) {
-  const [hover, setHover] = useState(0);
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "12px" }}>
-        {[1, 2, 3, 4, 5].map((s) => (
-          <button key={s} onClick={() => onChange(s)} onMouseEnter={() => setHover(s)} onMouseLeave={() => setHover(0)}
-            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: "44px", lineHeight: 1,
-              filter: s <= (hover || value) ? "none" : "grayscale(1) opacity(0.25)",
-              transform: s <= (hover || value) ? "scale(1.18)" : "scale(1)", transition: "all 0.15s" }}>⭐</button>
-        ))}
-      </div>
-      {value > 0 && (
-        <div style={{ textAlign: "center" }}>
-          <span style={{ fontSize: "26px" }}>{RATING_EMOJI[value]}</span>
-          <p style={{ margin: "4px 0 0", fontWeight: "700", color: "#1a2533", fontSize: "16px" }}>{RATING_LABELS[value]}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ReviewCard({ text, style, selected, onSelect, loading }: {
-  text: string; style: StyleType; selected: boolean; onSelect: () => void; loading: boolean;
-}) {
-  return (
-    <div onClick={!loading ? onSelect : undefined}
-      style={{ borderRadius: "14px", border: `2px solid ${selected ? "#2C7A4B" : "#E5E7EB"}`,
-        background: selected ? "#F0FAF4" : "#fff", padding: "16px", cursor: loading ? "default" : "pointer",
-        transition: "all 0.2s", boxShadow: selected ? "0 0 0 3px rgba(44,122,75,0.12)" : "none" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <span style={{ fontSize: "16px" }}>{style.emoji}</span>
-          <span style={{ fontSize: "12px", fontWeight: "700", color: selected ? "#2C7A4B" : "#888" }}>{style.label}</span>
-        </div>
-        {selected && (
-          <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#2C7A4B", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ color: "#fff", fontSize: "13px", lineHeight: 1 }}>✓</span>
-          </div>
-        )}
-      </div>
-      {loading ? (
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0" }}>
-          <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: "2px solid #E5E7EB", borderTop: "2px solid #2C7A4B", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
-          <span style={{ fontSize: "13px", color: "#aaa" }}>生成中...</span>
-        </div>
-      ) : (
-        <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.85", color: selected ? "#1a3a2a" : "#555" }}>{text}</p>
-      )}
-    </div>
-  );
-}
-
-export default function EndUserScreen() {
-  const [step, setStep] = useState("welcome");
-  const [answers, setAnswers] = useState<Answers>({ rating: 0, menu: "", party: "", highlight: [], feel: "", gender: "", age: "" });
-  const [reviews, setReviews] = useState<Reviews>({ casual: "", honest: "", formal: "" });
-  const [loadingStates, setLoadingStates] = useState<LoadingStates>({ casual: false, honest: false, formal: false });
-  const [selectedStyle, setSelectedStyle] = useState<StyleType["key"]>("casual");
-  const [copied, setCopied] = useState(false);
-  const [regenCount, setRegenCount] = useState(0);
-
-  const currentIndex = STEP_ORDER.indexOf(step);
-  const progress = step === "done" ? 100 : step === "generating" ? 90 : ((currentIndex - 1) / 7) * 100;
-
-  const goBack = () => {
-    const prevStep = STEP_ORDER[currentIndex - 1];
-    if (prevStep) setStep(prevStep);
-  };
-
-  const canNext = () => {
-    if (step === "q1") return answers.rating > 0;
-    if (step === "q2") return answers.menu !== "";
-    if (step === "q3") return answers.party !== "";
-    if (step === "q4") return answers.highlight.length > 0;
-    if (step === "q5") return answers.feel !== "";
-    if (step === "q6") return answers.gender !== "";
-    if (step === "q7") return answers.age !== "";
-    return true;
-  };
-
-  const generateAll = async (currentAnswers: Answers) => {
-    setStep("generating");
-    const results = await Promise.all(
-      STYLES.map((s) => generateReview(STORE, currentAnswers, s).catch(() =>
-        `${STORE.name}はとても素晴らしいサロンでした。${currentAnswers.highlight.join("や")}が特に良く、${currentAnswers.feel}という気持ちです。またぜひ訪れたいと思います。`
-      ))
-    );
-    setReviews({ casual: results[0], honest: results[1], formal: results[2] });
-    setStep("done");
-  };
-
-  const handleNext = async () => {
-    if (step === "welcome") { setStep("q1"); return; }
-    if (step === "q1") { setStep("q2"); return; }
-    if (step === "q2") { setStep("q3"); return; }
-    if (step === "q3") { setStep("q4"); return; }
-    if (step === "q4") { setStep("q5"); return; }
-    if (step === "q5") { setStep("q6"); return; }
-    if (step === "q6") { setStep("q7"); return; }
-    if (step === "q7") { await generateAll(answers); }
-  };
-
-  const handleRegen = async () => {
-    const style = STYLES.find((s) => s.key === selectedStyle);
-    if (!style) return;
-    setLoadingStates((prev) => ({ ...prev, [selectedStyle]: true }));
-    setRegenCount((c) => c + 1);
-    try {
-      const text = await generateReview(STORE, answers, style);
-      setReviews((prev) => ({ ...prev, [selectedStyle]: text }));
-    } catch { /* noop */ }
-    setLoadingStates((prev) => ({ ...prev, [selectedStyle]: false }));
-    setCopied(false);
-  };
-
-  const handlePost = () => {
-    const text = reviews[selectedStyle];
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => { window.open(STORE.placeId, "_blank"); }, 500);
-    });
-  };
-
-  const SelectButtons = ({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) => (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-      {options.map((opt) => {
-        const sel = value === opt;
-        return (
-          <button key={opt} onClick={() => onChange(opt)}
-            style={{ padding: "16px 10px", borderRadius: "14px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
-              background: sel ? "#2C7A4B" : "#fff", color: sel ? "#fff" : "#555",
-              fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer", transition: "all 0.18s", textAlign: "center" }}>
-            {opt}
-          </button>
-        );
-      })}
-    </div>
-  );
-
-  // 戻るボタン（q1以降で表示）
-  const BackButton = () => {
-    if (!["q1","q2","q3","q4","q5","q6","q7"].includes(step)) return null;
-    return (
-      <button onClick={goBack}
-        style={{ background: "none", border: "none", color: "#aaa", fontFamily: "inherit", fontSize: "13px", cursor: "pointer", padding: "8px 0", display: "flex", alignItems: "center", gap: "4px", marginBottom: "4px" }}>
-        ← 前の質問に戻る
-      </button>
-    );
-  };
-
+export default function LandingPage() {
   return (
     <>
-      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet" />
       <style>{`
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; background: #F4F6F9; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes pop { 0%{transform:scale(0.8);opacity:0} 60%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Noto Sans JP', sans-serif; background: #fff; color: #1a2533; }
+        .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+        .btn-primary { display: inline-block; padding: 16px 36px; background: linear-gradient(135deg, #2C7A4B, #3DA66A); color: #fff; border-radius: 14px; font-weight: 700; font-size: 16px; text-decoration: none; transition: all 0.2s; box-shadow: 0 8px 24px rgba(44,122,75,0.3); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(44,122,75,0.4); }
+        .btn-secondary { display: inline-block; padding: 14px 32px; background: rgba(255,255,255,0.08); color: #fff; border: 1.5px solid rgba(255,255,255,0.2); border-radius: 14px; font-weight: 600; font-size: 15px; text-decoration: none; transition: all 0.2s; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.15); }
+        section { padding: 96px 0; }
+        h2.section-title { font-family: 'Outfit', sans-serif; font-size: clamp(28px, 4vw, 42px); font-weight: 900; color: #1a2533; margin-bottom: 16px; line-height: 1.2; }
+        .section-sub { font-size: 17px; color: #888; line-height: 1.8; margin-bottom: 56px; }
+        @media (max-width: 768px) {
+          section { padding: 64px 0; }
+          .hero-btns { flex-direction: column; align-items: center; }
+          .plan-grid { grid-template-columns: 1fr !important; }
+          .feature-grid { grid-template-columns: 1fr !important; }
+          .step-grid { grid-template-columns: 1fr !important; }
+          .faq-grid { grid-template-columns: 1fr !important; }
+          .stat-grid { grid-template-columns: 1fr 1fr !important; }
+        }
       `}</style>
 
-      <div style={{ minHeight: "100vh", maxWidth: "480px", margin: "0 auto", background: "#fff", display: "flex", flexDirection: "column", fontFamily: "'Noto Sans JP', sans-serif" }}>
-
-        {/* ヘッダー */}
-        <div style={{ background: "linear-gradient(135deg, #0F1923 0%, #1a3a2a 100%)", padding: "20px 20px 22px", position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: "-30px", right: "-20px", width: "120px", height: "120px", borderRadius: "50%", background: "rgba(44,122,75,0.15)" }} />
-          <div style={{ position: "relative" }}>
-            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", marginBottom: "4px" }}>口コミ投稿フォーム</div>
-            <div style={{ fontSize: "17px", fontWeight: "900", color: "#fff" }}>{STORE.name}</div>
+      {/* ナビゲーション */}
+      <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(15,25,35,0.95)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: "64px" }}>
+          <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: "20px", fontWeight: "900", color: "#fff" }}>REVIEW PRO</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "32px" }}>
+            <a href="#pricing" style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", fontSize: "14px" }}>料金</a>
+            <a href="#faq" style={{ color: "rgba(255,255,255,0.6)", textDecoration: "none", fontSize: "14px" }}>FAQ</a>
+            <Link href="/signup" className="btn-primary" style={{ padding: "10px 24px", fontSize: "14px" }}>お申し込み</Link>
           </div>
-          {!["welcome", "generating"].includes(step) && (
-            <div style={{ marginTop: "14px", height: "4px", background: "rgba(255,255,255,0.12)", borderRadius: "4px" }}>
-              <div style={{ height: "100%", background: "#5BBF8A", borderRadius: "4px", width: `${progress}%`, transition: "width 0.5s ease" }} />
-            </div>
-          )}
         </div>
+      </nav>
 
-        <div style={{ flex: 1, padding: "28px 20px 32px", display: "flex", flexDirection: "column" }}>
+      {/* ヒーロー */}
+      <div style={{ background: "linear-gradient(160deg, #0F1923 0%, #0d2818 50%, #0F1923 100%)", padding: "120px 24px 100px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "10%", left: "5%", width: "400px", height: "400px", borderRadius: "50%", background: "radial-gradient(circle, rgba(44,122,75,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: "10%", right: "5%", width: "300px", height: "300px", borderRadius: "50%", background: "radial-gradient(circle, rgba(44,122,75,0.08) 0%, transparent 70%)", pointerEvents: "none" }} />
+        <div className="container" style={{ position: "relative" }}>
+          <div style={{ display: "inline-block", background: "rgba(44,122,75,0.15)", border: "1px solid rgba(44,122,75,0.3)", borderRadius: "100px", padding: "6px 20px", fontSize: "13px", color: "#5BBF8A", fontWeight: "600", marginBottom: "28px" }}>
+            AIで口コミ投稿数を3倍に
+          </div>
+          <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: "clamp(36px, 6vw, 68px)", fontWeight: "900", color: "#fff", lineHeight: 1.15, marginBottom: "24px" }}>
+            お客様がその場で<br />
+            <span style={{ color: "#5BBF8A" }}>Googleに口コミ</span>を<br />
+            書いてくれる仕組み
+          </h1>
+          <p style={{ fontSize: "clamp(16px, 2vw, 20px)", color: "rgba(255,255,255,0.6)", lineHeight: 1.8, marginBottom: "48px", maxWidth: "560px", margin: "0 auto 48px" }}>
+            QRコードを設置するだけ。<br />AIが3パターンの口コミ文を自動生成し、<br />お客様がそのままGoogleに投稿できます。
+          </p>
+          <div className="hero-btns" style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
+            <Link href="/signup" className="btn-primary" style={{ fontSize: "18px", padding: "18px 48px" }}>今すぐ申し込む</Link>
+            <a href="#how-it-works" className="btn-secondary">仕組みを見る →</a>
+          </div>
+          <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px", marginTop: "20px" }}>いつでも解約可能</p>
+        </div>
+      </div>
 
-          {/* ウェルカム */}
-          {step === "welcome" && (
-            <div style={{ animation: "fadeUp 0.4s ease", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-              <div style={{ fontSize: "60px", marginBottom: "16px" }}>🙏</div>
-              <h2 style={{ fontSize: "22px", fontWeight: "900", color: "#1a2533", margin: "0 0 12px", lineHeight: 1.3 }}>ご来店ありがとう<br />ございました！</h2>
-              <p style={{ color: "#888", fontSize: "14px", lineHeight: 1.8, margin: "0 0 32px" }}>7つの質問に答えるだけで<br />AIが口コミ文を自動で作ります</p>
-              <div style={{ width: "100%", maxWidth: "280px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                {["⚡ 約1分で完了", "📱 選ぶだけ・入力不要", "✨ AIが3パターン生成"].map((t, i) => (
-                  <div key={i} style={{ background: "#F4F9F6", borderRadius: "10px", padding: "11px 16px", fontSize: "13px", fontWeight: "600", color: "#2C7A4B", textAlign: "left" }}>{t}</div>
-                ))}
+      {/* 数字で見る */}
+      <div style={{ background: "#F8FAF8", borderTop: "1px solid #E8EDE8", borderBottom: "1px solid #E8EDE8" }}>
+        <div className="container stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0", textAlign: "center" }}>
+          {[
+            { num: "3倍", label: "口コミ投稿数の増加" },
+            { num: "1分", label: "お客様の所要時間" },
+            { num: "24時間", label: "自動で口コミ収集" },
+            { num: "全業種", label: "対応テンプレート" },
+          ].map((item, i) => (
+            <div key={i} style={{ padding: "40px 24px", borderRight: i < 3 ? "1px solid #E8EDE8" : "none" }}>
+              <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: "40px", fontWeight: "900", color: "#2C7A4B", lineHeight: 1 }}>{item.num}</div>
+              <div style={{ fontSize: "14px", color: "#888", marginTop: "8px" }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 使い方 */}
+      <section id="how-it-works">
+        <div className="container" style={{ textAlign: "center" }}>
+          <h2 className="section-title">たった3ステップで<br />口コミが集まる仕組み</h2>
+          <p className="section-sub">難しい設定は一切不要。今日から始められます。</p>
+          <div className="step-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "32px", position: "relative" }}>
+            {[
+              { num: "01", icon: "📱", title: "QRコードを設置", desc: "マイページからQRコードを印刷して、レジや卓上に設置するだけ。数分で完了します。" },
+              { num: "02", icon: "✨", title: "お客様がQRを読み取る", desc: "7つの質問に答えるだけでAIが口コミ文を3パターン自動生成。選ぶだけでOK。" },
+              { num: "03", icon: "🎯", title: "Googleに自動投稿", desc: "生成された文章をコピーしてGoogleマップに投稿。お客様の負担を最小限に。" },
+            ].map((step, i) => (
+              <div key={i} style={{ background: "#fff", borderRadius: "20px", padding: "36px 28px", border: "1.5px solid #E8EDE8", position: "relative", textAlign: "left" }}>
+                <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: "64px", fontWeight: "900", color: "#F0FAF4", position: "absolute", top: "16px", right: "20px", lineHeight: 1 }}>{step.num}</div>
+                <div style={{ fontSize: "40px", marginBottom: "20px" }}>{step.icon}</div>
+                <h3 style={{ fontSize: "20px", fontWeight: "700", color: "#1a2533", marginBottom: "12px" }}>{step.title}</h3>
+                <p style={{ fontSize: "15px", color: "#888", lineHeight: 1.8 }}>{step.desc}</p>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {/* Q1: 星評価 */}
-          {step === "q1" && (
-            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <BackButton />
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q1 / 7</p>
-              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 32px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[0].label}</h2>
-              <StarRating value={answers.rating} onChange={(v) => setAnswers({ ...answers, rating: v })} />
-            </div>
-          )}
-
-          {/* Q2: メニュー */}
-          {step === "q2" && (
-            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <BackButton />
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q2 / 7</p>
-              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[1].label}</h2>
-              <SelectButtons options={QUESTIONS[1].options} value={answers.menu} onChange={(v) => setAnswers({ ...answers, menu: v })} />
-            </div>
-          )}
-
-          {/* Q3: 人数 */}
-          {step === "q3" && (
-            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <BackButton />
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q3 / 7</p>
-              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[2].label}</h2>
-              <SelectButtons options={QUESTIONS[2].options} value={answers.party} onChange={(v) => setAnswers({ ...answers, party: v })} />
-            </div>
-          )}
-
-          {/* Q4: 良かった点 */}
-          {step === "q4" && (
-            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <BackButton />
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q4 / 7</p>
-              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 6px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[3].label}</h2>
-              <p style={{ textAlign: "center", color: "#aaa", fontSize: "12px", margin: "0 0 20px" }}>複数選択OK</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {QUESTIONS[3].options.map((opt) => {
-                  const sel = answers.highlight.includes(opt);
-                  return (
-                    <button key={opt} onClick={() => setAnswers({ ...answers, highlight: sel ? answers.highlight.filter((v) => v !== opt) : [...answers.highlight, opt] })}
-                      style={{ padding: "15px 18px", borderRadius: "12px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
-                        background: sel ? "#F0FAF4" : "#fff", color: sel ? "#1a3a2a" : "#555",
-                        fontFamily: "inherit", fontSize: "15px", fontWeight: sel ? "700" : "400", cursor: "pointer", transition: "all 0.18s",
-                        display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      {opt}{sel && <span style={{ color: "#2C7A4B", fontSize: "16px" }}>✓</span>}
-                    </button>
-                  );
-                })}
+      {/* 機能 */}
+      <section id="features" style={{ background: "#0F1923" }}>
+        <div className="container" style={{ textAlign: "center" }}>
+          <h2 className="section-title" style={{ color: "#fff" }}>口コミを増やすための<br />全機能が揃っています</h2>
+          <p className="section-sub" style={{ color: "rgba(255,255,255,0.5)" }}>飲食・美容・医療・サービス業など、あらゆる業種に対応</p>
+          <div className="feature-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px", textAlign: "left" }}>
+            {[
+              { icon: "🤖", title: "AI口コミ自動生成", desc: "お客様の回答をもとに、年代・性別・文体を考慮した自然な口コミ文を3パターン生成。" },
+              { icon: "📊", title: "業種別テンプレート", desc: "飲食・美容・医療・整体など30業種以上に対応。業種に最適化された質問を自動設定。" },
+              { icon: "📱", title: "QRコード即納品", desc: "マイページからPNG・PDF・A4印刷用POPをいつでもダウンロード可能。" },
+              { icon: "⚡", title: "リアルタイム管理", desc: "口コミ投稿数・平均評価・低評価アラートを管理画面でリアルタイム確認。" },
+              { icon: "🔒", title: "低評価対策PRO", desc: "低評価の口コミには自動で対応案を提案。評価が下がる前に手を打てます。（オプション）" },
+              { icon: "📧", title: "月次レポート自動送信", desc: "口コミ数・評価推移・改善提案をまとめたレポートを毎月自動でメール配信。（オプション）" },
+            ].map((f, i) => (
+              <div key={i} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "16px", padding: "28px 24px" }}>
+                <div style={{ fontSize: "32px", marginBottom: "16px" }}>{f.icon}</div>
+                <h3 style={{ fontSize: "17px", fontWeight: "700", color: "#fff", marginBottom: "10px" }}>{f.title}</h3>
+                <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>{f.desc}</p>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {/* Q5: 一言 */}
-          {step === "q5" && (
-            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <BackButton />
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q5 / 7</p>
-              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[4].label}</h2>
-              <SelectButtons options={QUESTIONS[4].options} value={answers.feel} onChange={(v) => setAnswers({ ...answers, feel: v })} />
-            </div>
-          )}
-
-          {/* Q6: 性別 */}
-          {step === "q6" && (
-            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <BackButton />
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q6 / 7</p>
-              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[5].label}</h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {QUESTIONS[5].options.map((opt) => {
-                  const sel = answers.gender === opt;
-                  return (
-                    <button key={opt} onClick={() => setAnswers({ ...answers, gender: opt })}
-                      style={{ padding: "16px 18px", borderRadius: "12px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
-                        background: sel ? "#F0FAF4" : "#fff", color: sel ? "#1a3a2a" : "#555",
-                        fontFamily: "inherit", fontSize: "15px", fontWeight: sel ? "700" : "400", cursor: "pointer", transition: "all 0.18s", textAlign: "left" }}>
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Q7: 年代 */}
-          {step === "q7" && (
-            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
-              <BackButton />
-              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>Q7 / 7</p>
-              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>{QUESTIONS[6].label}</h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {QUESTIONS[6].options.map((opt) => {
-                  const sel = answers.age === opt;
-                  return (
-                    <button key={opt} onClick={() => setAnswers({ ...answers, age: opt })}
-                      style={{ padding: "16px 18px", borderRadius: "12px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
-                        background: sel ? "#F0FAF4" : "#fff", color: sel ? "#1a3a2a" : "#555",
-                        fontFamily: "inherit", fontSize: "15px", fontWeight: sel ? "700" : "400", cursor: "pointer", transition: "all 0.18s", textAlign: "left" }}>
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 生成中 */}
-          {step === "generating" && (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-              <div style={{ position: "relative", width: "72px", height: "72px", marginBottom: "20px" }}>
-                <div style={{ width: "72px", height: "72px", borderRadius: "50%", border: "5px solid #E8F5ED", borderTop: "5px solid #2C7A4B", animation: "spin 0.8s linear infinite" }} />
-                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>✨</div>
-              </div>
-              <h3 style={{ color: "#2C7A4B", fontWeight: "700", fontSize: "18px", margin: "0 0 8px" }}>3パターン同時生成中...</h3>
-              <div style={{ display: "flex", gap: "8px", justifyContent: "center", marginTop: "12px" }}>
-                {STYLES.map((s) => (
-                  <div key={s.key} style={{ background: "#F0FAF4", borderRadius: "8px", padding: "5px 12px", fontSize: "12px", color: "#2C7A4B", fontWeight: "600", animation: "pulse 1.5s ease infinite" }}>
-                    {s.emoji} {s.label}
+      {/* 導入事例 */}
+      <section id="cases">
+        <div className="container" style={{ textAlign: "center" }}>
+          <h2 className="section-title">導入事例</h2>
+          <p className="section-sub">様々な業種で口コミ増加の実績があります</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "28px", textAlign: "left" }}>
+            {[
+              { type: "美容脱毛サロン", name: "Plus Belle", result: "導入3ヶ月で口コミ47件増加", stars: 5, comment: "QRコードを置いただけで、毎週コンスタントに口コミが入るようになりました。スタッフがお願いしなくてもお客様が自然に投稿してくれます。", owner: "オーナー" },
+              { type: "飲食店", name: "博多ラーメン 一風堂風", result: "Googleマップの評価が3.8→4.4に向上", stars: 5, comment: "AIが自然な文章を作ってくれるので、お客様が気軽に投稿できるようになりました。星5の口コミが増えて集客にも繋がっています。", owner: "店主" },
+              { type: "整体・接骨院", name: "コーネリアス整体院", result: "月間口コミ投稿数が0件→12件に", stars: 5, comment: "今まで口コミ0件でしたが、導入後すぐに投稿が増えました。患者さんから「簡単に書けた」と言われて嬉しかったです。", owner: "院長" },
+            ].map((c, i) => (
+              <div key={i} style={{ background: "#fff", border: "1.5px solid #E8EDE8", borderRadius: "20px", padding: "28px", position: "relative" }}>
+                <div style={{ display: "flex", gap: "4px", marginBottom: "16px" }}>
+                  {[...Array(c.stars)].map((_, j) => <span key={j} style={{ color: "#F5A623", fontSize: "18px" }}>★</span>)}
+                </div>
+                <p style={{ fontSize: "15px", color: "#555", lineHeight: 1.8, marginBottom: "20px" }}>"{c.comment}"</p>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", borderTop: "1px solid #F0F0F0", paddingTop: "16px" }}>
+                  <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#F0FAF4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>👤</div>
+                  <div>
+                    <div style={{ fontWeight: "700", fontSize: "14px", color: "#1a2533" }}>{c.name}</div>
+                    <div style={{ fontSize: "12px", color: "#2C7A4B", fontWeight: "600" }}>{c.type} / {c.owner}</div>
                   </div>
-                ))}
+                </div>
+                <div style={{ position: "absolute", top: "20px", right: "20px", background: "#F0FAF4", borderRadius: "8px", padding: "4px 12px", fontSize: "12px", color: "#2C7A4B", fontWeight: "700" }}>
+                  {c.result}
+                </div>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {/* 完成 */}
-          {step === "done" && (
-            <div style={{ animation: "fadeUp 0.4s ease" }}>
-              <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                <div style={{ fontSize: "44px", animation: "pop 0.5s ease", display: "inline-block" }}>🎉</div>
-                <h2 style={{ fontSize: "18px", fontWeight: "900", color: "#1a2533", margin: "6px 0 4px" }}>3パターン生成完了！</h2>
-                <p style={{ color: "#888", fontSize: "13px", margin: 0 }}>気に入った文章を選んで投稿してください</p>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
-                {STYLES.map((s) => (
-                  <ReviewCard key={s.key} style={s} text={reviews[s.key]} selected={selectedStyle === s.key}
-                    loading={loadingStates[s.key]} onSelect={() => { setSelectedStyle(s.key); setCopied(false); }} />
-                ))}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "16px" }}>
-                <button onClick={handleRegen} disabled={Object.values(loadingStates).some(Boolean)}
-                  style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 20px", borderRadius: "10px", border: "1.5px solid #E5E7EB", background: "#fff", color: "#555", fontFamily: "inherit", fontSize: "13px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}>
-                  <span style={{ fontSize: "16px", display: "inline-block", animation: loadingStates[selectedStyle] ? "spin 0.7s linear infinite" : "none" }}>🔄</span>
-                  選択中の文章を再生成
-                </button>
-                {regenCount > 0 && <span style={{ fontSize: "11px", color: "#aaa" }}>（{regenCount}回再生成済み）</span>}
-              </div>
-              <div style={{ background: "#FFFBF0", border: "1px solid #FADDAA", borderRadius: "12px", padding: "12px 16px", marginBottom: "16px" }}>
-                <p style={{ fontSize: "11px", fontWeight: "700", color: "#8A6500", margin: "0 0 8px" }}>📋 あと1ステップで完了！</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                  {["下のボタンを押す（テキスト自動コピー）", "Googleの投稿画面が自動で開く", "長押しで貼り付け → 送信！"].map((t, i) => (
-                    <div key={i} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                      <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#F5A623", color: "#fff", fontSize: "11px", fontWeight: "700", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
-                      <span style={{ fontSize: "12px", color: "#5A4A00" }}>{t}</span>
+      {/* 料金 */}
+      <section id="pricing" style={{ background: "#F8FAF8" }}>
+        <div className="container" style={{ textAlign: "center" }}>
+          <h2 className="section-title">シンプルな料金プラン</h2>
+          <p className="section-sub">ライトプランは導入設定費無料。いつでも解約可能。</p>
+          <div className="plan-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px", alignItems: "start" }}>
+            {[
+              {
+                name: "ライト",
+                price: "¥2,980",
+                setup: "導入設定費 無料",
+                limit: "月10回",
+                features: ["口コミ生成 月10回", "QR口コミ導線", "管理画面", "1店舗"],
+                cta: "始める",
+                recommended: false,
+              },
+              {
+                name: "スタンダード",
+                price: "¥5,980",
+                setup: "導入設定費 ¥9,800",
+                limit: "月20回",
+                features: ["口コミ生成 月20回", "QR口コミ導線", "管理画面", "1店舗", "オプション追加可", "質問テンプレ変更可"],
+                cta: "始める",
+                recommended: false,
+              },
+              {
+                name: "プレミアム",
+                price: "¥9,800",
+                setup: "導入設定費 ¥19,800",
+                limit: "無制限",
+                features: ["口コミ生成 無制限", "QR口コミ導線", "管理画面", "1店舗", "低評価対策PRO", "AI口コミ自動返信", "フィードバック一覧", "月次自動レポート", "成果ダッシュボード", "優先サポート", "質問自由編集"],
+                cta: "始める",
+                recommended: true,
+              },
+            ].map((plan, i) => (
+              <div key={i} style={{ background: "#fff", borderRadius: "20px", padding: "32px 28px", border: plan.recommended ? "2px solid #2C7A4B" : "1.5px solid #E8EDE8", position: "relative", boxShadow: plan.recommended ? "0 8px 40px rgba(44,122,75,0.15)" : "none" }}>
+                {plan.recommended && (
+                  <div style={{ position: "absolute", top: "-14px", left: "50%", transform: "translateX(-50%)", background: "#2C7A4B", color: "#fff", borderRadius: "100px", padding: "4px 20px", fontSize: "12px", fontWeight: "700", whiteSpace: "nowrap" }}>
+                    ⭐ 一番人気・おすすめ
+                  </div>
+                )}
+                <div style={{ fontSize: "16px", fontWeight: "700", color: "#1a2533", marginBottom: "8px" }}>{plan.name}</div>
+                <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: "40px", fontWeight: "900", color: plan.recommended ? "#2C7A4B" : "#1a2533", lineHeight: 1 }}>{plan.price}</div>
+                <div style={{ fontSize: "13px", color: "#888", marginBottom: "4px" }}>/月（税別）</div>
+                <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "24px" }}>{plan.setup}</div>
+                <div style={{ fontSize: "13px", fontWeight: "700", color: "#2C7A4B", background: "#F0FAF4", borderRadius: "8px", padding: "6px 12px", marginBottom: "24px", display: "inline-block" }}>
+                  {plan.limit}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "28px", textAlign: "left" }}>
+                  {plan.features.map((f, j) => (
+                    <div key={j} style={{ display: "flex", gap: "10px", alignItems: "flex-start", fontSize: "14px", color: "#555" }}>
+                      <span style={{ color: "#2C7A4B", flexShrink: 0, marginTop: "1px" }}>✓</span>
+                      {f}
                     </div>
                   ))}
                 </div>
+                <Link href="/signup" style={{ display: "block", padding: "14px", borderRadius: "12px", background: plan.recommended ? "linear-gradient(135deg, #2C7A4B, #3DA66A)" : "#F4F6F9", color: plan.recommended ? "#fff" : "#555", fontWeight: "700", fontSize: "15px", textDecoration: "none", textAlign: "center", transition: "all 0.2s" }}>
+                  {plan.cta} →
+                </Link>
               </div>
-              <button onClick={handlePost} disabled={Object.values(loadingStates).some(Boolean)}
-                style={{ width: "100%", padding: "18px", borderRadius: "16px", border: "none",
-                  background: copied ? "#1A5C38" : "linear-gradient(135deg, #2C7A4B, #3DA66A)",
-                  color: "#fff", fontFamily: "inherit", fontSize: "16px", fontWeight: "700", cursor: "pointer",
-                  boxShadow: "0 6px 24px rgba(44,122,75,0.3)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "all 0.3s" }}>
-                {copied ? "✅ コピー完了！Googleを開いています..." : (
-                  <>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                    </svg>
-                    この文章でGoogleに投稿する
-                  </>
-                )}
-              </button>
-              <button onClick={() => { setStep("welcome"); setAnswers({ rating: 0, menu: "", party: "", highlight: [], feel: "", gender: "", age: "" }); setReviews({ casual: "", honest: "", formal: "" }); setCopied(false); setRegenCount(0); }}
-                style={{ width: "100%", marginTop: "10px", padding: "12px", borderRadius: "12px", border: "1.5px solid #E5E7EB", background: "transparent", color: "#888", fontFamily: "inherit", fontSize: "14px", cursor: "pointer" }}>
-                ← 最初からやり直す
-              </button>
-            </div>
-          )}
-
-          {/* 次へボタン */}
-          {["welcome", "q1", "q2", "q3", "q4", "q5", "q6", "q7"].includes(step) && (
-            <button onClick={handleNext} disabled={!canNext()}
-              style={{ width: "100%", padding: "18px", marginTop: "24px", borderRadius: "16px", border: "none",
-                background: canNext() ? "linear-gradient(135deg, #2C7A4B, #3DA66A)" : "#E5E7EB",
-                color: canNext() ? "#fff" : "#aaa", fontFamily: "inherit", fontSize: "16px", fontWeight: "700",
-                cursor: canNext() ? "pointer" : "not-allowed",
-                boxShadow: canNext() ? "0 4px 16px rgba(44,122,75,0.3)" : "none", transition: "all 0.2s" }}>
-              {step === "welcome" ? "はじめる →" : step === "q7" ? "✨ 口コミ文を3パターン作成する" : "次へ →"}
-            </button>
-          )}
+            ))}
+          </div>
+          <p style={{ color: "#aaa", fontSize: "14px", marginTop: "32px" }}>※ 料金は月額＋初回導入設定費です。ライトプランは導入設定費無料。</p>
         </div>
+      </section>
 
-        <div style={{ padding: "12px 20px", textAlign: "center", borderTop: "1px solid #F0F0F0" }}>
-          <p style={{ margin: 0, fontSize: "11px", color: "#ddd" }}>Powered by REVIEW PRO</p>
+      {/* FAQ */}
+      <section id="faq">
+        <div className="container" style={{ textAlign: "center" }}>
+          <h2 className="section-title">よくある質問</h2>
+          <p className="section-sub">ご不明な点はお気軽にお問い合わせください</p>
+          <div className="faq-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", textAlign: "left" }}>
+            {[
+              { q: "導入にどのくらい時間がかかりますか？", a: "申込後、最短即日でご利用開始できます。QRコードはマイページからすぐにダウンロードできます。" },
+              { q: "どんな業種でも使えますか？", a: "飲食・美容・医療・整体・整骨院・不動産・小売など、Googleマップに登録されているあらゆる業種でご利用いただけます。" },
+              { q: "お客様のスマートフォンで操作は難しくないですか？", a: "QRコードを読み取るだけで、選ぶだけの簡単な操作で口コミ文が完成します。入力不要のため、高齢の方にも使っていただけます。" },
+              { q: "口コミの内容をコントロールできますか？", a: "業種に合わせた質問テンプレートを設定することで、お店の魅力が伝わる口コミが生成されやすくなります。プランによって質問の編集も可能です。" },
+              { q: "解約はいつでもできますか？", a: "はい、いつでもマイページから解約申請できます。解約後も翌月末まではサービスをご利用いただけます。" },
+              { q: "複数店舗で使えますか？", a: "現在は1プランにつき1店舗です。複数店舗の場合はプランを複数ご契約いただくか、オプションで店舗追加（¥3,980/月）が可能です。" },
+            ].map((faq, i) => (
+              <div key={i} style={{ background: "#fff", border: "1.5px solid #E8EDE8", borderRadius: "16px", padding: "24px" }}>
+                <h3 style={{ fontSize: "15px", fontWeight: "700", color: "#1a2533", marginBottom: "10px" }}>Q. {faq.q}</h3>
+                <p style={{ fontSize: "14px", color: "#888", lineHeight: 1.8 }}>A. {faq.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <div style={{ background: "linear-gradient(160deg, #0F1923, #0d2818)", padding: "96px 24px", textAlign: "center" }}>
+        <div className="container">
+          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: "clamp(28px, 4vw, 48px)", fontWeight: "900", color: "#fff", marginBottom: "20px", lineHeight: 1.2 }}>
+            今すぐ口コミを<br />増やし始めましょう
+          </h2>
+          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "17px", marginBottom: "40px", lineHeight: 1.8 }}>
+            ライトプランは導入設定費無料。<br />設定は5分で完了します。
+          </p>
+          <Link href="/signup" className="btn-primary" style={{ fontSize: "18px", padding: "20px 56px" }}>
+            今すぐ申し込む →
+          </Link>
+          <p style={{ color: "rgba(255,255,255,0.2)", fontSize: "13px", marginTop: "20px" }}>
+            いつでも解約可能 / サポートあり
+          </p>
         </div>
       </div>
+
+      {/* フッター */}
+      <footer style={{ background: "#0A1219", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "48px 24px 32px" }}>
+        <div className="container" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "32px" }}>
+          <div>
+            <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: "20px", fontWeight: "900", color: "#fff", marginBottom: "8px" }}>REVIEW PRO</div>
+            <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px" }}>合同会社Relationship</p>
+          </div>
+          <div style={{ display: "flex", gap: "48px", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px", fontWeight: "700", marginBottom: "12px", letterSpacing: "0.1em" }}>サービス</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <a href="#features" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "14px" }}>機能</a>
+                <a href="#pricing" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "14px" }}>料金</a>
+                <Link href="/signup" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "14px" }}>お申し込み</Link>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px", fontWeight: "700", marginBottom: "12px", letterSpacing: "0.1em" }}>サポート</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <Link href="/mypage" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "14px" }}>マイページ</Link>
+                <a href="mailto:info@re-ship.co.jp" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "14px" }}>お問い合わせ</a>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px", fontWeight: "700", marginBottom: "12px", letterSpacing: "0.1em" }}>法的情報</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <Link href="/terms" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "14px" }}>利用規約</Link>
+                <Link href="/privacy" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: "14px" }}>プライバシーポリシー</Link>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="container" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: "40px", paddingTop: "24px", textAlign: "center" }}>
+          <p style={{ color: "rgba(255,255,255,0.2)", fontSize: "13px" }}>© 2024 合同会社Relationship. All rights reserved.</p>
+        </div>
+      </footer>
     </>
   );
 }
