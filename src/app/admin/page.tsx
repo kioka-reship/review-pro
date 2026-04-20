@@ -750,7 +750,7 @@ const handleLogin = async () => {
             </div>
           )}
 
-{activeTab === "feedback" && (
+{false && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
                 <h2 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>低評価フィードバック一覧</h2>
