@@ -61,6 +61,7 @@ export default function MyPage() {
   const [options, setOptions] = useState<OptionSub[]>([]);
   const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "questions" | "feedback" | "cancel">("home");
   const [feedbackList, setFeedbackList] = useState<any[]>([]);
+  const [feedbackMonth, setFeedbackMonth] = useState("");
 
   const fetchFeedback = async (storeId: string) => {
     const res = await fetch(`/api/admin/feedback?store_id=${storeId}`);
@@ -565,12 +566,27 @@ export default function MyPage() {
 {/* 低評価フィードバック */}
           {activeTab === "feedback" && store && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <h2 style={{ margin: "0 0 20px", fontSize: "16px", color: "#1a2533" }}>低評価フィードバック一覧</h2>
-              {feedbackList.length === 0 ? (
-                <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>低評価フィードバックはありません</p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
+                <h2 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>低評価フィードバック一覧</h2>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <input type="month" value={feedbackMonth} onChange={e => setFeedbackMonth(e.target.value)}
+                    style={{ padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none" }} />
+                  {feedbackMonth && (
+                    <button onClick={() => setFeedbackMonth("")}
+                      style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
+                      クリア
+                    </button>
+                  )}
+                  <span style={{ fontSize: "12px", color: "#888" }}>
+                    {feedbackList.filter(fb => !feedbackMonth || fb.created_at.startsWith(feedbackMonth)).length}件
+                  </span>
+                </div>
+              </div>
+              {feedbackList.filter(fb => !feedbackMonth || fb.created_at.startsWith(feedbackMonth)).length === 0 ? (
+                <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>フィードバックはありません</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  {feedbackList.map((fb: any) => (
+                 {feedbackList.filter(fb => !feedbackMonth || fb.created_at.startsWith(feedbackMonth)).map((fb: any) => (
                     <div key={fb.id} style={{ border: "1.5px solid #FEE2E2", borderRadius: "12px", padding: "16px", background: "#FFF5F5" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                         <span style={{ fontSize: "12px", fontWeight: "700", color: "#991B1B", background: "#FEE2E2", padding: "2px 8px", borderRadius: "6px" }}>★{fb.rating}</span>
