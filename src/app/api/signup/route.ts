@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendAdminNotification } from "../../../lib/sendAdminNotification";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -188,6 +189,21 @@ export async function POST(req: NextRequest) {
       square_payment_link_id: paymentLinkId,
     }).eq("id", storeId);
 
+await sendAdminNotification({
+      subject: "【REVIEW PRO】新規申込がありました（決済前）",
+      htmlContent: `
+        <h2>新規申込通知</h2>
+        <p><strong>店舗名：</strong>${store_name}</p>
+        <p><strong>会社名：</strong>${company_name || "未入力"}</p>
+        <p><strong>メール：</strong>${email}</p>
+        <p><strong>プラン：</strong>${planInfo.name}</p>
+        <p><strong>オプション：</strong>${options.length > 0 ? options.map((o: string) => OPTION_PRICES[o]?.name || o).join("、") : "なし"}</p>
+        <p><strong>合計金額：</strong>¥${totalAmount.toLocaleString()}</p>
+        <p><strong>紹介コード：</strong>${referral_code || "なし"}</p>
+        <p><strong>申込日時：</strong>${new Date().toLocaleString("ja-JP")}</p>
+      `,
+    });
+    
     return NextResponse.json({ url: paymentLinkUrl });
 
   } catch (err: any) {
