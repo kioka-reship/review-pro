@@ -59,7 +59,14 @@ export default function MyPage() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [options, setOptions] = useState<OptionSub[]>([]);
-  const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "questions" | "cancel">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "questions" | "feedback" | "cancel">("home");
+  const [feedbackList, setFeedbackList] = useState<any[]>([]);
+
+  const fetchFeedback = async (storeId: string) => {
+    const res = await fetch(`/api/admin/feedback?store_id=${storeId}`);
+    const data = await res.json();
+    setFeedbackList(data.feedback || []);
+  };
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsSaved, setQuestionsSaved] = useState(false);
@@ -294,6 +301,7 @@ export default function MyPage() {
               { key: "plan", label: "📋 プラン変更" },
               ...(store?.plan === "standard" || store?.plan === "premium" ? [{ key: "options", label: "➕ オプション" }] : []),
               ...(store?.plan !== "light" ? [{ key: "questions", label: "❓ 質問設定" }] : []),
+              ...(store?.plan === "premium" ? [{ key: "feedback", label: "⭐ 低評価FB" }] : []),
               { key: "billing", label: "💳 請求履歴" },
               { key: "qr", label: "📱 QRコード" },
               { key: "cancel", label: "🚪 解約" },
@@ -301,6 +309,7 @@ export default function MyPage() {
               <button key={t.key} onClick={() => {
                 setActiveTab(t.key as any);
                 if (t.key === "questions" && store) fetchQuestions(store.id);
+                if (t.key === "feedback" && store) fetchFeedback(store.id);
               }}
                 style={{ padding: "10px 20px", borderRadius: "10px", border: "none", background: activeTab === t.key ? "#2C7A4B" : "#fff", color: activeTab === t.key ? "#fff" : "#555", fontFamily: "inherit", fontSize: "14px", fontWeight: "600", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 {t.label}
@@ -549,6 +558,35 @@ export default function MyPage() {
                   style={{ width: "100%", marginTop: "20px", padding: "14px", borderRadius: "12px", border: "none", background: questionsSaved ? "#1A5C38" : "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", fontFamily: "inherit", fontSize: "15px", fontWeight: "700", cursor: "pointer" }}>
                   {questionsLoading ? "保存中..." : questionsSaved ? "✅ 保存しました！" : "💾 保存する"}
                 </button>
+              )}
+            </div>
+          )}
+
+{/* 低評価フィードバック */}
+          {activeTab === "feedback" && store && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <h2 style={{ margin: "0 0 20px", fontSize: "16px", color: "#1a2533" }}>低評価フィードバック一覧</h2>
+              {feedbackList.length === 0 ? (
+                <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>低評価フィードバックはありません</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {feedbackList.map((fb: any) => (
+                    <div key={fb.id} style={{ border: "1.5px solid #FEE2E2", borderRadius: "12px", padding: "16px", background: "#FFF5F5" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: "700", color: "#991B1B", background: "#FEE2E2", padding: "2px 8px", borderRadius: "6px" }}>★{fb.rating}</span>
+                        <span style={{ fontSize: "11px", color: "#aaa" }}>{new Date(fb.created_at).toLocaleString("ja-JP")}</span>
+                      </div>
+                      {fb.issues && fb.issues.length > 0 && (
+                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }}>
+                          {fb.issues.map((issue: string) => (
+                            <span key={issue} style={{ background: "#FEE2E2", color: "#991B1B", fontSize: "11px", padding: "2px 8px", borderRadius: "20px", fontWeight: "600" }}>{issue}</span>
+                          ))}
+                        </div>
+                      )}
+                      {fb.comment && <p style={{ margin: 0, fontSize: "13px", color: "#555", lineHeight: 1.7 }}>{fb.comment}</p>}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
