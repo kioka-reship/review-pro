@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createHmac } from "crypto";
 import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
+import { sendAdminNotification } from "../../../../lib/sendAdminNotification";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -170,6 +171,17 @@ export async function POST(req: NextRequest) {
             const tmpl = emailTemplates.welcome(store.name, store.email, PLAN_LABELS[store.plan] || store.plan);
             await sendEmail({ to: store.email, ...tmpl, storeId });
             console.log("[Webhook] → 契約中（新規）:", storeId);
+
+            await sendAdminNotification({
+              subject: "【REVIEW PRO】新規申込がありました",
+              htmlContent: `
+                <h2>新規申込通知</h2>
+                <p><strong>店舗名：</strong>${store.name}</p>
+                <p><strong>メール：</strong>${store.email}</p>
+                <p><strong>プラン：</strong>${PLAN_LABELS[store.plan] || store.plan}</p>
+                <p><strong>申込日時：</strong>${new Date().toLocaleString("ja-JP")}</p>
+              `,
+            });
 
           } else {
             const { data: pendingOption } = await supabase
