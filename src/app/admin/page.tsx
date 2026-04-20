@@ -362,8 +362,7 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [cancelRequests, setCancelRequests] = useState<any[]>([]);
-
-const [feedbackList, setFeedbackList] = useState<any[]>([]);
+  const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [feedbackStore, setFeedbackStore] = useState<Store | null>(null);
   const [feedbackMonth, setFeedbackMonth] = useState("");
 
@@ -398,25 +397,25 @@ const [feedbackList, setFeedbackList] = useState<any[]>([]);
   );
 
   const [deleteConfirm, setDeleteConfirm] = useState<Store | null>(null);
-const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-const handleDeleteStore = async (store: Store) => {
-  setDeleteLoading(true);
-  const res = await fetch("/api/admin/stores", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: store.id }),
-  });
-  if (res.ok) {
-    setDeleteConfirm(null);
-    await fetchStores();
-  } else {
-    alert("❌ 削除に失敗しました");
-  }
-  setDeleteLoading(false);
-};
-  
-const handleLogin = async () => {
+  const handleDeleteStore = async (store: Store) => {
+    setDeleteLoading(true);
+    const res = await fetch("/api/admin/stores", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: store.id }),
+    });
+    if (res.ok) {
+      setDeleteConfirm(null);
+      await fetchStores();
+    } else {
+      alert("❌ 削除に失敗しました");
+    }
+    setDeleteLoading(false);
+  };
+
+  const handleLogin = async () => {
     const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -447,19 +446,20 @@ const handleLogin = async () => {
   const handleEditStore = (store: Store) => { setEditStore({ ...store }); setEditMsg(""); };
 
   const handleGeneratePaymentLink = async (store: Store) => {
-  const res = await fetch("/api/square/checkout", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ storeId: store.id, plan: store.plan }),
-  });
-  const data = await res.json();
-  if (data.url) {
-    await navigator.clipboard.writeText(data.url);
-    alert(`✅ 支払いリンクをコピーしました！\n\n${data.url}\n\nオーナーに送ってください。`);
-  } else {
-    alert("❌ エラー: " + (data.error || "不明なエラー"));
-  }
-};
+    const res = await fetch("/api/square/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storeId: store.id, plan: store.plan }),
+    });
+    const data = await res.json();
+    if (data.url) {
+      await navigator.clipboard.writeText(data.url);
+      alert(`✅ 支払いリンクをコピーしました！\n\n${data.url}\n\nオーナーに送ってください。`);
+    } else {
+      alert("❌ エラー: " + (data.error || "不明なエラー"));
+    }
+  };
+
   const handleSaveEdit = async () => {
     if (!editStore) return;
     setEditLoading(true);
@@ -576,11 +576,11 @@ const handleLogin = async () => {
           </div>
           <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
             {[
-  { key: "stores", label: "🏪 店舗一覧" },
-  { key: "add", label: "➕ 店舗追加" },
-  { key: "cancels", label: "🚪 解約申請" },
-  { key: "logs", label: "📋 監査ログ" },
-].map(t => (
+              { key: "stores", label: "🏪 店舗一覧" },
+              { key: "add", label: "➕ 店舗追加" },
+              { key: "cancels", label: "🚪 解約申請" },
+              { key: "logs", label: "📋 監査ログ" },
+            ].map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key as any)}
                 style={{ padding: "10px 20px", borderRadius: "10px", border: "none", background: activeTab === t.key ? "#2C7A4B" : "#fff", color: activeTab === t.key ? "#fff" : "#555", fontFamily: "inherit", fontSize: "14px", fontWeight: "600", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 {t.label}
@@ -639,6 +639,7 @@ const handleLogin = async () => {
                             <td style={{ padding: "14px 12px" }}>
                               <div style={{ display: "flex", gap: "6px" }}>
                                 <button onClick={() => handleEditStore(s)} style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>編集</button>
+                                <button onClick={() => handleEditQuestions(s)} style={{ background: "#EFF6FF", border: "none", color: "#2563EB", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>質問</button>
                                 <button onClick={() => handleGeneratePaymentLink(s)} style={{ background: "#F0F9FF", border: "none", color: "#0369A1", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>💳 支払い</button>
                                 <button onClick={() => handleOpenFeedback(s)} style={{ background: "#FFF5F5", border: "none", color: "#991B1B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>⭐ FB</button>
                                 <button onClick={() => setDeleteConfirm(s)} style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>🗑️ 削除</button>
@@ -750,47 +751,6 @@ const handleLogin = async () => {
             </div>
           )}
 
-{false && (
-            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
-                <h2 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>低評価フィードバック一覧</h2>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  <input value={feedbackStoreId} onChange={e => setFeedbackStoreId(e.target.value)}
-                    placeholder="店舗IDで絞り込み（任意）"
-                    style={{ padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "12px", outline: "none", width: "200px" }} />
-                  <button onClick={() => fetchFeedback(feedbackStoreId || undefined)}
-                    style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>🔄 取得</button>
-                </div>
-              </div>
-              {feedbackList.length === 0 ? (
-                <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>「取得」ボタンを押してください</p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  {feedbackList.map((fb: any) => (
-                    <div key={fb.id} style={{ border: "1.5px solid #FEE2E2", borderRadius: "12px", padding: "16px", background: "#FFF5F5" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <span style={{ fontSize: "20px" }}>{"⭐".repeat(fb.rating)}</span>
-                          <span style={{ fontSize: "12px", fontWeight: "700", color: "#991B1B", background: "#FEE2E2", padding: "2px 8px", borderRadius: "6px" }}>★{fb.rating}</span>
-                          <span style={{ fontSize: "12px", color: "#888" }}>{fb.stores?.name || fb.store_id}</span>
-                        </div>
-                        <span style={{ fontSize: "11px", color: "#aaa" }}>{new Date(fb.created_at).toLocaleString("ja-JP")}</span>
-                      </div>
-                      {fb.issues && fb.issues.length > 0 && (
-                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }}>
-                          {fb.issues.map((issue: string) => (
-                            <span key={issue} style={{ background: "#FEE2E2", color: "#991B1B", fontSize: "11px", padding: "2px 8px", borderRadius: "20px", fontWeight: "600" }}>{issue}</span>
-                          ))}
-                        </div>
-                      )}
-                      {fb.comment && <p style={{ margin: 0, fontSize: "13px", color: "#555", lineHeight: 1.7 }}>{fb.comment}</p>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          
           {activeTab === "questions" && selectedStore && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", maxWidth: "600px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
@@ -889,29 +849,29 @@ const handleLogin = async () => {
       )}
 
       {deleteConfirm && (
-  <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
-    <div style={{ background: "#fff", borderRadius: "20px", padding: "32px", maxWidth: "380px", width: "100%", textAlign: "center" }}>
-      <div style={{ fontSize: "40px", marginBottom: "16px" }}>🗑️</div>
-      <h3 style={{ margin: "0 0 8px", color: "#1a2533" }}>店舗を削除しますか？</h3>
-      <p style={{ color: "#888", fontSize: "14px", margin: "0 0 8px" }}>
-        <strong style={{ color: "#1a2533" }}>{deleteConfirm.name}</strong>
-      </p>
-      <p style={{ color: "#DC2626", fontSize: "13px", margin: "0 0 24px" }}>
-        この操作は取り消せません。店舗データと質問データがすべて削除されます。
-      </p>
-      <div style={{ display: "flex", gap: "12px" }}>
-        <button onClick={() => setDeleteConfirm(null)}
-          style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1.5px solid #E5E7EB", background: "#fff", fontFamily: "inherit", fontSize: "14px", cursor: "pointer" }}>
-          キャンセル
-        </button>
-        <button onClick={() => handleDeleteStore(deleteConfirm)} disabled={deleteLoading}
-          style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none", background: "#DC2626", color: "#fff", fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer" }}>
-          {deleteLoading ? "削除中..." : "削除する"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+          <div style={{ background: "#fff", borderRadius: "20px", padding: "32px", maxWidth: "380px", width: "100%", textAlign: "center" }}>
+            <div style={{ fontSize: "40px", marginBottom: "16px" }}>🗑️</div>
+            <h3 style={{ margin: "0 0 8px", color: "#1a2533" }}>店舗を削除しますか？</h3>
+            <p style={{ color: "#888", fontSize: "14px", margin: "0 0 8px" }}>
+              <strong style={{ color: "#1a2533" }}>{deleteConfirm.name}</strong>
+            </p>
+            <p style={{ color: "#DC2626", fontSize: "13px", margin: "0 0 24px" }}>
+              この操作は取り消せません。店舗データと質問データがすべて削除されます。
+            </p>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button onClick={() => setDeleteConfirm(null)}
+                style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1.5px solid #E5E7EB", background: "#fff", fontFamily: "inherit", fontSize: "14px", cursor: "pointer" }}>
+                キャンセル
+              </button>
+              <button onClick={() => handleDeleteStore(deleteConfirm)} disabled={deleteLoading}
+                style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none", background: "#DC2626", color: "#fff", fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer" }}>
+                {deleteLoading ? "削除中..." : "削除する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {feedbackStore && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
@@ -920,8 +880,6 @@ const handleLogin = async () => {
               <h3 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>⭐ 低評価FB：{feedbackStore.name}</h3>
               <button onClick={() => setFeedbackStore(null)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "#888" }}>✕</button>
             </div>
-
-            {/* 年月フィルター */}
             <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "20px" }}>
               <input type="month" value={feedbackMonth} onChange={e => setFeedbackMonth(e.target.value)}
                 style={{ padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none" }} />
@@ -935,8 +893,6 @@ const handleLogin = async () => {
                 {feedbackList.filter(fb => !feedbackMonth || fb.created_at.startsWith(feedbackMonth)).length}件
               </span>
             </div>
-
-            {/* フィードバック一覧 */}
             {feedbackList.filter(fb => !feedbackMonth || fb.created_at.startsWith(feedbackMonth)).length === 0 ? (
               <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>フィードバックがありません</p>
             ) : (
@@ -964,7 +920,7 @@ const handleLogin = async () => {
           </div>
         </div>
       )}
-      
+
       {qrStore && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
           <div style={{ background: "#fff", borderRadius: "20px", padding: "32px", maxWidth: "360px", width: "100%", textAlign: "center" }}>
