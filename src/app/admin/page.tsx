@@ -349,7 +349,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState("");
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"stores" | "add" | "questions" | "cancels" | "logs" | "feedback">("stores");
+  const [activeTab, setActiveTab] = useState<"stores" | "add" | "questions" | "cancels" | "logs">("stores");
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [editStore, setEditStore] = useState<Store | null>(null);
@@ -363,14 +363,20 @@ export default function AdminPage() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [cancelRequests, setCancelRequests] = useState<any[]>([]);
 
-  const [feedbackList, setFeedbackList] = useState<any[]>([]);
-  const [feedbackStoreId, setFeedbackStoreId] = useState("");
+const [feedbackList, setFeedbackList] = useState<any[]>([]);
+  const [feedbackStore, setFeedbackStore] = useState<Store | null>(null);
+  const [feedbackMonth, setFeedbackMonth] = useState("");
 
-  const fetchFeedback = async (store_id?: string) => {
-    const url = store_id ? `/api/admin/feedback?store_id=${store_id}` : "/api/admin/feedback";
-    const res = await fetch(url);
+  const fetchFeedback = async (storeId: string) => {
+    const res = await fetch(`/api/admin/feedback?store_id=${storeId}`);
     const data = await res.json();
     setFeedbackList(data.feedback || []);
+  };
+
+  const handleOpenFeedback = async (store: Store) => {
+    setFeedbackStore(store);
+    setFeedbackMonth("");
+    await fetchFeedback(store.id);
   };
 
   const fetchAuditLogs = async () => {
@@ -574,7 +580,6 @@ const handleLogin = async () => {
   { key: "add", label: "➕ 店舗追加" },
   { key: "cancels", label: "🚪 解約申請" },
   { key: "logs", label: "📋 監査ログ" },
-  { key: "feedback", label: "⭐ 低評価FB" },
 ].map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key as any)}
                 style={{ padding: "10px 20px", borderRadius: "10px", border: "none", background: activeTab === t.key ? "#2C7A4B" : "#fff", color: activeTab === t.key ? "#fff" : "#555", fontFamily: "inherit", fontSize: "14px", fontWeight: "600", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
@@ -634,7 +639,8 @@ const handleLogin = async () => {
                             <td style={{ padding: "14px 12px" }}>
                               <div style={{ display: "flex", gap: "6px" }}>
                                 <button onClick={() => handleEditStore(s)} style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>編集</button>
-                                <button onClick={() => handleEditQuestions(s)} style={{ background: "#EFF6FF", border: "none", color: "#2563EB", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>質問</button><button onClick={() => handleGeneratePaymentLink(s)} style={{ background: "#F0F9FF", border: "none", color: "#0369A1", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>💳 支払い</button>
+                                <button onClick={() => handleGeneratePaymentLink(s)} style={{ background: "#F0F9FF", border: "none", color: "#0369A1", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>💳 支払い</button>
+                                <button onClick={() => handleOpenFeedback(s)} style={{ background: "#FFF5F5", border: "none", color: "#991B1B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>⭐ FB</button>
                                 <button onClick={() => setDeleteConfirm(s)} style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>🗑️ 削除</button>
                               </div>
                             </td>
@@ -906,6 +912,59 @@ const handleLogin = async () => {
     </div>
   </div>
 )}
+
+      {feedbackStore && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+          <div style={{ background: "#fff", borderRadius: "20px", padding: "28px", maxWidth: "600px", width: "100%", maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+              <h3 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>⭐ 低評価FB：{feedbackStore.name}</h3>
+              <button onClick={() => setFeedbackStore(null)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "#888" }}>✕</button>
+            </div>
+
+            {/* 年月フィルター */}
+            <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "20px" }}>
+              <input type="month" value={feedbackMonth} onChange={e => setFeedbackMonth(e.target.value)}
+                style={{ padding: "6px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none" }} />
+              {feedbackMonth && (
+                <button onClick={() => setFeedbackMonth("")}
+                  style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>
+                  クリア
+                </button>
+              )}
+              <span style={{ fontSize: "12px", color: "#888" }}>
+                {feedbackList.filter(fb => !feedbackMonth || fb.created_at.startsWith(feedbackMonth)).length}件
+              </span>
+            </div>
+
+            {/* フィードバック一覧 */}
+            {feedbackList.filter(fb => !feedbackMonth || fb.created_at.startsWith(feedbackMonth)).length === 0 ? (
+              <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>フィードバックがありません</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {feedbackList
+                  .filter(fb => !feedbackMonth || fb.created_at.startsWith(feedbackMonth))
+                  .map((fb: any) => (
+                    <div key={fb.id} style={{ border: "1.5px solid #FEE2E2", borderRadius: "12px", padding: "16px", background: "#FFF5F5" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: "700", color: "#991B1B", background: "#FEE2E2", padding: "2px 8px", borderRadius: "6px" }}>★{fb.rating}</span>
+                        <span style={{ fontSize: "11px", color: "#aaa" }}>{new Date(fb.created_at).toLocaleString("ja-JP")}</span>
+                      </div>
+                      {fb.issues && fb.issues.length > 0 && (
+                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }}>
+                          {fb.issues.map((issue: string) => (
+                            <span key={issue} style={{ background: "#FEE2E2", color: "#991B1B", fontSize: "11px", padding: "2px 8px", borderRadius: "20px", fontWeight: "600" }}>{issue}</span>
+                          ))}
+                        </div>
+                      )}
+                      {fb.comment && <p style={{ margin: 0, fontSize: "13px", color: "#555", lineHeight: 1.7 }}>{fb.comment}</p>}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       {qrStore && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
           <div style={{ background: "#fff", borderRadius: "20px", padding: "32px", maxWidth: "360px", width: "100%", textAlign: "center" }}>
