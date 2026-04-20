@@ -32,7 +32,7 @@ const PLANS = [
 ];
 
 const OPTIONS = [
-  { key: "low_review_pro", name: "低評価対策PRO", price: 2980, description: "★3以下の低評価が付いた際に、Googleへの投稿前に店舗へ直接フィードバックを誘導。悪い口コミを未然に防ぎます。" },
+  { key: "low_review_pro", name: "低評価対策PRO", price: 2980, description: "★2以下の低評価が付いた際に、Googleへの投稿前に店舗へ直接フィードバックを誘導。悪い口コミを未然に防ぎます。" },
   { key: "ai_reply", name: "AI口コミ自動返信", price: 1980, description: "Googleに届いた口コミにAIが自動で返信。オーナー返信率を高め、Googleの評価アップにつながります。" },
   { key: "feedback_list", name: "フィードバック一覧", price: 1480, description: "低評価ユーザーからのフィードバックをマイページで一覧表示。改善ポイントの把握に役立ちます。" },
   { key: "monthly_report", name: "月次自動レポート", price: 980, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
