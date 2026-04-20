@@ -32,10 +32,10 @@ const PLANS = [
 ];
 
 const OPTIONS = [
-  { key: "low_review_pro", name: "低評価対策PRO", price: 2980 },
-  { key: "ai_reply", name: "AI口コミ自動返信", price: 1980 },
-  { key: "feedback_list", name: "フィードバック一覧", price: 1480 },
-  { key: "monthly_report", name: "月次自動レポート", price: 980 },
+  { key: "low_review_pro", name: "低評価対策PRO", price: 2980, description: "★3以下の低評価が付いた際に、Googleへの投稿前に店舗へ直接フィードバックを誘導。悪い口コミを未然に防ぎます。" },
+  { key: "ai_reply", name: "AI口コミ自動返信", price: 1980, description: "Googleに届いた口コミにAIが自動で返信。オーナー返信率を高め、Googleの評価アップにつながります。" },
+  { key: "feedback_list", name: "フィードバック一覧", price: 1480, description: "低評価ユーザーからのフィードバックをマイページで一覧表示。改善ポイントの把握に役立ちます。" },
+  { key: "monthly_report", name: "月次自動レポート", price: 980, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
 ];
 
 const REFERRAL_CODES = ["BNI-MEMBER", "0CP"];
@@ -155,11 +155,14 @@ export default function SignupPage() {
                 )}
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   {OPTIONS.map(opt => (
-                    <label key={opt.key} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", border: "1.5px solid #E5E7EB", borderRadius: "10px", cursor: "pointer" }}>
-                      <input type="checkbox" checked={selectedOptions.includes(opt.key)} onChange={() => toggleOption(opt.key)} />
-                      <span style={{ flex: 1, fontSize: "13px" }}>{opt.name}</span>
-                      <span style={{ fontWeight: "700", color: "#2C7A4B" }}>¥{opt.price.toLocaleString()}/月</span>
-                    </label>
+                    <label key={opt.key} style={{ display: "flex", alignItems: "flex-start", gap: "10px", padding: "12px", border: "1.5px solid #E5E7EB", borderRadius: "10px", cursor: "pointer" }}>
+  <input type="checkbox" checked={selectedOptions.includes(opt.key)} onChange={() => toggleOption(opt.key)} style={{ marginTop: "3px" }} />
+  <div style={{ flex: 1 }}>
+    <div style={{ fontSize: "13px", fontWeight: "600" }}>{opt.name}</div>
+    <div style={{ fontSize: "11px", color: "#888", marginTop: "3px", lineHeight: "1.6" }}>{opt.description}</div>
+  </div>
+  <span style={{ fontWeight: "700", color: "#2C7A4B", whiteSpace: "nowrap" }}>¥{opt.price.toLocaleString()}/月</span>
+</label>
                   ))}
                 </div>
               </div>
