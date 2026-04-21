@@ -17,11 +17,13 @@ export async function GET(req: NextRequest) {
   const storeId = searchParams.get("store_id");
   if (!storeId) return NextResponse.json({ error: "store_id required" }, { status: 400 });
 
-  const { data: store } = await supabase
-    .from("stores")
-    .select("plan")
-    .eq("id", storeId)
-    .single();
+const { data: store, error: storeError } = await supabase
+  .from("stores")
+  .select("plan")
+  .eq("id", storeId)
+  .single();
+
+console.log("[usage] storeId:", storeId, "plan:", store?.plan, "error:", storeError);
 
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
