@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
 
   const { count } = await supabase
     .from("usage")
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     .gte("created_at", firstDay)
     .lte("created_at", lastDay);
 
-  const limit = PLAN_LIMITS[store?.plan || "light"];
+  const limit = PLAN_LIMITS[store?.plan ?? "light"] ?? 10;
 
   return NextResponse.json({ used: count || 0, limit });
 }
