@@ -645,7 +645,7 @@ const fetchQrLogs = async (storeId: string) => {
           )}
 
 {/* QR分析 */}
-{activeTab === "qr_analytics" && store && (
+{activeTab === ("qr_analytics" as any) && store && (
   <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
     <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
       <h2 style={{ margin: "0 0 20px", fontSize: "16px", color: "#1a2533" }}>📊 QRコードアクセス分析</h2>
