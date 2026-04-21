@@ -62,6 +62,13 @@ export default function MyPage() {
   const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "questions" | "feedback" | "cancel">("home");
   const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [feedbackMonth, setFeedbackMonth] = useState("");
+  const [qrLogs, setQrLogs] = useState<any[]>([]);
+
+const fetchQrLogs = async (storeId: string) => {
+  const res = await fetch(`/api/mypage/qr-analytics?store_id=${storeId}`);
+  const data = await res.json();
+  setQrLogs(data.logs || []);
+};
 
   const fetchFeedback = async (storeId: string) => {
     const res = await fetch(`/api/admin/feedback?store_id=${storeId}`);
@@ -304,6 +311,7 @@ export default function MyPage() {
               ...(store?.plan !== "light" ? [{ key: "questions", label: "❓ 質問設定" }] : []),
               ...(store?.plan === "premium" ? [{ key: "feedback", label: "⭐ 低評価FB" }] : []),
               { key: "billing", label: "💳 請求履歴" },
+      ...(store?.plan === "standard" || store?.plan === "premium" ? [{ key: "qr_analytics", label: "📊 QR分析" }] : []),
               { key: "qr", label: "📱 QRコード" },
               { key: "cancel", label: "🚪 解約" },
             ].map(t => (
@@ -311,6 +319,7 @@ export default function MyPage() {
                 setActiveTab(t.key as any);
                 if (t.key === "questions" && store) fetchQuestions(store.id);
                 if (t.key === "feedback" && store) fetchFeedback(store.id);
+                if (t.key === "qr_analytics" && store) fetchQrLogs(store.id);
               }}
                 style={{ padding: "10px 20px", borderRadius: "10px", border: "none", background: activeTab === t.key ? "#2C7A4B" : "#fff", color: activeTab === t.key ? "#fff" : "#555", fontFamily: "inherit", fontSize: "14px", fontWeight: "600", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 {t.label}
@@ -635,6 +644,58 @@ export default function MyPage() {
             </div>
           )}
 
+{/* QR分析 */}
+{activeTab === "qr_analytics" && store && (
+  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+    <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+      <h2 style={{ margin: "0 0 20px", fontSize: "16px", color: "#1a2533" }}>📊 QRコードアクセス分析</h2>
+
+      {/* サマリー */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "24px" }}>
+        {[
+          { label: "今月", value: qrLogs.filter(l => l.accessed_at?.startsWith(new Date().toISOString().slice(0, 7))).length },
+          { label: "今日", value: qrLogs.filter(l => l.accessed_at?.startsWith(new Date().toISOString().slice(0, 10))).length },
+          { label: "累計", value: qrLogs.length },
+        ].map((item, i) => (
+          <div key={i} style={{ background: "#F4F6F9", borderRadius: "12px", padding: "16px", textAlign: "center" }}>
+            <div style={{ fontSize: "11px", color: "#888", marginBottom: "6px" }}>{item.label}</div>
+            <div style={{ fontSize: "28px", fontWeight: "800", color: "#2C7A4B" }}>{item.value}</div>
+            <div style={{ fontSize: "11px", color: "#aaa" }}>回</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 日別グラフ（直近7日） */}
+      <h3 style={{ margin: "0 0 12px", fontSize: "13px", color: "#1a2533" }}>直近7日間</h3>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", height: "80px", marginBottom: "4px" }}>
+        {Array.from({ length: 7 }).map((_, i) => {
+          const date = new Date();
+          date.setDate(date.getDate() - (6 - i));
+          const dateStr = date.toISOString().slice(0, 10);
+          const count = qrLogs.filter(l => l.accessed_at?.startsWith(dateStr)).length;
+          const max = Math.max(...Array.from({ length: 7 }).map((_, j) => {
+            const d = new Date(); d.setDate(d.getDate() - (6 - j));
+            return qrLogs.filter(l => l.accessed_at?.startsWith(d.toISOString().slice(0, 10))).length;
+          }), 1);
+          return (
+            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+              <div style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B" }}>{count > 0 ? count : ""}</div>
+              <div style={{ width: "100%", background: count > 0 ? "#2C7A4B" : "#E5E7EB", borderRadius: "4px 4px 0 0", height: `${(count / max) * 60}px`, minHeight: "4px", transition: "height 0.3s" }} />
+              <div style={{ fontSize: "10px", color: "#aaa" }}>{date.getMonth() + 1}/{date.getDate()}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {qrLogs.length === 0 && (
+        <p style={{ color: "#aaa", textAlign: "center", padding: "20px", fontSize: "13px" }}>
+          まだアクセスデータがありません
+        </p>
+      )}
+    </div>
+  </div>
+)}
+          
           {/* QRコード */}
           {activeTab === "qr" && store && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", textAlign: "center" }}>
