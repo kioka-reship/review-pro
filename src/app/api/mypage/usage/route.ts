@@ -38,5 +38,5 @@ console.log("[usage] storeId:", storeId, "plan:", store?.plan, "error:", storeEr
 
  const limit = PLAN_LIMITS[store?.plan ?? "light"] ?? 10;
 
-return NextResponse.json({ used: count || 0, limit, plan: store?.plan });
+return NextResponse.json({ used: count || 0, limit });
 }
