@@ -311,7 +311,7 @@ const fetchQrLogs = async (storeId: string) => {
               ...(store?.plan !== "light" ? [{ key: "questions", label: "❓ 質問設定" }] : []),
               ...(store?.plan === "premium" ? [{ key: "feedback", label: "⭐ 低評価FB" }] : []),
               { key: "billing", label: "💳 請求履歴" },
-      ...(store?.plan === "standard" || store?.plan === "premium" ? [{ key: "qr_analytics", label: "📊 QR分析" }] : []),
+      ...(options.some(o => o.option_key === "qr_analytics" && o.status !== "canceled") || store?.plan === "premium" ? [{ key: "qr_analytics", label: "📊 QR分析" }] : []),
               { key: "qr", label: "📱 QRコード" },
               { key: "cancel", label: "🚪 解約" },
             ].map(t => (
