@@ -10,9 +10,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  if (email === validEmail && password === validPassword) {
-    return NextResponse.json({ success: true });
-  }
+const validEmails = validEmail.split(",").map(e => e.trim());
+if (validEmails.includes(email) && password === validPassword) {
+  return NextResponse.json({ success: true });
+}
 
   return NextResponse.json({ error: "メールアドレスまたはパスワードが違います" }, { status: 401 });
 }
