@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     .gte("created_at", firstDay)
     .lte("created_at", lastDay);
 
-  const limit = PLAN_LIMITS[store?.plan ?? "light"] ?? 10;
+ const limit = PLAN_LIMITS[store?.plan ?? "light"] ?? 10;
 
-  return NextResponse.json({ used: count || 0, limit });
+return NextResponse.json({ used: count || 0, limit, plan: store?.plan });
 }
