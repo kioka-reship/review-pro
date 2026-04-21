@@ -124,6 +124,8 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
         const storeData = await storeRes.json();
         if (storeData.error) { setNotFound(true); setLoading(false); return; }
         setStore(storeData);
+// ↓ この1行を追加
+fetch("/api/qr-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ store_id: params.storeId }) });
 
        // 低評価対策PROの契約確認
         try {
