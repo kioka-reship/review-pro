@@ -5,7 +5,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// NGワードリスト
 const NG_WORDS = [
   "殺", "死ね", "バカ", "アホ", "クソ", "最悪", "詐欺", "偽物",
   "ゴミ", "うざい", "きもい", "差別", "ヘイト",
@@ -15,36 +14,43 @@ function containsNgWord(text: string): boolean {
   return NG_WORDS.some(word => text.includes(word));
 }
 
-// プラン別上限
 const PLAN_LIMITS: Record<string, number> = {
   light: 10,
   standard: 20,
   premium: 99999,
 };
 
-// 今月の使用回数を取得
-async function getMonthlyUsage(storeId: string): Promise<number> {
+async function getMonthlySessionCount(storeId: string): Promise<number> {
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
 
-  const { count } = await supabase
-    .from("usage")
-    .select("*", { count: "exact", head: true })
+  const { data } = await supabase
+    .from("qr_access_logs")
+    .select("session_id")
     .eq("store_id", storeId)
+    .not("session_id", "is", null)
     .gte("created_at", firstDay)
     .lte("created_at", lastDay);
 
+  if (!data) return 0;
+  const uniqueSessions = new Set(data.map((row: any) => row.session_id));
+  return uniqueSessions.size;
+}
+
+async function getSessionGenerationCount(sessionId: string): Promise<number> {
+  const { count } = await supabase
+    .from("usage")
+    .select("*", { count: "exact", head: true })
+    .eq("session_id", sessionId);
   return count || 0;
 }
 
 export async function POST(req: Request) {
   try {
-    const { store, answers, style } = await req.json();
-
+    const { store, answers, style, session_id } = await req.json();
     const storeId = store?.id;
 
-    // 回数制限チェック
     if (storeId) {
       const { data: storeData } = await supabase
         .from("stores")
@@ -56,18 +62,39 @@ export async function POST(req: Request) {
         return Response.json({ error: "契約が有効ではありません" }, { status: 403 });
       }
 
-      const limit = PLAN_LIMITS[storeData.plan] || 10;
-      const used = await getMonthlyUsage(storeId);
-
-      if (used >= limit) {
-        return Response.json({
-          error: `今月の生成回数の上限（${limit}回）に達しました。プランのアップグレードをご検討ください。`
-        }, { status: 429 });
+      // セッション内3回まで
+      if (session_id) {
+        const sessionCount = await getSessionGenerationCount(session_id);
+        if (sessionCount >= 3) {
+          return Response.json({
+            error: "1回のQR読み取りで生成できるのは最大3回までです。QRコードを再度読み取ってください。"
+          }, { status: 429 });
+        }
       }
 
-      // 使用回数を記録
+      // 月間QRスキャン数チェック
+      const limit = PLAN_LIMITS[storeData.plan] || 10;
+      const monthlyScans = await getMonthlySessionCount(storeId);
+
+      if (session_id && monthlyScans >= limit) {
+        const { data: existingLog } = await supabase
+          .from("qr_access_logs")
+          .select("id")
+          .eq("store_id", storeId)
+          .eq("session_id", session_id)
+          .maybeSingle();
+
+        if (!existingLog) {
+          return Response.json({
+            error: `今月のQR読み取り上限（${limit}回）に達しました。プランのアップグレードをご検討ください。`
+          }, { status: 429 });
+        }
+      }
+
+      // 使用記録
       await supabase.from("usage").insert({
         store_id: storeId,
+        session_id: session_id || null,
         created_at: new Date().toISOString(),
       });
     }
@@ -156,12 +183,10 @@ ${ageStyle}
 
     let text = data?.choices?.[0]?.message?.content || "";
 
-    // NGワードチェック
     if (containsNgWord(text)) {
       text = "申し訳ありません。生成された文章に不適切な表現が含まれていたため、再生成してください。";
     }
 
-    // 文字数チェック（極端に短い・長い場合）
     if (text.length < 20 || text.length > 500) {
       text = "文章の生成に問題が発生しました。もう一度お試しください。";
     }
