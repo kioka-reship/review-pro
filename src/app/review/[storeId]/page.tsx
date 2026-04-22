@@ -116,6 +116,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const [lowReviewComment, setLowReviewComment] = useState("");
   const [lowReviewSubmitting, setLowReviewSubmitting] = useState(false);
   const [currentRating, setCurrentRating] = useState(0);
+  const [sessionId, setSessionId] = useState<string>("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -125,7 +126,13 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
         if (storeData.error) { setNotFound(true); setLoading(false); return; }
         setStore(storeData);
 // ↓ この1行を追加
-fetch("/api/qr-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ store_id: params.storeId }) });
+const sid = crypto.randomUUID();
+setSessionId(sid);
+fetch("/api/qr-log", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ store_id: params.storeId, session_id: sid }),
+});
 
        // 低評価対策PROの契約確認
         try {
@@ -188,7 +195,7 @@ fetch("/api/qr-log", { method: "POST", headers: { "Content-Type": "application/j
         fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ store: { id: store.id, name: store.name, type: store.type, placeId: store.place_id }, answers: builtAnswers, style: s }),
+          body: JSON.stringify({ store: { id: store.id, name: store.name, type: store.type, placeId: store.place_id }, answers: builtAnswers, style: s, session_id: sessionId }),
         }).then((r) => r.json()).then((d) => d.text || "").catch(() => "")
       )
     );
@@ -249,7 +256,7 @@ fetch("/api/qr-log", { method: "POST", headers: { "Content-Type": "application/j
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ store: { id: store.id, name: store.name, type: store.type, placeId: store.place_id }, answers: builtAnswers, style }),
+        body: JSON.stringify({ store: { id: store.id, name: store.name, type: store.type, placeId: store.place_id }, answers: builtAnswers, style, session_id: sessionId }),
       });
       const data = await res.json();
       setReviews((prev) => ({ ...prev, [selectedStyle]: data.text || "" }));
