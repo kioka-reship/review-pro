@@ -440,15 +440,34 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
                       <div style={{ fontWeight: "800", color: "#2C7A4B" }}>¥{p.price.toLocaleString()}/月</div>
                     </div>
                     <div style={{ fontSize: "12px", color: "#888", marginBottom: "8px" }}>
-  初期費用：{(selectedBillingCycle === "yearly" ? (p as any).setupYearly : (p as any).setupMonthly) === 0
-    ? <span style={{ color: "#2C7A4B", fontWeight: "700" }}>無料</span>
-    : <span>¥{(selectedBillingCycle === "yearly" ? (p as any).setupYearly : (p as any).setupMonthly).toLocaleString()}</span>
-  }
-  {selectedBillingCycle === "yearly" && (p as any).setupYearly < (p as any).setupMonthly && (
-    <span style={{ marginLeft: "8px", color: "#F59E0B", fontWeight: "700", fontSize: "11px" }}>
-      月契約より¥{((p as any).setupMonthly - (p as any).setupYearly).toLocaleString()}お得！
-    </span>
-  )}
+  {(() => {
+    const newSetup = selectedBillingCycle === "yearly" ? (p as any).setupYearly : (p as any).setupMonthly;
+    const paidSetup = store.setup_fee_paid_amount || 0;
+    const diff = Math.max(0, newSetup - paidSetup);
+    const PLAN_RANK: Record<string, number> = { light: 1, standard: 2, premium: 3 };
+    const isCurrentPlan = store.plan === p.key && store.billing_cycle === selectedBillingCycle;
+    const isUpgrade = PLAN_RANK[p.key] > PLAN_RANK[store.plan];
+    const isDowngrade = PLAN_RANK[p.key] < PLAN_RANK[store.plan];
+
+    if (isCurrentPlan) return null;
+
+    if (isDowngrade) return (
+      <span style={{ color: "#888" }}>次回請求日から反映・追加費用なし</span>
+    );
+
+    if (diff === 0) return (
+      <span style={{ color: "#2C7A4B", fontWeight: "700" }}>追加費用：無料</span>
+    );
+
+    return (
+      <span>
+        追加費用：<span style={{ color: "#E53E3E", fontWeight: "700" }}>¥{diff.toLocaleString()}</span>
+        <span style={{ color: "#aaa", fontSize: "11px", marginLeft: "6px" }}>
+          （初期費用¥{newSetup.toLocaleString()} - 支払済¥{paidSetup.toLocaleString()}）
+        </span>
+      </span>
+    );
+  })()}
 </div>
 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" }}>
   {p.features.map(f => <span key={f} style={{ background: "#F4F6F9", color: "#555", fontSize: "11px", padding: "2px 8px", borderRadius: "20px" }}>{f}</span>)}
