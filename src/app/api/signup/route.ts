@@ -12,15 +12,20 @@ const SQUARE_API_BASE = "https://connect.squareup.com/v2";
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID!;
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
-const PLAN_PRICES: Record<string, { price: number; setupFee: number; name: string }> = {
-  light:    { price: 2980,  setupFee: 0,     name: "REVIEW PRO ライト" },
-  standard: { price: 5980,  setupFee: 9800,  name: "REVIEW PRO スタンダード" },
-  premium:  { price: 9800,  setupFee: 19800, name: "REVIEW PRO プレミアム" },
+const PLAN_PRICES: Record<string, {
+  price: number;
+  setupFeeMonthly: number;
+  setupFeeYearly: number;
+  name: string;
+}> = {
+  light:    { price: 2980,  setupFeeMonthly: 3000,  setupFeeYearly: 0,     name: "REVIEW PRO ライト" },
+  standard: { price: 5980,  setupFeeMonthly: 14800, setupFeeYearly: 9800,  name: "REVIEW PRO スタンダード" },
+  premium:  { price: 9800,  setupFeeMonthly: 24800, setupFeeYearly: 19800, name: "REVIEW PRO プレミアム" },
 };
 
 const OPTION_PRICES: Record<string, { price: number; name: string }> = {
   low_review_pro: { price: 2980, name: "低評価対策PRO" },
-  ai_reply:       { price: 1980, name: "AI口コミ自動返信" },
+  qr_analytics:   { price: 1980, name: "QRアクセス分析PRO" },
   feedback_list:  { price: 1480, name: "フィードバック一覧" },
   monthly_report: { price: 980,  name: "月次自動レポート" },
 };
@@ -32,10 +37,10 @@ export async function POST(req: NextRequest) {
   const {
     company_name, store_name, owner_name, contact_name,
     email, password, type, place_id,
-    plan, options = [], referral_code, setup_fee, total,
+    plan, billing_cycle = "monthly", options = [],
+    referral_code, setup_fee, monthly_price, total,
   } = body;
 
-  // 必須チェック
   if (!store_name || !email || !password || !place_id || !plan) {
     return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 });
   }
@@ -45,20 +50,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "無効なプランです" }, { status: 400 });
   }
 
-  // 紹介コード判定
   const referralValid = REFERRAL_CODES.includes(referral_code?.toUpperCase());
-  const actualSetupFee = referralValid ? 0 : planInfo.setupFee;
+  const rawSetupFee = billing_cycle === "yearly" ? planInfo.setupFeeYearly : planInfo.setupFeeMonthly;
+  const actualSetupFee = referralValid ? 0 : rawSetupFee;
 
-  // 合計金額計算
   const optionTotal = options.reduce((sum: number, key: string) => {
     return sum + (OPTION_PRICES[key]?.price || 0);
   }, 0);
   const totalAmount = actualSetupFee + planInfo.price + optionTotal;
 
-  // 店舗IDを生成
   const storeId = type.slice(0, 3).toLowerCase().replace(/[^a-z]/g, "") + "-" + Date.now().toString().slice(-6);
 
-  // 請求日計算
   const now = new Date();
   const day = now.getDate();
   const nextBilling = new Date();
@@ -70,7 +72,6 @@ export async function POST(req: NextRequest) {
   nextBilling.setDate(5);
 
   try {
-    // storesテーブルに仮申込で保存
     const { error: storeError } = await supabase.from("stores").insert({
       id: storeId,
       name: store_name,
@@ -82,8 +83,11 @@ export async function POST(req: NextRequest) {
       type,
       place_id,
       plan,
+      billing_cycle,
       status: "pending_payment",
       setup_fee_paid: 0,
+      setup_fee_paid_amount: actualSetupFee,
+      setup_fee_paid_plan: plan,
       referral_code: referral_code?.toUpperCase() || null,
       next_billing_date: nextBilling.toISOString().split("T")[0],
       created_at: new Date().toISOString(),
@@ -94,11 +98,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: storeError.message }, { status: 500 });
     }
 
-    // invoicesテーブルに記録
     await supabase.from("invoices").insert({
       store_id: storeId,
       type: "setup_fee",
-      description: `${planInfo.name} 導入設定費`,
+      description: `${planInfo.name} 初期費用（${billing_cycle === "yearly" ? "年契約" : "月契約"}）`,
       amount: actualSetupFee,
       status: "pending",
     });
@@ -111,7 +114,6 @@ export async function POST(req: NextRequest) {
       status: "pending",
     });
 
-    // consent_logsに同意記録
     await supabase.from("consent_logs").insert({
       store_id: storeId,
       name: owner_name,
@@ -128,14 +130,14 @@ export async function POST(req: NextRequest) {
 
     if (actualSetupFee > 0) {
       lineItems.push({
-        name: `${planInfo.name} 導入設定費`,
+        name: `${planInfo.name} 初期費用（${billing_cycle === "yearly" ? "年契約" : "月契約"}）`,
         quantity: "1",
         base_price_money: { amount: actualSetupFee, currency: "JPY" },
       });
     }
 
     lineItems.push({
-      name: `${planInfo.name} 月額`,
+      name: `${planInfo.name} 月額（${billing_cycle === "yearly" ? "年契約" : "月契約"}）`,
       quantity: "1",
       base_price_money: { amount: planInfo.price, currency: "JPY" },
     });
@@ -184,12 +186,11 @@ export async function POST(req: NextRequest) {
     const paymentLinkUrl = data?.payment_link?.url;
     const paymentLinkId = data?.payment_link?.id;
 
-    // 決済リンクIDをstoresに保存
     await supabase.from("stores").update({
       square_payment_link_id: paymentLinkId,
     }).eq("id", storeId);
 
-await sendAdminNotification({
+    await sendAdminNotification({
       subject: "【REVIEW PRO】新規申込がありました（決済前）",
       htmlContent: `
         <h2>新規申込通知</h2>
@@ -197,13 +198,16 @@ await sendAdminNotification({
         <p><strong>会社名：</strong>${company_name || "未入力"}</p>
         <p><strong>メール：</strong>${email}</p>
         <p><strong>プラン：</strong>${planInfo.name}</p>
+        <p><strong>契約タイプ：</strong>${billing_cycle === "yearly" ? "年契約" : "月契約"}</p>
         <p><strong>オプション：</strong>${options.length > 0 ? options.map((o: string) => OPTION_PRICES[o]?.name || o).join("、") : "なし"}</p>
-        <p><strong>合計金額：</strong>¥${totalAmount.toLocaleString()}</p>
+        <p><strong>初期費用：</strong>¥${actualSetupFee.toLocaleString()}</p>
+        <p><strong>月額：</strong>¥${(planInfo.price + optionTotal).toLocaleString()}</p>
+        <p><strong>初回合計：</strong>¥${totalAmount.toLocaleString()}</p>
         <p><strong>紹介コード：</strong>${referral_code || "なし"}</p>
         <p><strong>申込日時：</strong>${new Date().toLocaleString("ja-JP")}</p>
       `,
     });
-    
+
     return NextResponse.json({ url: paymentLinkUrl });
 
   } catch (err: any) {
