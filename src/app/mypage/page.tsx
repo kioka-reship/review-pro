@@ -429,10 +429,9 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {[
-                  { key: "light", name: "ライト", price: 2980, features: ["月10回", "QR口コミ導線", "管理画面"] },
-                  { key: "standard", name: "スタンダード", price: 5980, features: ["月20回", "QR口コミ導線", "オプション追加可"] },
-                  { key: "premium", name: "プレミアム", price: 9800, features: ["無制限", "全機能込み", "優先サポート"], recommended: true },
+                {[{ key: "light", name: "ライト", price: 2980, setupMonthly: 3000, setupYearly: 0, features: ["月10回", "QR口コミ導線", "管理画面"] },
+{ key: "standard", name: "スタンダード", price: 5980, setupMonthly: 14800, setupYearly: 9800, features: ["月20回", "QR口コミ導線", "オプション追加可"] },
+{ key: "premium", name: "プレミアム", price: 9800, setupMonthly: 24800, setupYearly: 19800, features: ["無制限", "全機能込み", "優先サポート"], recommended: true },
                 ].map(p => (
                   <div key={p.key} style={{ border: `2px solid ${store.plan === p.key ? "#2C7A4B" : "#E5E7EB"}`, borderRadius: "12px", padding: "16px", background: store.plan === p.key ? "#F0FAF4" : "#fff", position: "relative" }}>
                     {p.recommended && <span style={{ position: "absolute", top: "-10px", right: "16px", background: "#2C7A4B", color: "#fff", fontSize: "11px", fontWeight: "700", padding: "2px 10px", borderRadius: "20px" }}>⭐ おすすめ</span>}
@@ -440,9 +439,20 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
                       <div style={{ fontWeight: "700", fontSize: "15px" }}>{p.name}</div>
                       <div style={{ fontWeight: "800", color: "#2C7A4B" }}>¥{p.price.toLocaleString()}/月</div>
                     </div>
-                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" }}>
-                      {p.features.map(f => <span key={f} style={{ background: "#F4F6F9", color: "#555", fontSize: "11px", padding: "2px 8px", borderRadius: "20px" }}>{f}</span>)}
-                    </div>
+                    <div style={{ fontSize: "12px", color: "#888", marginBottom: "8px" }}>
+  初期費用：{(selectedBillingCycle === "yearly" ? (p as any).setupYearly : (p as any).setupMonthly) === 0
+    ? <span style={{ color: "#2C7A4B", fontWeight: "700" }}>無料</span>
+    : <span>¥{(selectedBillingCycle === "yearly" ? (p as any).setupYearly : (p as any).setupMonthly).toLocaleString()}</span>
+  }
+  {selectedBillingCycle === "yearly" && (p as any).setupYearly < (p as any).setupMonthly && (
+    <span style={{ marginLeft: "8px", color: "#F59E0B", fontWeight: "700", fontSize: "11px" }}>
+      月契約より¥{((p as any).setupMonthly - (p as any).setupYearly).toLocaleString()}お得！
+    </span>
+  )}
+</div>
+<div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" }}>
+  {p.features.map(f => <span key={f} style={{ background: "#F4F6F9", color: "#555", fontSize: "11px", padding: "2px 8px", borderRadius: "20px" }}>{f}</span>)}
+</div>
                     {store.plan === p.key ? (
                       <div style={{ textAlign: "center", padding: "8px", background: "#ECFDF5", borderRadius: "8px", color: "#065F46", fontSize: "13px", fontWeight: "600" }}>現在のプラン</div>
                     ) : (
