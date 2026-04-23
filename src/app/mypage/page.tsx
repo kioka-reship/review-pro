@@ -5,9 +5,13 @@ type Store = {
   id: string;
   name: string;
   plan: string;
+  billing_cycle: string;
   status: string;
   next_billing_date: string;
   email: string;
+  setup_fee_paid_amount: number;
+  pending_plan: string | null;
+  pending_billing_cycle: string | null;
 };
 
 type Usage = {
@@ -128,6 +132,7 @@ const fetchQrLogs = async (storeId: string) => {
     }
   };
   const [planMsg, setPlanMsg] = useState("");
+const [selectedBillingCycle, setSelectedBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [optionMsg, setOptionMsg] = useState("");
 
   const OPTION_LIST = [
@@ -144,33 +149,34 @@ const fetchQrLogs = async (storeId: string) => {
     premium:  { price: 9800,  setupFee: 19800, name: "プレミアム" },
   };
 
-  const handlePlanChange = async (newPlan: string) => {
+const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
     if (!store) return;
-    const currentPlan = store.plan;
-    if (currentPlan === newPlan) return;
+    if (store.plan === newPlan && store.billing_cycle === newBillingCycle) return;
 
-    const isUpgrade = (
-      (currentPlan === "light" && (newPlan === "standard" || newPlan === "premium")) ||
-      (currentPlan === "standard" && newPlan === "premium")
-    );
+    const PLAN_RANK: Record<string, number> = { light: 1, standard: 2, premium: 3 };
+    const isUpgrade = PLAN_RANK[newPlan] > PLAN_RANK[store.plan];
 
     const confirmMsg = isUpgrade
-      ? `${PLAN_PRICES[newPlan].name}にアップグレードします。差額が即時決済されます。よろしいですか？`
-      : `${PLAN_PRICES[newPlan].name}にダウングレードします。次回請求日から反映されます。よろしいですか？`;
+      ? `${PLAN_LABELS[newPlan]}にアップグレードします。差額が即時決済されます。よろしいですか？`
+      : `${PLAN_LABELS[newPlan]}にダウングレードします。次回請求日から反映されます。よろしいですか？`;
 
     if (!confirm(confirmMsg)) return;
 
-    const res = await fetch("/api/mypage/plan-change", {
+    const res = await fetch("/api/mypage/change-plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store_id: store.id, current_plan: currentPlan, new_plan: newPlan }),
+      body: JSON.stringify({ store_id: store.id, to_plan: newPlan, to_billing_cycle: newBillingCycle }),
     });
     const data = await res.json();
     if (data.url) {
       window.location.href = data.url;
     } else if (res.ok) {
-      setPlanMsg("✅ ダウングレードを受け付けました。次回請求日から反映されます。");
-      setStore({ ...store, plan: newPlan });
+      if (data.type === "downgrade") {
+        setPlanMsg("✅ ダウングレードを受け付けました。次回請求日から反映されます。");
+      } else {
+        setPlanMsg("✅ プランを変更しました。");
+        setStore({ ...store, plan: newPlan, billing_cycle: newBillingCycle });
+      }
     } else {
       setPlanMsg("❌ エラーが発生しました: " + (data.error || "不明なエラー"));
     }
@@ -338,7 +344,9 @@ const fetchQrLogs = async (storeId: string) => {
                     { label: "店舗名", value: store.name },
                     { label: "プラン", value: PLAN_LABELS[store.plan] || store.plan },
                     { label: "契約状態", value: store.status },
-                    { label: "次回請求日", value: store.next_billing_date || "未設定" },
+                    { label: "契約タイプ", value: store.billing_cycle === "yearly" ? "年契約" : "月契約" },
+{ label: "次回請求日", value: store.next_billing_date || "未設定" },
+...(store.pending_plan ? [{ label: "変更予定プラン", value: `${PLAN_LABELS[store.pending_plan]}（次回請求日より）` }] : []),
                   ].map((item, i) => (
                     <div key={i} style={{ background: "#F4F6F9", borderRadius: "10px", padding: "14px" }}>
                       <div style={{ fontSize: "11px", color: "#888", marginBottom: "4px" }}>{item.label}</div>
@@ -396,12 +404,30 @@ const fetchQrLogs = async (storeId: string) => {
           )}
 
           {/* プラン変更 */}
-          {activeTab === "plan" && store && (
+         {activeTab === "plan" && store && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <h2 style={{ margin: "0 0 8px", fontSize: "16px", color: "#1a2533" }}>プラン変更</h2>
-              <p style={{ color: "#888", fontSize: "13px", margin: "0 0 20px" }}>
+              <p style={{ color: "#888", fontSize: "13px", margin: "0 0 16px" }}>
                 アップグレードは即時反映・即時差額決済。ダウングレードは次回請求日から反映。
               </p>
+              <div style={{ background: "#F0FAF4", border: "1px solid #2C7A4B", borderRadius: "10px", padding: "12px", marginBottom: "16px", fontSize: "12px", color: "#1a3a2a" }}>
+                💡 これまでお支払いいただいた初期費用は引き継がれます。プラン変更時は不足分のみご請求となります。
+              </div>
+              <div style={{ marginBottom: "16px" }}>
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#1a2533", marginBottom: "8px" }}>契約タイプ</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  {[
+                    { key: "monthly", label: "月契約", sub: "いつでも解約可能" },
+                    { key: "yearly", label: "年契約", sub: "12ヶ月継続・初期費用お得" },
+                  ].map(bc => (
+                    <div key={bc.key} onClick={() => setSelectedBillingCycle(bc.key as "monthly" | "yearly")}
+                      style={{ border: `2px solid ${selectedBillingCycle === bc.key ? "#2C7A4B" : "#E5E7EB"}`, borderRadius: "10px", padding: "12px", cursor: "pointer", background: selectedBillingCycle === bc.key ? "#F0FAF4" : "#fff", textAlign: "center" }}>
+                      <div style={{ fontWeight: "700", fontSize: "14px" }}>{bc.label}</div>
+                      <div style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>{bc.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {[
                   { key: "light", name: "ライト", price: 2980, features: ["月10回", "QR口コミ導線", "管理画面"] },
@@ -420,7 +446,7 @@ const fetchQrLogs = async (storeId: string) => {
                     {store.plan === p.key ? (
                       <div style={{ textAlign: "center", padding: "8px", background: "#ECFDF5", borderRadius: "8px", color: "#065F46", fontSize: "13px", fontWeight: "600" }}>現在のプラン</div>
                     ) : (
-                      <button onClick={() => handlePlanChange(p.key)}
+                      <button onClick={() => handlePlanChange(p.key, selectedBillingCycle)}
                         style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", fontFamily: "inherit", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>
                         {["light", "standard", "premium"].indexOf(p.key) > ["light", "standard", "premium"].indexOf(store.plan) ? "アップグレード" : "ダウングレード"}
                       </button>
