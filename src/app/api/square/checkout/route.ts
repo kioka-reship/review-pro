@@ -9,22 +9,41 @@ const supabase = createClient(
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = "https://connect.squareup.com/v2";
 
-const PLAN_PRICES: Record<string, { amount: number; name: string; catalogId?: string }> = {
-  light:    { amount: 2980,  name: "REVIEW PRO ライト（月10件）" },
-  standard: { amount: 5980,  name: "REVIEW PRO スタンダード（月30件）" },
-  premium:  { amount: 9800,  name: "REVIEW PRO プレミアム（無制限）" },
+// 月額（billing_cycle別）
+const MONTHLY_PRICES: Record<string, Record<string, number>> = {
+  monthly: { light: 4980,  standard: 9800,  premium: 19800 },
+  yearly:  { light: 3980,  standard: 7980,  premium: 15800 },
+};
+
+// 初期費用（月額1ヶ月分と同額）
+const SETUP_FEES: Record<string, Record<string, number>> = {
+  monthly: { light: 4980,  standard: 9800,  premium: 19800 },
+  yearly:  { light: 3980,  standard: 7980,  premium: 15800 },
+};
+
+const PLAN_NAMES: Record<string, string> = {
+  light:    "REVIEW PRO ライト",
+  standard: "REVIEW PRO スタンダード",
+  premium:  "REVIEW PRO プレミアム",
+};
+
+const BILLING_CYCLE_LABELS: Record<string, string> = {
+  monthly: "月契約",
+  yearly:  "年契約",
 };
 
 export async function POST(req: NextRequest) {
-  const { storeId, plan } = await req.json();
+  const { storeId, plan, billing_cycle = "monthly" } = await req.json();
 
   if (!storeId || !plan) {
     return NextResponse.json({ error: "storeId and plan are required" }, { status: 400 });
   }
 
-  const planInfo = PLAN_PRICES[plan];
-  if (!planInfo) {
-    return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+  const monthlyPrice = MONTHLY_PRICES[billing_cycle]?.[plan];
+  const setupFee = SETUP_FEES[billing_cycle]?.[plan];
+
+  if (!monthlyPrice) {
+    return NextResponse.json({ error: "Invalid plan or billing_cycle" }, { status: 400 });
   }
 
   // 店舗情報を取得
@@ -38,8 +57,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Store not found" }, { status: 404 });
   }
 
+  const planLabel = `${PLAN_NAMES[plan]}（${BILLING_CYCLE_LABELS[billing_cycle]}）`;
+
   try {
-    // Square Payment Linkを生成
+    // 初月 = 月額 + 初期費用（line_itemsを分けて明細表示）
+    const lineItems = [
+      {
+        name: `${planLabel} 月額`,
+        quantity: "1",
+        base_price_money: { amount: monthlyPrice, currency: "JPY" },
+      },
+      {
+        name: `${planLabel} 導入設定費`,
+        quantity: "1",
+        base_price_money: { amount: setupFee, currency: "JPY" },
+      },
+    ];
+
     const res = await fetch(`${SQUARE_API_BASE}/online-checkout/payment-links`, {
       method: "POST",
       headers: {
@@ -48,19 +82,10 @@ export async function POST(req: NextRequest) {
         "Square-Version": "2024-01-18",
       },
       body: JSON.stringify({
-        idempotency_key: `${storeId}-${plan}-${Date.now()}`,
+        idempotency_key: `${storeId}-${plan}-${billing_cycle}-${Date.now()}`,
         order: {
           location_id: process.env.SQUARE_LOCATION_ID,
-          line_items: [
-            {
-              name: planInfo.name,
-              quantity: "1",
-              base_price_money: {
-                amount: planInfo.amount,
-                currency: "JPY",
-              },
-            },
-          ],
+          line_items: lineItems,
         },
         checkout_options: {
           redirect_url: `https://review-pro-ay7x.vercel.app/admin`,
@@ -82,17 +107,24 @@ export async function POST(req: NextRequest) {
     const paymentLink = data?.payment_link?.url;
     const paymentLinkId = data?.payment_link?.id;
 
-    // 支払いリンクをSupabaseに保存（任意）
     await supabase
       .from("stores")
-      .update({ 
+      .update({
+        billing_cycle,
+        monthly_price: monthlyPrice,
+        setup_fee_paid_amount: setupFee,
+        setup_fee_paid_plan: plan,
+        setup_fee_paid_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", storeId);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       url: paymentLink,
       id: paymentLinkId,
+      monthly_price: monthlyPrice,
+      setup_fee: setupFee,
+      total_first_month: monthlyPrice + setupFee,
     });
 
   } catch (err: any) {
