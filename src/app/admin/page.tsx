@@ -28,9 +28,9 @@ type Question = {
 };
 
 const PLAN_LABELS: Record<string, string> = {
-  light: "ライト ¥2,980",
-  standard: "スタンダード ¥5,980",
-  premium: "プレミアム ¥9,800",
+  light: "ライト ¥4,980",
+  standard: "スタンダード ¥9,800",
+  premium: "プレミアム ¥19,800",
 };
 
 const STATUS_OPTIONS = ["契約中", "入金待ち", "停止中", "仮申込", "解約予約", "解約済"];
@@ -522,7 +522,7 @@ export default function AdminPage() {
   const removeOption = (qIdx: number, oIdx: number) => { const next = [...questions]; if (next[qIdx].options && next[qIdx].options!.length > 2) { next[qIdx].options!.splice(oIdx, 1); setQuestions(next); } };
 
   const totalRevenue = stores.filter(s => s.status === "契約中").reduce((sum, s) => {
-    const prices: Record<string, number> = { light: 2980, standard: 5980, premium: 9800 };
+    const prices: Record<string, number> = { light: 4980, standard: 9800, premium: 19800 };
     return sum + (prices[s.plan] || 0);
   }, 0);
 
@@ -684,9 +684,9 @@ export default function AdminPage() {
                   <label style={{ fontSize: "12px", fontWeight: "600", color: "#555", display: "block", marginBottom: "6px" }}>プラン</label>
                   <select value={newStore.plan} onChange={e => setNewStore({ ...newStore, plan: e.target.value })}
                     style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none", background: "#fff" }}>
-                    <option value="light">ライト ¥2,980/月</option>
-                    <option value="standard">スタンダード ¥5,980/月</option>
-                    <option value="premium">プレミアム ¥9,800/月</option>
+                    <option value="light">ライト ¥4,980/月（月契約）/ ¥3,980/月（年契約）</option>
+                    <option value="standard">スタンダード ¥9,800/月（月契約）/ ¥7,980/月（年契約）</option>
+                    <option value="premium">プレミアム ¥19,800/月（月契約）/ ¥15,800/月（年契約）</option>
                   </select>
                 </div>
                 {addMsg && <p style={{ color: addMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontSize: "13px", fontWeight: "600" }}>{addMsg}</p>}
@@ -826,9 +826,9 @@ export default function AdminPage() {
                 <label style={{ fontSize: "12px", fontWeight: "600", color: "#555", display: "block", marginBottom: "6px" }}>プラン</label>
                 <select value={editStore.plan} onChange={e => setEditStore({ ...editStore, plan: e.target.value })}
                   style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none", background: "#fff" }}>
-                  <option value="light">ライト ¥2,980/月</option>
-                  <option value="standard">スタンダード ¥5,980/月</option>
-                  <option value="premium">プレミアム ¥9,800/月</option>
+                  <option value="light">ライト ¥4,980/月（月契約）/ ¥3,980/月（年契約）</option>
+                  <option value="standard">スタンダード ¥9,800/月（月契約）/ ¥7,980/月（年契約）</option>
+                  <option value="premium">プレミアム ¥19,800/月（月契約）/ ¥15,800/月（年契約）</option>
                 </select>
               </div>
               <div>
