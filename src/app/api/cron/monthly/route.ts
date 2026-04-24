@@ -7,9 +7,9 @@ const supabase = createClient(
 );
 
 const PLAN_LABELS: Record<string, string> = {
-  light: "ライト ¥2,980/月",
-  standard: "スタンダード ¥5,980/月",
-  premium: "プレミアム ¥9,800/月",
+  light: "ライト ¥4,980/月（月契約）/ ¥3,980/月（年契約）",
+  standard: "スタンダード ¥9,800/月（月契約）/ ¥7,980/月（年契約）",
+  premium: "プレミアム ¥19,800/月（月契約）/ ¥15,800/月（年契約）",
 };
 
 export async function GET(req: NextRequest) {
