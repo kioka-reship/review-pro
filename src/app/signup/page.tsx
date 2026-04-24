@@ -5,10 +5,10 @@ const PLANS = [
   {
     key: "light",
     name: "ライト",
-    monthlyPrice: 2980,
-    yearlyPrice: 2980,
-    setupFeeMonthly: 3000,
-    setupFeeYearly: 0,
+    monthlyPrice: 4980,
+    yearlyPrice: 3980,
+    setupFeeMonthly: 4980,
+    setupFeeYearly: 3980,
     limit: "月10回",
     features: ["口コミ生成 月10回", "QR口コミ導線", "管理画面", "1店舗のみ"],
     recommended: false,
@@ -16,10 +16,10 @@ const PLANS = [
   {
     key: "standard",
     name: "スタンダード",
-    monthlyPrice: 5980,
-    yearlyPrice: 5980,
-    setupFeeMonthly: 14800,
-    setupFeeYearly: 9800,
+    monthlyPrice: 9800,
+    yearlyPrice: 7980,
+    setupFeeMonthly: 9800,
+    setupFeeYearly: 7980,
     limit: "月20回",
     features: ["口コミ生成 月20回", "QR口コミ導線", "管理画面", "オプション追加可能", "質問テンプレ変更可能"],
     recommended: false,
@@ -27,10 +27,10 @@ const PLANS = [
   {
     key: "premium",
     name: "プレミアム",
-    monthlyPrice: 9800,
-    yearlyPrice: 9800,
-    setupFeeMonthly: 24800,
-    setupFeeYearly: 19800,
+    monthlyPrice: 19800,
+    yearlyPrice: 15800,
+    setupFeeMonthly: 19800,
+    setupFeeYearly: 15800,
     limit: "無制限",
     features: ["口コミ生成 無制限", "QR口コミ導線", "管理画面", "低評価対策PRO", "AI口コミ自動返信", "フィードバック一覧", "成果ダッシュボード", "月次自動レポート", "優先サポート", "質問自由編集"],
     recommended: true,
@@ -38,10 +38,10 @@ const PLANS = [
 ];
 
 const OPTIONS = [
-  { key: "low_review_pro", name: "低評価対策PRO", price: 2980, description: "★2以下の低評価が付いた際に、Googleへの投稿前に店舗へ直接フィードバックを誘導。悪い口コミを未然に防ぎます。" },
-  { key: "qr_analytics", name: "QRアクセス分析PRO", price: 1980, description: "QRコードの読取数を日別・月別で可視化。アクセス推移をグラフで確認できます。" },
-  { key: "feedback_list", name: "フィードバック一覧", price: 1480, description: "低評価ユーザーからのフィードバックをマイページで一覧表示。改善ポイントの把握に役立ちます。" },
-  { key: "monthly_report", name: "月次自動レポート", price: 980, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
+  { key: "low_review_pro", name: "低評価対策PRO", price: 3980, description: "★2以下の低評価が付いた際に、Googleへの投稿前に店舗へ直接フィードバックを誘導。悪い口コミを未然に防ぎます。" },
+  { key: "qr_analytics", name: "QRアクセス分析PRO", price: 2980, description: "QRコードの読取数を日別・月別で可視化。アクセス推移をグラフで確認できます。" },
+  { key: "feedback_list", name: "フィードバック一覧", price: 1980, description: "低評価ユーザーからのフィードバックをマイページで一覧表示。改善ポイントの把握に役立ちます。" },
+  { key: "monthly_report", name: "月次自動レポート", price: 1480, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
 ];
 
 const REFERRAL_CODES = ["BNI-MEMBER", "0CP"];
@@ -53,8 +53,7 @@ const INDUSTRY_OPTIONS = [
 ];
 
 export default function SignupPage() {
-  const [step, setStep] = useState(1);
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("yearly");
   const [form, setForm] = useState({
     company_name: "", store_name: "", owner_name: "", contact_name: "",
     email: "", password: "", type: "飲食店", place_id: "",
@@ -81,7 +80,8 @@ export default function SignupPage() {
   }, 0);
   const total = setupFee + price + optionTotal;
 
-  const upsellSuggestion = selectedPlan === "standard" && (price + optionTotal) >= 9800;
+  const premiumPrice = billingCycle === "monthly" ? 19800 : 15800;
+  const upsellSuggestion = selectedPlan === "standard" && (price + optionTotal) >= premiumPrice;
 
   const toggleOption = (key: string) => {
     setSelectedOptions(prev =>
@@ -134,16 +134,16 @@ export default function SignupPage() {
           <div style={{ background: "#fff", borderRadius: "20px", padding: "28px", marginBottom: "16px" }}>
             <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>① 契約タイプを選択</h2>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div onClick={() => setBillingCycle("yearly")}
+                style={{ border: `2px solid ${billingCycle === "yearly" ? "#2C7A4B" : "#E5E7EB"}`, borderRadius: "12px", padding: "16px", cursor: "pointer", background: billingCycle === "yearly" ? "#F0FAF4" : "#fff", textAlign: "center", position: "relative" }}>
+                <span style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", background: "#F59E0B", color: "#fff", fontSize: "11px", fontWeight: "700", padding: "2px 10px", borderRadius: "20px", whiteSpace: "nowrap" }}>⭐ おすすめ</span>
+                <div style={{ fontWeight: "700", fontSize: "15px", color: "#1a2533", marginBottom: "4px" }}>年契約</div>
+                <div style={{ fontSize: "12px", color: "#888" }}>月々お得・継続プラン</div>
+              </div>
               <div onClick={() => setBillingCycle("monthly")}
                 style={{ border: `2px solid ${billingCycle === "monthly" ? "#2C7A4B" : "#E5E7EB"}`, borderRadius: "12px", padding: "16px", cursor: "pointer", background: billingCycle === "monthly" ? "#F0FAF4" : "#fff", textAlign: "center" }}>
                 <div style={{ fontWeight: "700", fontSize: "15px", color: "#1a2533", marginBottom: "4px" }}>月契約</div>
-                <div style={{ fontSize: "12px", color: "#888" }}>いつでも解約可能</div>
-              </div>
-              <div onClick={() => setBillingCycle("yearly")}
-                style={{ border: `2px solid ${billingCycle === "yearly" ? "#2C7A4B" : "#E5E7EB"}`, borderRadius: "12px", padding: "16px", cursor: "pointer", background: billingCycle === "yearly" ? "#F0FAF4" : "#fff", textAlign: "center", position: "relative" }}>
-                <span style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", background: "#F59E0B", color: "#fff", fontSize: "11px", fontWeight: "700", padding: "2px 10px", borderRadius: "20px", whiteSpace: "nowrap" }}>初期費用お得</span>
-                <div style={{ fontWeight: "700", fontSize: "15px", color: "#1a2533", marginBottom: "4px" }}>年契約</div>
-                <div style={{ fontSize: "12px", color: "#888" }}>12ヶ月継続</div>
+                <div style={{ fontSize: "12px", color: "#888" }}>縛りなし・いつでも解約</div>
               </div>
             </div>
           </div>
@@ -155,6 +155,7 @@ export default function SignupPage() {
               {PLANS.map(p => {
                 const pPrice = billingCycle === "monthly" ? p.monthlyPrice : p.yearlyPrice;
                 const pSetup = billingCycle === "monthly" ? p.setupFeeMonthly : p.setupFeeYearly;
+                const firstMonth = pPrice + pSetup;
                 return (
                   <div key={p.key} onClick={() => { setSelectedPlan(p.key); setSelectedOptions([]); }}
                     style={{ border: `2px solid ${selectedPlan === p.key ? "#2C7A4B" : "#E5E7EB"}`, borderRadius: "12px", padding: "16px", cursor: "pointer", position: "relative", background: selectedPlan === p.key ? "#F0FAF4" : "#fff" }}>
@@ -163,8 +164,11 @@ export default function SignupPage() {
                       <div style={{ fontWeight: "700", fontSize: "15px", color: "#1a2533" }}>{p.name}</div>
                       <div style={{ fontWeight: "800", color: "#2C7A4B" }}>¥{pPrice.toLocaleString()}<span style={{ fontSize: "12px", fontWeight: "400", color: "#888" }}>/月</span></div>
                     </div>
-                    <div style={{ fontSize: "12px", color: "#888", marginBottom: "8px" }}>
-                      初期費用：{pSetup === 0 ? "無料" : `¥${pSetup.toLocaleString()}`}　|　{p.limit}
+                    <div style={{ fontSize: "12px", color: "#888", marginBottom: "4px" }}>
+                      導入設定費：¥{pSetup.toLocaleString()}　|　{p.limit}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#B7791F", fontWeight: "600", marginBottom: "8px" }}>
+                      初月合計：¥{firstMonth.toLocaleString()}
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                       {p.features.map(f => (
@@ -182,7 +186,7 @@ export default function SignupPage() {
                 <h3 style={{ fontSize: "14px", color: "#1a2533", marginBottom: "12px" }}>オプション追加（任意）</h3>
                 {upsellSuggestion && (
                   <div style={{ background: "#FFFBEB", border: "1px solid #F59E0B", borderRadius: "10px", padding: "12px", marginBottom: "12px", fontSize: "13px", color: "#92400E" }}>
-                    💡 プレミアムの方がお得です！現在の合計 ¥{(price + optionTotal).toLocaleString()} ≥ プレミアム ¥9,800
+                    💡 プレミアムの方がお得です！現在の合計 ¥{(price + optionTotal).toLocaleString()} ≥ プレミアム ¥{premiumPrice.toLocaleString()}
                   </div>
                 )}
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -263,7 +267,7 @@ export default function SignupPage() {
                 );
               })}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                <span>初期費用{referralValid ? "（紹介コード適用）" : ""}</span>
+                <span>導入設定費{referralValid ? "（紹介コード適用）" : ""}</span>
                 <span>{setupFee === 0 ? "無料" : `¥${setupFee.toLocaleString()}`}</span>
               </div>
               <div style={{ borderTop: "1px solid #E5E7EB", paddingTop: "12px", display: "flex", justifyContent: "space-between", fontWeight: "700", fontSize: "16px" }}>
