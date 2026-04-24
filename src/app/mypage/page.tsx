@@ -54,6 +54,46 @@ const PLAN_LABELS: Record<string, string> = {
 
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
+// プラン定義（billing_cycle別）
+const PLAN_LIST = [
+  {
+    key: "light",
+    name: "ライト",
+    monthlyPrice: 4980,
+    yearlyPrice: 3980,
+    setupMonthly: 4980,
+    setupYearly: 3980,
+    features: ["月10回", "QR口コミ導線", "管理画面"],
+  },
+  {
+    key: "standard",
+    name: "スタンダード",
+    monthlyPrice: 9800,
+    yearlyPrice: 7980,
+    setupMonthly: 9800,
+    setupYearly: 7980,
+    features: ["月20回", "QR口コミ導線", "オプション追加可"],
+  },
+  {
+    key: "premium",
+    name: "プレミアム",
+    monthlyPrice: 19800,
+    yearlyPrice: 15800,
+    setupMonthly: 19800,
+    setupYearly: 15800,
+    features: ["無制限", "全機能込み", "優先サポート"],
+    recommended: true,
+  },
+];
+
+const OPTION_LIST = [
+  { key: "low_review_pro", name: "低評価対策PRO", price: 3980, description: "★2以下の低評価が付いた際に、Googleへの投稿前に店舗へ直接フィードバックを誘導。悪い口コミを未然に防ぎます。" },
+  // { key: "ai_reply", name: "AI口コミ自動返信", price: 2980, description: "Googleに届いた口コミにAIが自動で返信。オーナー返信率を高め、Googleの評価アップにつながります。" },
+  { key: "qr_analytics", name: "QRアクセス分析PRO", price: 2980, description: "QRコードの読取数を日別・月別で可視化。アクセス推移をグラフで確認できます。" },
+  { key: "feedback_list", name: "フィードバック一覧", price: 1980, description: "低評価ユーザーからのフィードバックをマイページで一覧表示。改善ポイントの把握に役立ちます。" },
+  { key: "monthly_report", name: "月次自動レポート", price: 1480, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
+];
+
 export default function MyPage() {
   const [authed, setAuthed] = useState(false);
   const [email, setEmail] = useState("");
@@ -63,22 +103,23 @@ export default function MyPage() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [options, setOptions] = useState<OptionSub[]>([]);
-  const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "questions" | "feedback" | "cancel">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "questions" | "feedback" | "cancel" | "qr_analytics">("home");
   const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [feedbackMonth, setFeedbackMonth] = useState("");
   const [qrLogs, setQrLogs] = useState<any[]>([]);
 
-const fetchQrLogs = async (storeId: string) => {
-  const res = await fetch(`/api/mypage/qr-analytics?store_id=${storeId}`);
-  const data = await res.json();
-  setQrLogs(data.logs || []);
-};
+  const fetchQrLogs = async (storeId: string) => {
+    const res = await fetch(`/api/mypage/qr-analytics?store_id=${storeId}`);
+    const data = await res.json();
+    setQrLogs(data.logs || []);
+  };
 
   const fetchFeedback = async (storeId: string) => {
     const res = await fetch(`/api/admin/feedback?store_id=${storeId}`);
     const data = await res.json();
     setFeedbackList(data.feedback || []);
   };
+
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsSaved, setQuestionsSaved] = useState(false);
@@ -131,25 +172,15 @@ const fetchQrLogs = async (storeId: string) => {
       setQuestions(next);
     }
   };
+
   const [planMsg, setPlanMsg] = useState("");
-const [selectedBillingCycle, setSelectedBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [selectedBillingCycle, setSelectedBillingCycle] = useState<"monthly" | "yearly">("yearly");
   const [optionMsg, setOptionMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelMsg, setCancelMsg] = useState("");
 
-  const OPTION_LIST = [
-{ key: "low_review_pro", name: "低評価対策PRO", price: 2980, description: "★2以下の低評価が付いた際に、Googleへの投稿前に店舗へ直接フィードバックを誘導。悪い口コミを未然に防ぎます。" },
-// { key: "ai_reply", name: "AI口コミ自動返信", price: 1980, description: "Googleに届いた口コミにAIが自動で返信。オーナー返信率を高め、Googleの評価アップにつながります。" },
-{ key: "qr_analytics", name: "QRアクセス分析PRO", price: 1980, description: "QRコードの読取数を日別・月別で可視化。アクセス推移をグラフで確認できます。" },
-{ key: "feedback_list", name: "フィードバック一覧", price: 1480, description: "低評価ユーザーからのフィードバックをマイページで一覧表示。改善ポイントの把握に役立ちます。" },
-{ key: "monthly_report", name: "月次自動レポート", price: 980, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
-];
-
-  const PLAN_PRICES: Record<string, { price: number; setupFee: number; name: string }> = {
-    light:    { price: 2980,  setupFee: 0,     name: "ライト" },
-    standard: { price: 5980,  setupFee: 9800,  name: "スタンダード" },
-    premium:  { price: 9800,  setupFee: 19800, name: "プレミアム" },
-  };
-
-const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
+  const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
     if (!store) return;
     if (store.plan === newPlan && store.billing_cycle === newBillingCycle) return;
 
@@ -198,9 +229,6 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
       setOptionMsg("❌ エラーが発生しました: " + (data.error || "不明なエラー"));
     }
   };
-  const [loading, setLoading] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
-  const [cancelMsg, setCancelMsg] = useState("");
 
   const handleLogin = async () => {
     setLoading(true);
@@ -318,7 +346,7 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
               ...(store?.plan !== "light" ? [{ key: "questions", label: "❓ 質問設定" }] : []),
               ...(store?.plan === "premium" ? [{ key: "feedback", label: "⭐ 低評価FB" }] : []),
               { key: "billing", label: "💳 請求履歴" },
-      ...(options.some(o => o.option_key === "qr_analytics" && o.status !== "canceled") || store?.plan === "premium" ? [{ key: "qr_analytics", label: "📊 QR分析" }] : []),
+              ...(options.some(o => o.option_key === "qr_analytics" && o.status !== "canceled") || store?.plan === "premium" ? [{ key: "qr_analytics", label: "📊 QR分析" }] : []),
               { key: "qr", label: "📱 QRコード" },
               { key: "cancel", label: "🚪 解約" },
             ].map(t => (
@@ -345,8 +373,8 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
                     { label: "プラン", value: PLAN_LABELS[store.plan] || store.plan },
                     { label: "契約状態", value: store.status },
                     { label: "契約タイプ", value: store.billing_cycle === "yearly" ? "年契約" : "月契約" },
-{ label: "次回請求日", value: store.next_billing_date || "未設定" },
-...(store.pending_plan ? [{ label: "変更予定プラン", value: `${PLAN_LABELS[store.pending_plan]}（次回請求日より）` }] : []),
+                    { label: "次回請求日", value: store.next_billing_date || "未設定" },
+                    ...(store.pending_plan ? [{ label: "変更予定プラン", value: `${PLAN_LABELS[store.pending_plan]}（次回請求日より）` }] : []),
                   ].map((item, i) => (
                     <div key={i} style={{ background: "#F4F6F9", borderRadius: "10px", padding: "14px" }}>
                       <div style={{ fontSize: "11px", color: "#888", marginBottom: "4px" }}>{item.label}</div>
@@ -404,7 +432,7 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
           )}
 
           {/* プラン変更 */}
-         {activeTab === "plan" && store && (
+          {activeTab === "plan" && store && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <h2 style={{ margin: "0 0 8px", fontSize: "16px", color: "#1a2533" }}>プラン変更</h2>
               <p style={{ color: "#888", fontSize: "13px", margin: "0 0 16px" }}>
@@ -413,12 +441,14 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
               <div style={{ background: "#F0FAF4", border: "1px solid #2C7A4B", borderRadius: "10px", padding: "12px", marginBottom: "16px", fontSize: "12px", color: "#1a3a2a" }}>
                 💡 これまでお支払いいただいた初期費用は引き継がれます。プラン変更時は不足分のみご請求となります。
               </div>
+
+              {/* 契約タイプ選択 */}
               <div style={{ marginBottom: "16px" }}>
                 <p style={{ fontSize: "13px", fontWeight: "700", color: "#1a2533", marginBottom: "8px" }}>契約タイプ</p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                   {[
-                    { key: "monthly", label: "月契約", sub: "いつでも解約可能" },
-                    { key: "yearly", label: "年契約", sub: "12ヶ月継続・初期費用お得" },
+                    { key: "yearly", label: "年契約", sub: "月々お得・継続プラン" },
+                    { key: "monthly", label: "月契約", sub: "縛りなし・いつでも解約" },
                   ].map(bc => (
                     <div key={bc.key} onClick={() => setSelectedBillingCycle(bc.key as "monthly" | "yearly")}
                       style={{ border: `2px solid ${selectedBillingCycle === bc.key ? "#2C7A4B" : "#E5E7EB"}`, borderRadius: "10px", padding: "12px", cursor: "pointer", background: selectedBillingCycle === bc.key ? "#F0FAF4" : "#fff", textAlign: "center" }}>
@@ -428,60 +458,53 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
                   ))}
                 </div>
               </div>
+
+              {/* プランカード */}
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {[{ key: "light", name: "ライト", price: 2980, setupMonthly: 3000, setupYearly: 0, features: ["月10回", "QR口コミ導線", "管理画面"] },
-{ key: "standard", name: "スタンダード", price: 5980, setupMonthly: 14800, setupYearly: 9800, features: ["月20回", "QR口コミ導線", "オプション追加可"] },
-{ key: "premium", name: "プレミアム", price: 9800, setupMonthly: 24800, setupYearly: 19800, features: ["無制限", "全機能込み", "優先サポート"], recommended: true },
-                ].map(p => (
-                  <div key={p.key} style={{ border: `2px solid ${store.plan === p.key ? "#2C7A4B" : "#E5E7EB"}`, borderRadius: "12px", padding: "16px", background: store.plan === p.key ? "#F0FAF4" : "#fff", position: "relative" }}>
-                    {p.recommended && <span style={{ position: "absolute", top: "-10px", right: "16px", background: "#2C7A4B", color: "#fff", fontSize: "11px", fontWeight: "700", padding: "2px 10px", borderRadius: "20px" }}>⭐ おすすめ</span>}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <div style={{ fontWeight: "700", fontSize: "15px" }}>{p.name}</div>
-                      <div style={{ fontWeight: "800", color: "#2C7A4B" }}>¥{p.price.toLocaleString()}/月</div>
+                {PLAN_LIST.map(p => {
+                  const displayPrice = selectedBillingCycle === "yearly" ? p.yearlyPrice : p.monthlyPrice;
+                  const newSetup = selectedBillingCycle === "yearly" ? p.setupYearly : p.setupMonthly;
+                  const paidSetup = store.setup_fee_paid_amount || 0;
+                  const diff = Math.max(0, newSetup - paidSetup);
+                  const PLAN_RANK: Record<string, number> = { light: 1, standard: 2, premium: 3 };
+                  const isCurrentPlan = store.plan === p.key && store.billing_cycle === selectedBillingCycle;
+                  const isDowngrade = PLAN_RANK[p.key] < PLAN_RANK[store.plan];
+
+                  return (
+                    <div key={p.key} style={{ border: `2px solid ${store.plan === p.key ? "#2C7A4B" : "#E5E7EB"}`, borderRadius: "12px", padding: "16px", background: store.plan === p.key ? "#F0FAF4" : "#fff", position: "relative" }}>
+                      {p.recommended && <span style={{ position: "absolute", top: "-10px", right: "16px", background: "#2C7A4B", color: "#fff", fontSize: "11px", fontWeight: "700", padding: "2px 10px", borderRadius: "20px" }}>⭐ おすすめ</span>}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <div style={{ fontWeight: "700", fontSize: "15px" }}>{p.name}</div>
+                        <div style={{ fontWeight: "800", color: "#2C7A4B" }}>¥{displayPrice.toLocaleString()}/月</div>
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#888", marginBottom: "8px" }}>
+                        {isCurrentPlan ? null : isDowngrade ? (
+                          <span style={{ color: "#888" }}>次回請求日から反映・追加費用なし</span>
+                        ) : diff === 0 ? (
+                          <span style={{ color: "#2C7A4B", fontWeight: "700" }}>追加費用：無料</span>
+                        ) : (
+                          <span>
+                            追加費用：<span style={{ color: "#E53E3E", fontWeight: "700" }}>¥{diff.toLocaleString()}</span>
+                            <span style={{ color: "#aaa", fontSize: "11px", marginLeft: "6px" }}>
+                              （初期費用¥{newSetup.toLocaleString()} - 支払済¥{paidSetup.toLocaleString()}）
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" }}>
+                        {p.features.map(f => <span key={f} style={{ background: "#F4F6F9", color: "#555", fontSize: "11px", padding: "2px 8px", borderRadius: "20px" }}>{f}</span>)}
+                      </div>
+                      {isCurrentPlan ? (
+                        <div style={{ textAlign: "center", padding: "8px", background: "#ECFDF5", borderRadius: "8px", color: "#065F46", fontSize: "13px", fontWeight: "600" }}>現在のプラン</div>
+                      ) : (
+                        <button onClick={() => handlePlanChange(p.key, selectedBillingCycle)}
+                          style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", fontFamily: "inherit", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>
+                          {PLAN_RANK[p.key] > PLAN_RANK[store.plan] ? "アップグレード" : "ダウングレード"}
+                        </button>
+                      )}
                     </div>
-                    <div style={{ fontSize: "12px", color: "#888", marginBottom: "8px" }}>
-  {(() => {
-    const newSetup = selectedBillingCycle === "yearly" ? (p as any).setupYearly : (p as any).setupMonthly;
-    const paidSetup = store.setup_fee_paid_amount || 0;
-    const diff = Math.max(0, newSetup - paidSetup);
-    const PLAN_RANK: Record<string, number> = { light: 1, standard: 2, premium: 3 };
-    const isCurrentPlan = store.plan === p.key && store.billing_cycle === selectedBillingCycle;
-    const isUpgrade = PLAN_RANK[p.key] > PLAN_RANK[store.plan];
-    const isDowngrade = PLAN_RANK[p.key] < PLAN_RANK[store.plan];
-
-    if (isCurrentPlan) return null;
-
-    if (isDowngrade) return (
-      <span style={{ color: "#888" }}>次回請求日から反映・追加費用なし</span>
-    );
-
-    if (diff === 0) return (
-      <span style={{ color: "#2C7A4B", fontWeight: "700" }}>追加費用：無料</span>
-    );
-
-    return (
-      <span>
-        追加費用：<span style={{ color: "#E53E3E", fontWeight: "700" }}>¥{diff.toLocaleString()}</span>
-        <span style={{ color: "#aaa", fontSize: "11px", marginLeft: "6px" }}>
-          （初期費用¥{newSetup.toLocaleString()} - 支払済¥{paidSetup.toLocaleString()}）
-        </span>
-      </span>
-    );
-  })()}
-</div>
-<div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "12px" }}>
-  {p.features.map(f => <span key={f} style={{ background: "#F4F6F9", color: "#555", fontSize: "11px", padding: "2px 8px", borderRadius: "20px" }}>{f}</span>)}
-</div>
-                    {store.plan === p.key ? (
-                      <div style={{ textAlign: "center", padding: "8px", background: "#ECFDF5", borderRadius: "8px", color: "#065F46", fontSize: "13px", fontWeight: "600" }}>現在のプラン</div>
-                    ) : (
-                      <button onClick={() => handlePlanChange(p.key, selectedBillingCycle)}
-                        style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", fontFamily: "inherit", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>
-                        {["light", "standard", "premium"].indexOf(p.key) > ["light", "standard", "premium"].indexOf(store.plan) ? "アップグレード" : "ダウングレード"}
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {planMsg && <p style={{ color: planMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontSize: "13px", fontWeight: "600", marginTop: "16px" }}>{planMsg}</p>}
             </div>
@@ -490,7 +513,6 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
           {/* オプション */}
           {activeTab === "options" && store && (
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {/* OP追加（スタンダードのみ） */}
               {store.plan === "standard" && (
                 <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                   <h2 style={{ margin: "0 0 8px", fontSize: "16px", color: "#1a2533" }}>オプション追加</h2>
@@ -501,9 +523,9 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
                       return (
                         <div key={opt.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px", background: "#F4F6F9", borderRadius: "10px" }}>
                           <div>
-                           <div style={{ fontWeight: "600", fontSize: "13px" }}>{opt.name}</div>
-<div style={{ fontSize: "11px", color: "#888", marginTop: "3px", lineHeight: "1.6", maxWidth: "380px" }}>{opt.description}</div>
-<div style={{ fontSize: "12px", color: "#2C7A4B", fontWeight: "700", marginTop: "4px" }}>¥{opt.price.toLocaleString()}/月</div>
+                            <div style={{ fontWeight: "600", fontSize: "13px" }}>{opt.name}</div>
+                            <div style={{ fontSize: "11px", color: "#888", marginTop: "3px", lineHeight: "1.6", maxWidth: "380px" }}>{opt.description}</div>
+                            <div style={{ fontSize: "12px", color: "#2C7A4B", fontWeight: "700", marginTop: "4px" }}>¥{opt.price.toLocaleString()}/月</div>
                           </div>
                           {alreadyAdded ? (
                             <span style={{ fontSize: "12px", padding: "4px 12px", borderRadius: "20px", background: "#ECFDF5", color: "#065F46", fontWeight: "600" }}>契約中</span>
@@ -521,7 +543,6 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
                 </div>
               )}
 
-              {/* 契約中OP一覧・解約申請 */}
               <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>契約中のオプション</h2>
                 {options.length === 0 ? (
@@ -556,14 +577,13 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
             </div>
           )}
 
-{/* 質問設定 */}
+          {/* 質問設定 */}
           {activeTab === "questions" && store && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <h2 style={{ margin: "0 0 8px", fontSize: "16px", color: "#1a2533" }}>質問設定</h2>
               <p style={{ color: "#888", fontSize: "13px", margin: "0 0 20px" }}>
                 {store.plan === "standard" ? "質問の選択肢を変更できます。" : "質問の文章・選択肢を自由に編集できます。並び替えも可能です。"}
               </p>
-
               {questions.length === 0 ? (
                 <p style={{ color: "#aaa", textAlign: "center", padding: "20px" }}>質問が設定されていません</p>
               ) : (
@@ -573,33 +593,21 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
                       <div style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", marginBottom: "8px" }}>
                         Q{qi + 1} {q.type === "stars" ? "⭐ 星評価（固定）" : q.type === "multi" ? "☑️ 複数選択" : "🔘 一択"}
                       </div>
-
                       {q.type === "stars" ? (
                         <p style={{ margin: 0, color: "#aaa", fontSize: "13px" }}>{q.label}（変更不可）</p>
                       ) : (
                         <>
-                          {/* プレミアムは質問文も編集可 */}
                           {(store.plan === "premium" || store.plan === "standard") ? (
-                            <input
-                              value={q.label}
-                              onChange={e => updateQuestionLabel(qi, e.target.value)}
-                              maxLength={50}
-                              style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", marginBottom: "10px", boxSizing: "border-box", outline: "none" }}
-                            />
+                            <input value={q.label} onChange={e => updateQuestionLabel(qi, e.target.value)} maxLength={50}
+                              style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", marginBottom: "10px", boxSizing: "border-box", outline: "none" }} />
                           ) : (
                             <p style={{ margin: "0 0 10px", fontSize: "13px", color: "#555", fontWeight: "600" }}>{q.label}</p>
                           )}
-
-                          {/* 選択肢 */}
                           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                             {q.options?.map((opt, oi) => (
                               <div key={oi} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                <input
-                                  value={opt}
-                                  onChange={e => updateOption(qi, oi, e.target.value)}
-                                  maxLength={30}
-                                  style={{ flex: 1, padding: "7px 10px", borderRadius: "8px", border: "1px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none" }}
-                                />
+                                <input value={opt} onChange={e => updateOption(qi, oi, e.target.value)} maxLength={30}
+                                  style={{ flex: 1, padding: "7px 10px", borderRadius: "8px", border: "1px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none" }} />
                                 {store.plan === "premium" && (
                                   <button onClick={() => removeOption(qi, oi)}
                                     style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "6px", padding: "6px 10px", fontSize: "12px", cursor: "pointer" }}>✕</button>
@@ -619,7 +627,6 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
                   ))}
                 </div>
               )}
-
               {questions.length > 0 && (
                 <button onClick={handleSaveQuestions} disabled={questionsLoading}
                   style={{ width: "100%", marginTop: "20px", padding: "14px", borderRadius: "12px", border: "none", background: questionsSaved ? "#1A5C38" : "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", fontFamily: "inherit", fontSize: "15px", fontWeight: "700", cursor: "pointer" }}>
@@ -629,7 +636,7 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
             </div>
           )}
 
-{/* 低評価フィードバック */}
+          {/* 低評価フィードバック */}
           {activeTab === "feedback" && store && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
@@ -652,7 +659,7 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
                 <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>フィードバックはありません</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                 {feedbackList.filter(fb => !feedbackMonth || fb.created_at.startsWith(feedbackMonth)).map((fb: any) => (
+                  {feedbackList.filter(fb => !feedbackMonth || fb.created_at.startsWith(feedbackMonth)).map((fb: any) => (
                     <div key={fb.id} style={{ border: "1.5px solid #FEE2E2", borderRadius: "12px", padding: "16px", background: "#FFF5F5" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                         <span style={{ fontSize: "12px", fontWeight: "700", color: "#991B1B", background: "#FEE2E2", padding: "2px 8px", borderRadius: "6px" }}>★{fb.rating}</span>
@@ -672,7 +679,7 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
               )}
             </div>
           )}
-          
+
           {/* 請求履歴 */}
           {activeTab === "billing" && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
@@ -700,58 +707,51 @@ const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
             </div>
           )}
 
-{/* QR分析 */}
-{activeTab === ("qr_analytics" as any) && store && (
-  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-    <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-      <h2 style={{ margin: "0 0 20px", fontSize: "16px", color: "#1a2533" }}>📊 QRコードアクセス分析</h2>
-
-      {/* サマリー */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "24px" }}>
-        {[
-          { label: "今月", value: qrLogs.filter(l => l.accessed_at?.startsWith(new Date().toISOString().slice(0, 7))).length },
-          { label: "今日", value: qrLogs.filter(l => l.accessed_at?.startsWith(new Date().toISOString().slice(0, 10))).length },
-          { label: "累計", value: qrLogs.length },
-        ].map((item, i) => (
-          <div key={i} style={{ background: "#F4F6F9", borderRadius: "12px", padding: "16px", textAlign: "center" }}>
-            <div style={{ fontSize: "11px", color: "#888", marginBottom: "6px" }}>{item.label}</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#2C7A4B" }}>{item.value}</div>
-            <div style={{ fontSize: "11px", color: "#aaa" }}>回</div>
-          </div>
-        ))}
-      </div>
-
-      {/* 日別グラフ（直近7日） */}
-      <h3 style={{ margin: "0 0 12px", fontSize: "13px", color: "#1a2533" }}>直近7日間</h3>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", height: "80px", marginBottom: "4px" }}>
-        {Array.from({ length: 7 }).map((_, i) => {
-          const date = new Date();
-          date.setDate(date.getDate() - (6 - i));
-          const dateStr = date.toISOString().slice(0, 10);
-          const count = qrLogs.filter(l => l.accessed_at?.startsWith(dateStr)).length;
-          const max = Math.max(...Array.from({ length: 7 }).map((_, j) => {
-            const d = new Date(); d.setDate(d.getDate() - (6 - j));
-            return qrLogs.filter(l => l.accessed_at?.startsWith(d.toISOString().slice(0, 10))).length;
-          }), 1);
-          return (
-            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-              <div style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B" }}>{count > 0 ? count : ""}</div>
-              <div style={{ width: "100%", background: count > 0 ? "#2C7A4B" : "#E5E7EB", borderRadius: "4px 4px 0 0", height: `${(count / max) * 60}px`, minHeight: "4px", transition: "height 0.3s" }} />
-              <div style={{ fontSize: "10px", color: "#aaa" }}>{date.getMonth() + 1}/{date.getDate()}</div>
+          {/* QR分析 */}
+          {activeTab === "qr_analytics" && store && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                <h2 style={{ margin: "0 0 20px", fontSize: "16px", color: "#1a2533" }}>📊 QRコードアクセス分析</h2>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "24px" }}>
+                  {[
+                    { label: "今月", value: qrLogs.filter(l => l.accessed_at?.startsWith(new Date().toISOString().slice(0, 7))).length },
+                    { label: "今日", value: qrLogs.filter(l => l.accessed_at?.startsWith(new Date().toISOString().slice(0, 10))).length },
+                    { label: "累計", value: qrLogs.length },
+                  ].map((item, i) => (
+                    <div key={i} style={{ background: "#F4F6F9", borderRadius: "12px", padding: "16px", textAlign: "center" }}>
+                      <div style={{ fontSize: "11px", color: "#888", marginBottom: "6px" }}>{item.label}</div>
+                      <div style={{ fontSize: "28px", fontWeight: "800", color: "#2C7A4B" }}>{item.value}</div>
+                      <div style={{ fontSize: "11px", color: "#aaa" }}>回</div>
+                    </div>
+                  ))}
+                </div>
+                <h3 style={{ margin: "0 0 12px", fontSize: "13px", color: "#1a2533" }}>直近7日間</h3>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", height: "80px", marginBottom: "4px" }}>
+                  {Array.from({ length: 7 }).map((_, i) => {
+                    const date = new Date();
+                    date.setDate(date.getDate() - (6 - i));
+                    const dateStr = date.toISOString().slice(0, 10);
+                    const count = qrLogs.filter(l => l.accessed_at?.startsWith(dateStr)).length;
+                    const max = Math.max(...Array.from({ length: 7 }).map((_, j) => {
+                      const d = new Date(); d.setDate(d.getDate() - (6 - j));
+                      return qrLogs.filter(l => l.accessed_at?.startsWith(d.toISOString().slice(0, 10))).length;
+                    }), 1);
+                    return (
+                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B" }}>{count > 0 ? count : ""}</div>
+                        <div style={{ width: "100%", background: count > 0 ? "#2C7A4B" : "#E5E7EB", borderRadius: "4px 4px 0 0", height: `${(count / max) * 60}px`, minHeight: "4px", transition: "height 0.3s" }} />
+                        <div style={{ fontSize: "10px", color: "#aaa" }}>{date.getMonth() + 1}/{date.getDate()}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {qrLogs.length === 0 && (
+                  <p style={{ color: "#aaa", textAlign: "center", padding: "20px", fontSize: "13px" }}>まだアクセスデータがありません</p>
+                )}
+              </div>
             </div>
-          );
-        })}
-      </div>
+          )}
 
-      {qrLogs.length === 0 && (
-        <p style={{ color: "#aaa", textAlign: "center", padding: "20px", fontSize: "13px" }}>
-          まだアクセスデータがありません
-        </p>
-      )}
-    </div>
-  </div>
-)}
-          
           {/* QRコード */}
           {activeTab === "qr" && store && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", textAlign: "center" }}>
