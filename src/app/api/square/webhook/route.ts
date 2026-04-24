@@ -21,7 +21,6 @@ const PLAN_LABELS: Record<string, string> = {
   premium:  "プレミアム ¥19,800/月",
 };
 
-// プラン別月額（オプションなし）
 const PLAN_MONTHLY: Record<string, number> = {
   light: 4980, standard: 9800, premium: 19800,
 };
@@ -86,6 +85,16 @@ async function findPendingStoreByEmail(email: string): Promise<string | null> {
   return data[0].id;
 }
 
+async function findStoreByOrderId(orderId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("stores")
+    .select("id")
+    .eq("square_order_id", orderId)
+    .limit(1);
+  if (!data || data.length === 0) return null;
+  return data[0].id;
+}
+
 async function writeAuditLog(storeId: string, action: string, detail: any) {
   await supabase.from("audit_logs").insert({
     store_id: storeId,
@@ -95,7 +104,6 @@ async function writeAuditLog(storeId: string, action: string, detail: any) {
   });
 }
 
-// Squareサブスクリプション作成
 async function createSquareSubscription(
   customerId: string,
   storeId: string,
@@ -104,7 +112,6 @@ async function createSquareSubscription(
   monthlyAmount: number
 ): Promise<string | null> {
   try {
-    // カード一覧取得
     const cardRes = await fetch(`${SQUARE_API_BASE}/cards?customer_id=${customerId}`, {
       headers: {
         "Authorization": `Bearer ${SQUARE_ACCESS_TOKEN}`,
@@ -118,7 +125,6 @@ async function createSquareSubscription(
       return null;
     }
 
-    // 次回請求日（翌月5日）
     const now = new Date();
     const nextBilling = new Date(now.getFullYear(), now.getMonth() + 1, 5);
     const startDate = nextBilling.toISOString().split("T")[0];
@@ -198,10 +204,12 @@ export async function POST(req: NextRequest) {
         const customerId = payment?.customer_id;
         const buyerEmail = payment?.buyer_email_address;
         const paymentId = payment?.id;
+        const orderId = payment?.order_id;
 
         if (payment?.status === "COMPLETED") {
           let storeId = customerId ? await findStoreByCustomerId(customerId) : null;
           if (!storeId && buyerEmail) storeId = await findPendingStoreByEmail(buyerEmail);
+          if (!storeId && orderId) storeId = await findStoreByOrderId(orderId);
           if (!storeId) { console.log("[Webhook] store not found:", paymentId); break; }
 
           const { data: store } = await supabase
@@ -222,7 +230,6 @@ export async function POST(req: NextRequest) {
             .eq("store_id", storeId)
             .eq("status", "pending");
 
-          // アップグレード決済
           const { data: planHistory } = await supabase
             .from("plan_histories")
             .select("*")
@@ -246,10 +253,8 @@ export async function POST(req: NextRequest) {
             console.log("[Webhook] → アップグレード完了:", storeId);
 
           } else if (store.status === "pending_payment") {
-            // 新規申込決済完了
             const now = new Date().toISOString();
 
-            // setup_fee_paid_at を記録
             await supabase.from("stores").update({
               setup_fee_paid_at: now,
             }).eq("id", storeId);
@@ -257,10 +262,9 @@ export async function POST(req: NextRequest) {
             await updateStoreStatus(storeId, "契約中");
             await writeAuditLog(storeId, "payment_completed", { payment_id: paymentId });
 
-            // Squareサブスク自動登録
             if (customerId) {
               const billingCycle = store.billing_cycle || "monthly";
-              const monthlyAmount = store.monthly_price || PLAN_MONTHLY[store.plan] || 2980;
+              const monthlyAmount = store.monthly_price || PLAN_MONTHLY[store.plan] || 4980;
               const subscriptionId = await createSquareSubscription(
                 customerId, storeId, store.plan, billingCycle, monthlyAmount
               );
@@ -289,7 +293,6 @@ export async function POST(req: NextRequest) {
             });
 
           } else {
-            // オプション追加決済
             const { data: pendingOption } = await supabase
               .from("option_subscriptions")
               .select("*")
@@ -316,6 +319,7 @@ export async function POST(req: NextRequest) {
         } else if (payment?.status === "FAILED") {
           let storeId = customerId ? await findStoreByCustomerId(customerId) : null;
           if (!storeId && buyerEmail) storeId = await findPendingStoreByEmail(buyerEmail);
+          if (!storeId && orderId) storeId = await findStoreByOrderId(orderId);
           if (!storeId) break;
           await updateStoreStatus(storeId, "停止中");
           await writeAuditLog(storeId, "payment_failed", { payment_id: paymentId });
