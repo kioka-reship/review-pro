@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createHmac } from "crypto";
-import { sendEmail, emailTemplates } from "../../../lib/sendEmail";
+import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
 import { sendAdminNotification } from "../../../../lib/sendAdminNotification";
 
 const supabase = createClient(
