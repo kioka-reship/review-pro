@@ -77,8 +77,7 @@ export async function POST(req: NextRequest) {
       monthly_price,
       setup_fee_paid_amount: setup_fee,
       status: "pending_payment",
-      options: options,
-      referral_code: referral_code || null,
+            referral_code: referral_code || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
