@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
+import { sendEmail } from "../../../../lib/sendEmail";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,14 +16,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "メールアドレスが必要です" }, { status: 400 });
   }
 
-  // メールアドレスが存在するか確認
   const { data: store } = await supabase
     .from("stores")
     .select("id, name")
     .eq("email", email)
     .single();
 
-  // 存在しなくても成功を返す（セキュリティ対策）
   if (!store) {
     return NextResponse.json({ success: true });
   }
@@ -37,17 +36,25 @@ export async function POST(req: NextRequest) {
     expires_at: expiresAt.toISOString(),
   });
 
-  // メール送信ログ
-  await supabase.from("email_logs").insert({
-    store_id: store.id,
-    to_email: email,
-    subject: "【REVIEW PRO】パスワード再設定",
-    type: "password_reset",
-    status: "sent",
-  });
+  const resetUrl = `${APP_URL}/mypage/reset-password/confirm?token=${token}`;
 
-  // TODO: 実際のメール送信はSendGridなどで実装
-  console.log(`[Reset] URL: ${APP_URL}/mypage/reset-password/confirm?token=${token}`);
+  // Brevoでメール送信
+  await sendEmail({
+    to: email,
+    subject: "【REVIEW PRO】パスワード再設定",
+    htmlContent: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="color: #2C7A4B;">パスワード再設定</h2>
+        <p>${store.name} 様</p>
+        <p>パスワード再設定のリクエストを受け付けました。<br>以下のボタンから新しいパスワードを設定してください。</p>
+        <a href="${resetUrl}" style="display: inline-block; margin: 24px 0; padding: 14px 28px; background: #2C7A4B; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold;">
+          パスワードを再設定する
+        </a>
+        <p style="color: #888; font-size: 12px;">このリンクは1時間有効です。心当たりがない場合は無視してください。</p>
+      </div>
+    `,
+    storeId: store.id,
+  });
 
   return NextResponse.json({ success: true });
 }
