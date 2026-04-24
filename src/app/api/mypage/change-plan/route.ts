@@ -11,15 +11,16 @@ const SQUARE_API_BASE = "https://connect.squareup.com/v2";
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID!;
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
-// 初期費用テーブル
+// 初期費用テーブル（月額1ヶ月分）
 const SETUP_FEES: Record<string, Record<string, number>> = {
-  monthly: { light: 3000, standard: 14800, premium: 24800 },
-  yearly:  { light: 0,    standard: 9800,  premium: 19800 },
+  monthly: { light: 4980, standard: 9800, premium: 19800 },
+  yearly:  { light: 3980, standard: 7980, premium: 15800 },
 };
 
-// 月額テーブル
-const MONTHLY_PRICES: Record<string, number> = {
-  light: 2980, standard: 5980, premium: 9800,
+// 月額テーブル（billing_cycle別）
+const MONTHLY_PRICES: Record<string, Record<string, number>> = {
+  monthly: { light: 4980, standard: 9800, premium: 19800 },
+  yearly:  { light: 3980, standard: 7980, premium: 15800 },
 };
 
 const PLAN_RANK: Record<string, number> = {
@@ -28,6 +29,10 @@ const PLAN_RANK: Record<string, number> = {
 
 const PLAN_LABELS: Record<string, string> = {
   light: "ライト", standard: "スタンダード", premium: "プレミアム",
+};
+
+const BILLING_CYCLE_LABELS: Record<string, string> = {
+  monthly: "月契約", yearly: "年契約",
 };
 
 export async function POST(req: NextRequest) {
@@ -104,7 +109,7 @@ export async function POST(req: NextRequest) {
       await supabase.from("stores").update({
         plan: to_plan,
         billing_cycle: to_billing_cycle,
-        monthly_price: MONTHLY_PRICES[to_plan],
+        monthly_price: MONTHLY_PRICES[to_billing_cycle]?.[to_plan] || MONTHLY_PRICES["monthly"][to_plan],
         updated_at: new Date().toISOString(),
       }).eq("id", store_id);
 
