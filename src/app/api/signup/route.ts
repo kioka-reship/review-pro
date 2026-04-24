@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendAdminNotification } from "../../../lib/sendAdminNotification";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,147 +11,63 @@ const SQUARE_API_BASE = "https://connect.squareup.com/v2";
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID!;
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
-const PLAN_PRICES: Record<string, {
-  price: number;
-  setupFeeMonthly: number;
-  setupFeeYearly: number;
-  name: string;
-}> = {
-  light:    { price: 2980,  setupFeeMonthly: 3000,  setupFeeYearly: 0,     name: "REVIEW PRO ライト" },
-  standard: { price: 5980,  setupFeeMonthly: 14800, setupFeeYearly: 9800,  name: "REVIEW PRO スタンダード" },
-  premium:  { price: 9800,  setupFeeMonthly: 24800, setupFeeYearly: 19800, name: "REVIEW PRO プレミアム" },
+const PLAN_PRICES: Record<string, { monthly_price: number; yearly_price: number; setupFee_monthly: number; setupFee_yearly: number; name: string }> = {
+  light:    { monthly_price: 4980,  yearly_price: 3980,  setupFee_monthly: 4980,  setupFee_yearly: 3980,  name: "REVIEW PRO ライト" },
+  standard: { monthly_price: 9800,  yearly_price: 7980,  setupFee_monthly: 9800,  setupFee_yearly: 7980,  name: "REVIEW PRO スタンダード" },
+  premium:  { monthly_price: 19800, yearly_price: 15800, setupFee_monthly: 19800, setupFee_yearly: 15800, name: "REVIEW PRO プレミアム" },
 };
 
-const OPTION_PRICES: Record<string, { price: number; name: string }> = {
-  low_review_pro: { price: 2980, name: "低評価対策PRO" },
-  qr_analytics:   { price: 1980, name: "QRアクセス分析PRO" },
-  feedback_list:  { price: 1480, name: "フィードバック一覧" },
-  monthly_report: { price: 980,  name: "月次自動レポート" },
-};
-
-const REFERRAL_CODES = ["BNI-MEMBER", "0CP"];
+const PLAN_ORDER: Record<string, number> = { light: 0, standard: 1, premium: 2 };
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const {
-    company_name, store_name, owner_name, contact_name,
-    email, password, type, place_id,
-    plan, billing_cycle = "monthly", options = [],
-    referral_code, setup_fee, monthly_price, total,
-  } = body;
+  const { store_id, current_plan, new_plan } = await req.json();
 
-  if (!store_name || !email || !password || !place_id || !plan) {
-    return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 });
+  if (!store_id || !current_plan || !new_plan) {
+    return NextResponse.json({ error: "必須パラメータが不足しています" }, { status: 400 });
   }
 
-  const planInfo = PLAN_PRICES[plan];
-  if (!planInfo) {
-    return NextResponse.json({ error: "無効なプランです" }, { status: 400 });
-  }
+  const { data: store } = await supabase
+    .from("stores")
+    .select("id, name, email, setup_fee_paid")
+    .eq("id", store_id)
+    .single();
 
-  const referralValid = REFERRAL_CODES.includes(referral_code?.toUpperCase());
-  const rawSetupFee = billing_cycle === "yearly" ? planInfo.setupFeeYearly : planInfo.setupFeeMonthly;
-  const actualSetupFee = referralValid ? 0 : rawSetupFee;
+  if (!store) return NextResponse.json({ error: "店舗が見つかりません" }, { status: 404 });
 
-  const optionTotal = options.reduce((sum: number, key: string) => {
-    return sum + (OPTION_PRICES[key]?.price || 0);
-  }, 0);
-  const totalAmount = actualSetupFee + planInfo.price + optionTotal;
+  const isUpgrade = PLAN_ORDER[new_plan] > PLAN_ORDER[current_plan];
+  const newPlanInfo = PLAN_PRICES[new_plan];
+  const currentPlanInfo = PLAN_PRICES[current_plan];
 
-  const storeId = type.slice(0, 3).toLowerCase().replace(/[^a-z]/g, "") + "-" + Date.now().toString().slice(-6);
+  if (isUpgrade) {
+    // アップグレード：差額を即時決済（月契約基準で計算）
+    const priceDiff = newPlanInfo.monthly_price - currentPlanInfo.monthly_price;
+    const setupFeeDiff = Math.max(newPlanInfo.setupFee_monthly - (store.setup_fee_paid || 0), 0);
+    const totalDiff = priceDiff + setupFeeDiff;
 
-  const now = new Date();
-  const day = now.getDate();
-  const nextBilling = new Date();
-  if (day <= 20) {
-    nextBilling.setMonth(nextBilling.getMonth() + 1);
-  } else {
-    nextBilling.setMonth(nextBilling.getMonth() + 2);
-  }
-  nextBilling.setDate(5);
-
-  try {
-    const { error: storeError } = await supabase.from("stores").insert({
-      id: storeId,
-      name: store_name,
-      company_name,
-      owner_name,
-      contact_name,
-      email,
-      password,
-      type,
-      place_id,
-      plan,
-      billing_cycle,
-      status: "pending_payment",
-      setup_fee_paid: 0,
-      setup_fee_paid_amount: actualSetupFee,
-      setup_fee_paid_plan: plan,
-      referral_code: referral_code?.toUpperCase() || null,
-      next_billing_date: nextBilling.toISOString().split("T")[0],
-      created_at: new Date().toISOString(),
-    });
-
-    if (storeError) {
-      console.error("[Signup] store insert error:", storeError);
-      return NextResponse.json({ error: storeError.message }, { status: 500 });
-    }
-
-    await supabase.from("invoices").insert({
-      store_id: storeId,
-      type: "setup_fee",
-      description: `${planInfo.name} 初期費用（${billing_cycle === "yearly" ? "年契約" : "月契約"}）`,
-      amount: actualSetupFee,
-      status: "pending",
-    });
-
-    await supabase.from("invoices").insert({
-      store_id: storeId,
-      type: "monthly",
-      description: `${planInfo.name} 初月月額`,
-      amount: planInfo.price + optionTotal,
-      status: "pending",
-    });
-
-    await supabase.from("consent_logs").insert({
-      store_id: storeId,
-      name: owner_name,
-      email,
-      ip_address: req.headers.get("x-forwarded-for") || "",
-      plan,
-      options,
-      referral_code: referral_code?.toUpperCase() || null,
-      terms_version: "1.0",
-    });
-
-    // Square決済リンク作成
     const lineItems = [];
-
-    if (actualSetupFee > 0) {
+    if (priceDiff > 0) {
       lineItems.push({
-        name: `${planInfo.name} 初期費用（${billing_cycle === "yearly" ? "年契約" : "月契約"}）`,
+        name: `${newPlanInfo.name} アップグレード差額（月額）`,
         quantity: "1",
-        base_price_money: { amount: actualSetupFee, currency: "JPY" },
+        base_price_money: { amount: priceDiff, currency: "JPY" },
+      });
+    }
+    if (setupFeeDiff > 0) {
+      lineItems.push({
+        name: `${newPlanInfo.name} 導入設定費差額`,
+        quantity: "1",
+        base_price_money: { amount: setupFeeDiff, currency: "JPY" },
       });
     }
 
-    lineItems.push({
-      name: `${planInfo.name} 月額（${billing_cycle === "yearly" ? "年契約" : "月契約"}）`,
-      quantity: "1",
-      base_price_money: { amount: planInfo.price, currency: "JPY" },
-    });
+    if (lineItems.length === 0) {
+      // 差額なしの場合は即時反映
+      await supabase.from("stores").update({ plan: new_plan, updated_at: new Date().toISOString() }).eq("id", store_id);
+      await supabase.from("audit_logs").insert({ store_id, actor: "customer", action: "plan_upgraded", detail: { from: current_plan, to: new_plan } });
+      return NextResponse.json({ success: true });
+    }
 
-    options.forEach((key: string) => {
-      const opt = OPTION_PRICES[key];
-      if (opt) {
-        lineItems.push({
-          name: opt.name,
-          quantity: "1",
-          base_price_money: { amount: opt.price, currency: "JPY" },
-        });
-      }
-    });
-
+    // Square決済リンク生成
     const res = await fetch(`${SQUARE_API_BASE}/online-checkout/payment-links`, {
       method: "POST",
       headers: {
@@ -161,57 +76,62 @@ export async function POST(req: NextRequest) {
         "Square-Version": "2024-01-18",
       },
       body: JSON.stringify({
-        idempotency_key: `signup-${storeId}-${Date.now()}`,
-        order: {
-          location_id: SQUARE_LOCATION_ID,
-          line_items: lineItems,
-        },
+        idempotency_key: `upgrade-${store_id}-${new_plan}-${Date.now()}`,
+        order: { location_id: SQUARE_LOCATION_ID, line_items: lineItems },
         checkout_options: {
-          redirect_url: `${APP_URL}/signup/complete?store_id=${storeId}`,
+          redirect_url: `${APP_URL}/mypage?upgraded=1`,
           ask_for_shipping_address: false,
         },
-        pre_populated_data: {
-          buyer_email: email,
-        },
+        pre_populated_data: { buyer_email: store.email },
       }),
     });
 
     const data = await res.json();
+    if (!res.ok) return NextResponse.json({ error: data?.errors?.[0]?.detail || "決済リンク生成失敗" }, { status: 500 });
 
-    if (!res.ok) {
-      console.error("[Signup] Square error:", data);
-      return NextResponse.json({ error: data?.errors?.[0]?.detail || "決済リンク生成に失敗しました" }, { status: 500 });
-    }
-
-    const paymentLinkUrl = data?.payment_link?.url;
-    const paymentLinkId = data?.payment_link?.id;
-
-    await supabase.from("stores").update({
-      square_payment_link_id: paymentLinkId,
-    }).eq("id", storeId);
-
-    await sendAdminNotification({
-      subject: "【REVIEW PRO】新規申込がありました（決済前）",
-      htmlContent: `
-        <h2>新規申込通知</h2>
-        <p><strong>店舗名：</strong>${store_name}</p>
-        <p><strong>会社名：</strong>${company_name || "未入力"}</p>
-        <p><strong>メール：</strong>${email}</p>
-        <p><strong>プラン：</strong>${planInfo.name}</p>
-        <p><strong>契約タイプ：</strong>${billing_cycle === "yearly" ? "年契約" : "月契約"}</p>
-        <p><strong>オプション：</strong>${options.length > 0 ? options.map((o: string) => OPTION_PRICES[o]?.name || o).join("、") : "なし"}</p>
-        <p><strong>初期費用：</strong>¥${actualSetupFee.toLocaleString()}</p>
-        <p><strong>月額：</strong>¥${(planInfo.price + optionTotal).toLocaleString()}</p>
-        <p><strong>初回合計：</strong>¥${totalAmount.toLocaleString()}</p>
-        <p><strong>紹介コード：</strong>${referral_code || "なし"}</p>
-        <p><strong>申込日時：</strong>${new Date().toLocaleString("ja-JP")}</p>
-      `,
+    // plan_historiesに記録
+    await supabase.from("plan_histories").insert({
+      store_id,
+      changed_by: "customer",
+      from_plan: current_plan,
+      to_plan: new_plan,
+      change_type: "upgrade",
+      amount_charged: totalDiff,
+      effective_date: new Date().toISOString().split("T")[0],
     });
 
-    return NextResponse.json({ url: paymentLinkUrl });
+    return NextResponse.json({ url: data?.payment_link?.url });
 
-  } catch (err: any) {
-    console.error("[Signup] error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } else {
+    // ダウングレード：翌月請求日から反映
+    const { data: storeData } = await supabase
+      .from("stores")
+      .select("next_billing_date")
+      .eq("id", store_id)
+      .single();
+
+    await supabase.from("stores").update({
+      downgrade_scheduled_plan: new_plan,
+      downgrade_effective_date: storeData?.next_billing_date,
+      updated_at: new Date().toISOString(),
+    }).eq("id", store_id);
+
+    await supabase.from("plan_histories").insert({
+      store_id,
+      changed_by: "customer",
+      from_plan: current_plan,
+      to_plan: new_plan,
+      change_type: "downgrade_scheduled",
+      effective_date: storeData?.next_billing_date,
+    });
+
+    await supabase.from("audit_logs").insert({
+      store_id,
+      actor: "customer",
+      action: "plan_downgrade_scheduled",
+      detail: { from: current_plan, to: new_plan, effective_date: storeData?.next_billing_date },
+    });
+
+    return NextResponse.json({ success: true });
   }
 }
