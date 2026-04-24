@@ -7,67 +7,111 @@ const supabase = createClient(
 );
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
-const SQUARE_API_BASE = "https://connect.squareup.com/v2";
+const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
+  ? "https://connect.squareupsandbox.com/v2"
+  : "https://connect.squareup.com/v2";
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID!;
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
-const PLAN_PRICES: Record<string, { monthly_price: number; yearly_price: number; setupFee_monthly: number; setupFee_yearly: number; name: string }> = {
-  light:    { monthly_price: 4980,  yearly_price: 3980,  setupFee_monthly: 4980,  setupFee_yearly: 3980,  name: "REVIEW PRO ライト" },
-  standard: { monthly_price: 9800,  yearly_price: 7980,  setupFee_monthly: 9800,  setupFee_yearly: 7980,  name: "REVIEW PRO スタンダード" },
-  premium:  { monthly_price: 19800, yearly_price: 15800, setupFee_monthly: 19800, setupFee_yearly: 15800, name: "REVIEW PRO プレミアム" },
+const PLAN_NAMES: Record<string, string> = {
+  light:    "REVIEW PRO ライト",
+  standard: "REVIEW PRO スタンダード",
+  premium:  "REVIEW PRO プレミアム",
 };
 
-const PLAN_ORDER: Record<string, number> = { light: 0, standard: 1, premium: 2 };
+const BILLING_CYCLE_LABELS: Record<string, string> = {
+  monthly: "月契約",
+  yearly:  "年契約",
+};
 
 export async function POST(req: NextRequest) {
-  const { store_id, current_plan, new_plan } = await req.json();
+  const {
+    store_name, company_name, owner_name, contact_name,
+    email, password, type, place_id,
+    plan, billing_cycle = "monthly",
+    options = [], referral_code,
+    setup_fee, monthly_price, total,
+  } = await req.json();
 
-  if (!store_id || !current_plan || !new_plan) {
+  // 必須チェック
+  if (!store_name || !email || !password || !place_id || !plan || !billing_cycle) {
     return NextResponse.json({ error: "必須パラメータが不足しています" }, { status: 400 });
   }
 
-  const { data: store } = await supabase
+  // メール重複チェック
+  const { data: existing } = await supabase
     .from("stores")
-    .select("id, name, email, setup_fee_paid")
-    .eq("id", store_id)
+    .select("id")
+    .eq("email", email)
+    .limit(1);
+  if (existing && existing.length > 0) {
+    return NextResponse.json({ error: "このメールアドレスはすでに登録されています" }, { status: 400 });
+  }
+
+  // Supabase Auth ユーザー作成
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  if (authError || !authData?.user) {
+    return NextResponse.json({ error: authError?.message || "ユーザー作成失敗" }, { status: 500 });
+  }
+
+  const userId = authData.user.id;
+
+  // stores テーブルに登録
+  const { data: store, error: storeError } = await supabase
+    .from("stores")
+    .insert({
+      id: userId,
+      name: store_name,
+      company_name: company_name || null,
+      owner_name: owner_name || null,
+      contact_name: contact_name || null,
+      email,
+      type: type || null,
+      place_id,
+      plan,
+      billing_cycle,
+      monthly_price,
+      setup_fee_paid_amount: setup_fee,
+      status: "pending_payment",
+      options: options,
+      referral_code: referral_code || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .select()
     .single();
 
-  if (!store) return NextResponse.json({ error: "店舗が見つかりません" }, { status: 404 });
+  if (storeError || !store) {
+    // Auth ユーザーをロールバック
+    await supabase.auth.admin.deleteUser(userId);
+    return NextResponse.json({ error: storeError?.message || "店舗登録失敗" }, { status: 500 });
+  }
 
-  const isUpgrade = PLAN_ORDER[new_plan] > PLAN_ORDER[current_plan];
-  const newPlanInfo = PLAN_PRICES[new_plan];
-  const currentPlanInfo = PLAN_PRICES[current_plan];
+  // Square 決済リンク生成
+  const planLabel = `${PLAN_NAMES[plan]}（${BILLING_CYCLE_LABELS[billing_cycle]}）`;
+  const lineItems = [];
 
-  if (isUpgrade) {
-    // アップグレード：差額を即時決済（月契約基準で計算）
-    const priceDiff = newPlanInfo.monthly_price - currentPlanInfo.monthly_price;
-    const setupFeeDiff = Math.max(newPlanInfo.setupFee_monthly - (store.setup_fee_paid || 0), 0);
-    const totalDiff = priceDiff + setupFeeDiff;
+  // 月額
+  lineItems.push({
+    name: `${planLabel} 月額`,
+    quantity: "1",
+    base_price_money: { amount: monthly_price, currency: "JPY" },
+  });
 
-    const lineItems = [];
-    if (priceDiff > 0) {
-      lineItems.push({
-        name: `${newPlanInfo.name} アップグレード差額（月額）`,
-        quantity: "1",
-        base_price_money: { amount: priceDiff, currency: "JPY" },
-      });
-    }
-    if (setupFeeDiff > 0) {
-      lineItems.push({
-        name: `${newPlanInfo.name} 導入設定費差額`,
-        quantity: "1",
-        base_price_money: { amount: setupFeeDiff, currency: "JPY" },
-      });
-    }
+  // 初期費用（紹介コードなしの場合）
+  if (setup_fee > 0) {
+    lineItems.push({
+      name: `${planLabel} 導入設定費`,
+      quantity: "1",
+      base_price_money: { amount: setup_fee, currency: "JPY" },
+    });
+  }
 
-    if (lineItems.length === 0) {
-      // 差額なしの場合は即時反映
-      await supabase.from("stores").update({ plan: new_plan, updated_at: new Date().toISOString() }).eq("id", store_id);
-      await supabase.from("audit_logs").insert({ store_id, actor: "customer", action: "plan_upgraded", detail: { from: current_plan, to: new_plan } });
-      return NextResponse.json({ success: true });
-    }
-
-    // Square決済リンク生成
+  try {
     const res = await fetch(`${SQUARE_API_BASE}/online-checkout/payment-links`, {
       method: "POST",
       headers: {
@@ -76,62 +120,31 @@ export async function POST(req: NextRequest) {
         "Square-Version": "2024-01-18",
       },
       body: JSON.stringify({
-        idempotency_key: `upgrade-${store_id}-${new_plan}-${Date.now()}`,
-        order: { location_id: SQUARE_LOCATION_ID, line_items: lineItems },
+        idempotency_key: `signup-${userId}-${Date.now()}`,
+        order: {
+          location_id: SQUARE_LOCATION_ID,
+          line_items: lineItems,
+        },
         checkout_options: {
-          redirect_url: `${APP_URL}/mypage?upgraded=1`,
+          redirect_url: `${APP_URL}/admin`,
           ask_for_shipping_address: false,
         },
-        pre_populated_data: { buyer_email: store.email },
+        pre_populated_data: {
+          buyer_email: email,
+        },
       }),
     });
 
     const data = await res.json();
-    if (!res.ok) return NextResponse.json({ error: data?.errors?.[0]?.detail || "決済リンク生成失敗" }, { status: 500 });
-
-    // plan_historiesに記録
-    await supabase.from("plan_histories").insert({
-      store_id,
-      changed_by: "customer",
-      from_plan: current_plan,
-      to_plan: new_plan,
-      change_type: "upgrade",
-      amount_charged: totalDiff,
-      effective_date: new Date().toISOString().split("T")[0],
-    });
+    if (!res.ok) {
+      console.error("[Signup] Square error:", data);
+      return NextResponse.json({ error: data?.errors?.[0]?.detail || "Square決済リンク生成失敗" }, { status: 500 });
+    }
 
     return NextResponse.json({ url: data?.payment_link?.url });
 
-  } else {
-    // ダウングレード：翌月請求日から反映
-    const { data: storeData } = await supabase
-      .from("stores")
-      .select("next_billing_date")
-      .eq("id", store_id)
-      .single();
-
-    await supabase.from("stores").update({
-      downgrade_scheduled_plan: new_plan,
-      downgrade_effective_date: storeData?.next_billing_date,
-      updated_at: new Date().toISOString(),
-    }).eq("id", store_id);
-
-    await supabase.from("plan_histories").insert({
-      store_id,
-      changed_by: "customer",
-      from_plan: current_plan,
-      to_plan: new_plan,
-      change_type: "downgrade_scheduled",
-      effective_date: storeData?.next_billing_date,
-    });
-
-    await supabase.from("audit_logs").insert({
-      store_id,
-      actor: "customer",
-      action: "plan_downgrade_scheduled",
-      detail: { from: current_plan, to: new_plan, effective_date: storeData?.next_billing_date },
-    });
-
-    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("[Signup] error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
