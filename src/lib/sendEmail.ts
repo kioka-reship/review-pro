@@ -55,20 +55,54 @@ export async function sendEmail({ to, subject, html, storeId }: EmailPayload): P
 
 export const emailTemplates = {
 
-  welcome: (storeName: string, email: string, plan: string) => ({
-    subject: "【REVIEW PRO】ご契約ありがとうございます",
+  welcome: (storeName: string, email: string, plan: string, storeId: string) => ({
+    subject: "【REVIEW PRO】サービス開始のご案内",
     html: `
-      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px;">
-        <h2 style="color:#2C7A4B;">REVIEW PRO へようこそ！</h2>
-        <p>${storeName} 様、ご契約ありがとうございます。</p>
-        <p>以下の情報でマイページにログインできます。</p>
-        <div style="background:#F4F6F9;padding:16px;border-radius:8px;margin:20px 0;">
-          <p><strong>ログインURL：</strong><a href="https://review-pro-ay7x.vercel.app/mypage">https://review-pro-ay7x.vercel.app/mypage</a></p>
-          <p><strong>メールアドレス：</strong>${email}</p>
-          <p><strong>プラン：</strong>${plan}</p>
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#ffffff;">
+        <div style="text-align:center;margin-bottom:32px;">
+          <h1 style="color:#2C7A4B;font-size:24px;margin:0;">REVIEW PRO</h1>
+          <p style="color:#888;font-size:13px;margin:4px 0 0;">口コミ集客の自動化サービス</p>
         </div>
-        <p>ご不明な点はお気軽にお問い合わせください。</p>
-        <p style="color:#888;font-size:12px;">REVIEW PRO サポート</p>
+
+        <h2 style="color:#1a2533;font-size:18px;">ご契約ありがとうございます！</h2>
+        <p style="color:#555;line-height:1.8;">${storeName} 様、REVIEW PRO へようこそ！<br>決済が完了し、サービスが開始されました。</p>
+
+        <div style="background:#F0FAF4;border-left:4px solid #2C7A4B;padding:16px;border-radius:0 8px 8px 0;margin:24px 0;">
+          <p style="margin:0 0 8px;font-weight:700;color:#1a2533;">ご契約内容</p>
+          <p style="margin:0;color:#555;">プラン：<strong>${plan}</strong></p>
+          <p style="margin:4px 0 0;color:#555;">メールアドレス：<strong>${email}</strong></p>
+        </div>
+
+        <h3 style="color:#1a2533;font-size:15px;margin:28px 0 12px;">📱 まずはここから始めましょう</h3>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <a href="https://review-pro-ay7x.vercel.app/mypage" style="display:block;background:#2C7A4B;color:#fff;text-decoration:none;padding:14px 20px;border-radius:10px;font-weight:700;text-align:center;font-size:15px;">
+            🏠 マイページにログイン
+          </a>
+          <a href="https://review-pro-ay7x.vercel.app/mypage" style="display:block;background:#1a2533;color:#fff;text-decoration:none;padding:14px 20px;border-radius:10px;font-weight:700;text-align:center;font-size:15px;">
+            📱 QRコードを確認・印刷する
+          </a>
+        </div>
+
+        <div style="background:#F4F6F9;border-radius:10px;padding:20px;margin:28px 0;">
+          <p style="margin:0 0 12px;font-weight:700;color:#1a2533;">📋 ログイン情報</p>
+          <p style="margin:0;color:#555;">URL：<a href="https://review-pro-ay7x.vercel.app/mypage" style="color:#2C7A4B;">https://review-pro-ay7x.vercel.app/mypage</a></p>
+          <p style="margin:8px 0 0;color:#555;">メールアドレス：<strong>${email}</strong></p>
+          <p style="margin:8px 0 0;color:#555;">パスワード：ご登録時に設定されたパスワード</p>
+        </div>
+
+        <h3 style="color:#1a2533;font-size:15px;margin:28px 0 12px;">🚀 サービスの使い方</h3>
+        <ol style="color:#555;line-height:2;padding-left:20px;">
+          <li>マイページにログインする</li>
+          <li>QRコードをダウンロード・印刷する</li>
+          <li>お店のレジ横やテーブルにQRコードを設置する</li>
+          <li>お客様がQRコードを読み取り、口コミを投稿してくれます</li>
+        </ol>
+
+        <div style="border-top:1px solid #E5E7EB;margin-top:32px;padding-top:20px;text-align:center;">
+          <p style="color:#888;font-size:12px;margin:0;">ご不明な点はお気軽にお問い合わせください。</p>
+          <p style="color:#888;font-size:12px;margin:8px 0 0;">REVIEW PRO サポートチーム</p>
+        </div>
       </div>
     `,
   }),
@@ -85,7 +119,8 @@ export const emailTemplates = {
           <p><strong>今回のご請求：</strong>¥${amount.toLocaleString()}</p>
         </div>
         <p>新しいプランは即時反映されています。</p>
-        <p style="color:#888;font-size:12px;">REVIEW PRO サポート</p>
+        <a href="https://review-pro-ay7x.vercel.app/mypage" style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700;margin-top:16px;">マイページを確認する</a>
+        <p style="color:#888;font-size:12px;margin-top:24px;">REVIEW PRO サポート</p>
       </div>
     `,
   }),
@@ -118,7 +153,8 @@ export const emailTemplates = {
           <p><strong>月額：</strong>¥${price.toLocaleString()}</p>
         </div>
         <p>次回以降の請求に自動的に追加されます。</p>
-        <p style="color:#888;font-size:12px;">REVIEW PRO サポート</p>
+        <a href="https://review-pro-ay7x.vercel.app/mypage" style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700;margin-top:16px;">マイページを確認する</a>
+        <p style="color:#888;font-size:12px;margin-top:24px;">REVIEW PRO サポート</p>
       </div>
     `,
   }),
