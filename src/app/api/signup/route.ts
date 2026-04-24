@@ -148,13 +148,13 @@ if (orderId) {
   }).eq("id", userId);
 }
 
-// order_idをSupabaseに保存
-    const orderId = data?.payment_link?.order_id;
-    if (orderId) {
-      await supabase.from("stores").update({
-        square_order_id: orderId,
-      }).eq("id", userId);
-    }
+   // order_idをSupabaseに保存
+const squareOrderId = data?.payment_link?.order_id;
+if (squareOrderId) {
+  await supabase.from("stores").update({
+    square_order_id: squareOrderId,
+  }).eq("id", userId);
+}
     
     return NextResponse.json({ url: data?.payment_link?.url });
 
