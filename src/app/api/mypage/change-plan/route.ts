@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,7 +8,9 @@ const supabase = createClient(
 );
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
-const SQUARE_API_BASE = "https://connect.squareup.com/v2";
+const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
+  ? "https://connect.squareupsandbox.com/v2"
+  : "https://connect.squareup.com/v2";
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID!;
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
@@ -18,6 +21,12 @@ const PLAN_PRICES: Record<string, { monthly_price: number; yearly_price: number;
 };
 
 const PLAN_ORDER: Record<string, number> = { light: 0, standard: 1, premium: 2 };
+
+const PLAN_LABELS: Record<string, string> = {
+  light: "ライト",
+  standard: "スタンダード",
+  premium: "プレミアム",
+};
 
 export async function POST(req: NextRequest) {
   const { store_id, current_plan, new_plan, billing_cycle = "monthly" } = await req.json();
@@ -130,6 +139,15 @@ export async function POST(req: NextRequest) {
       action: "plan_downgrade_scheduled",
       detail: { from: current_plan, to: new_plan, effective_date: storeData?.next_billing_date },
     });
+
+    // ダウングレード予約メール送信
+    const tmpl = emailTemplates.downgradeScheduled(
+      store.name,
+      PLAN_LABELS[current_plan] || current_plan,
+      PLAN_LABELS[new_plan] || new_plan,
+      storeData?.next_billing_date || "次回請求日"
+    );
+    await sendEmail({ to: store.email, ...tmpl, storeId: store_id });
 
     return NextResponse.json({ success: true });
   }
