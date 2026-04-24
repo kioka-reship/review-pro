@@ -140,6 +140,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: data?.errors?.[0]?.detail || "Square決済リンク生成失敗" }, { status: 500 });
     }
 
+// order_idをSupabaseに保存
+const orderId = data?.payment_link?.order_id;
+if (orderId) {
+  await supabase.from("stores").update({
+    square_order_id: orderId,
+  }).eq("id", userId);
+}
+    
     return NextResponse.json({ url: data?.payment_link?.url });
 
   } catch (err: any) {
