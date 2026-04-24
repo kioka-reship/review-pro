@@ -1,6 +1,43 @@
+"use client";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function LandingPage() {
+  const [billingCycle, setBillingCycle] = useState<"yearly" | "monthly">("yearly");
+
+  const plans = [
+    {
+      key: "light",
+      name: "ライト",
+      monthlyPrice: { monthly: 4980, yearly: 3980 },
+      setupFee: { monthly: 4980, yearly: 3980 },
+      limit: "月10回",
+      features: ["口コミ生成 月10回", "QR口コミ導線", "管理画面", "1店舗"],
+      cta: "始める",
+      recommended: false,
+    },
+    {
+      key: "standard",
+      name: "スタンダード",
+      monthlyPrice: { monthly: 9800, yearly: 7980 },
+      setupFee: { monthly: 9800, yearly: 7980 },
+      limit: "月20回",
+      features: ["口コミ生成 月20回", "QR口コミ導線", "管理画面", "1店舗", "オプション追加可", "質問テンプレ変更可"],
+      cta: "始める",
+      recommended: false,
+    },
+    {
+      key: "premium",
+      name: "プレミアム",
+      monthlyPrice: { monthly: 19800, yearly: 15800 },
+      setupFee: { monthly: 19800, yearly: 15800 },
+      limit: "無制限",
+      features: ["口コミ生成 無制限", "QR口コミ導線", "管理画面", "1店舗", "低評価対策PRO", "AI口コミ自動返信", "フィードバック一覧", "月次自動レポート", "成果ダッシュボード", "優先サポート", "質問自由編集"],
+      cta: "始める",
+      recommended: true,
+    },
+  ];
+
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet" />
@@ -161,65 +198,66 @@ export default function LandingPage() {
       <section id="pricing" style={{ background: "#F8FAF8" }}>
         <div className="container" style={{ textAlign: "center" }}>
           <h2 className="section-title">シンプルな料金プラン</h2>
-          <p className="section-sub">ライトプランは導入設定費無料。いつでも解約可能。</p>
-          <div className="plan-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px", alignItems: "start" }}>
-            {[
-              {
-                name: "ライト",
-                price: "¥2,980",
-                setup: "導入設定費 無料",
-                limit: "月10回",
-                features: ["口コミ生成 月10回", "QR口コミ導線", "管理画面", "1店舗"],
-                cta: "始める",
-                recommended: false,
-              },
-              {
-                name: "スタンダード",
-                price: "¥5,980",
-                setup: "導入設定費 ¥9,800",
-                limit: "月20回",
-                features: ["口コミ生成 月20回", "QR口コミ導線", "管理画面", "1店舗", "オプション追加可", "質問テンプレ変更可"],
-                cta: "始める",
-                recommended: false,
-              },
-              {
-                name: "プレミアム",
-                price: "¥9,800",
-                setup: "導入設定費 ¥19,800",
-                limit: "無制限",
-                features: ["口コミ生成 無制限", "QR口コミ導線", "管理画面", "1店舗", "低評価対策PRO", "AI口コミ自動返信", "フィードバック一覧", "月次自動レポート", "成果ダッシュボード", "優先サポート", "質問自由編集"],
-                cta: "始める",
-                recommended: true,
-              },
-            ].map((plan, i) => (
-              <div key={i} style={{ background: "#fff", borderRadius: "20px", padding: "32px 28px", border: plan.recommended ? "2px solid #2C7A4B" : "1.5px solid #E8EDE8", position: "relative", boxShadow: plan.recommended ? "0 8px 40px rgba(44,122,75,0.15)" : "none" }}>
-                {plan.recommended && (
-                  <div style={{ position: "absolute", top: "-14px", left: "50%", transform: "translateX(-50%)", background: "#2C7A4B", color: "#fff", borderRadius: "100px", padding: "4px 20px", fontSize: "12px", fontWeight: "700", whiteSpace: "nowrap" }}>
-                    ⭐ 一番人気・おすすめ
-                  </div>
-                )}
-                <div style={{ fontSize: "16px", fontWeight: "700", color: "#1a2533", marginBottom: "8px" }}>{plan.name}</div>
-                <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: "40px", fontWeight: "900", color: plan.recommended ? "#2C7A4B" : "#1a2533", lineHeight: 1 }}>{plan.price}</div>
-                <div style={{ fontSize: "13px", color: "#888", marginBottom: "4px" }}>/月（税別）</div>
-                <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "24px" }}>{plan.setup}</div>
-                <div style={{ fontSize: "13px", fontWeight: "700", color: "#2C7A4B", background: "#F0FAF4", borderRadius: "8px", padding: "6px 12px", marginBottom: "24px", display: "inline-block" }}>
-                  {plan.limit}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "28px", textAlign: "left" }}>
-                  {plan.features.map((f, j) => (
-                    <div key={j} style={{ display: "flex", gap: "10px", alignItems: "flex-start", fontSize: "14px", color: "#555" }}>
-                      <span style={{ color: "#2C7A4B", flexShrink: 0, marginTop: "1px" }}>✓</span>
-                      {f}
-                    </div>
-                  ))}
-                </div>
-                <Link href="/signup" style={{ display: "block", padding: "14px", borderRadius: "12px", background: plan.recommended ? "linear-gradient(135deg, #2C7A4B, #3DA66A)" : "#F4F6F9", color: plan.recommended ? "#fff" : "#555", fontWeight: "700", fontSize: "15px", textDecoration: "none", textAlign: "center", transition: "all 0.2s" }}>
-                  {plan.cta} →
-                </Link>
-              </div>
-            ))}
+          <p className="section-sub">年契約なら毎月お得。いつでも解約可能。</p>
+
+          {/* 契約タイプ切り替えトグル */}
+          <div style={{ display: "inline-flex", background: "#E8EDE8", borderRadius: "100px", padding: "4px", marginBottom: "48px", position: "relative" }}>
+            <button
+              onClick={() => setBillingCycle("yearly")}
+              style={{ padding: "10px 28px", borderRadius: "100px", border: "none", background: billingCycle === "yearly" ? "#2C7A4B" : "transparent", color: billingCycle === "yearly" ? "#fff" : "#888", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s", position: "relative" }}>
+              年契約
+              <span style={{ marginLeft: "8px", background: billingCycle === "yearly" ? "rgba(255,255,255,0.25)" : "#2C7A4B", color: "#fff", borderRadius: "100px", padding: "2px 8px", fontSize: "11px", fontWeight: "700" }}>おすすめ</span>
+            </button>
+            <button
+              onClick={() => setBillingCycle("monthly")}
+              style={{ padding: "10px 28px", borderRadius: "100px", border: "none", background: billingCycle === "monthly" ? "#fff" : "transparent", color: billingCycle === "monthly" ? "#1a2533" : "#888", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s", boxShadow: billingCycle === "monthly" ? "0 2px 8px rgba(0,0,0,0.1)" : "none" }}>
+              月契約
+              <span style={{ marginLeft: "8px", fontSize: "11px", color: billingCycle === "monthly" ? "#888" : "#aaa" }}>縛りなし</span>
+            </button>
           </div>
-          <p style={{ color: "#aaa", fontSize: "14px", marginTop: "32px" }}>※ 料金は月額＋初回導入設定費です。ライトプランは導入設定費無料。</p>
+
+          <div className="plan-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px", alignItems: "start" }}>
+            {plans.map((plan, i) => {
+              const price = plan.monthlyPrice[billingCycle];
+              const setup = plan.setupFee[billingCycle];
+              const firstMonth = price + setup;
+              return (
+                <div key={i} style={{ background: "#fff", borderRadius: "20px", padding: "32px 28px", border: plan.recommended ? "2px solid #2C7A4B" : "1.5px solid #E8EDE8", position: "relative", boxShadow: plan.recommended ? "0 8px 40px rgba(44,122,75,0.15)" : "none" }}>
+                  {plan.recommended && (
+                    <div style={{ position: "absolute", top: "-14px", left: "50%", transform: "translateX(-50%)", background: "#2C7A4B", color: "#fff", borderRadius: "100px", padding: "4px 20px", fontSize: "12px", fontWeight: "700", whiteSpace: "nowrap" }}>
+                      ⭐ 一番人気・おすすめ
+                    </div>
+                  )}
+                  <div style={{ fontSize: "16px", fontWeight: "700", color: "#1a2533", marginBottom: "8px" }}>{plan.name}</div>
+                  <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: "40px", fontWeight: "900", color: plan.recommended ? "#2C7A4B" : "#1a2533", lineHeight: 1 }}>
+                    ¥{price.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#888", marginBottom: "4px" }}>/月（税別）</div>
+                  <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "8px" }}>導入設定費 ¥{setup.toLocaleString()}</div>
+                  <div style={{ fontSize: "12px", background: "#FFF9E6", color: "#B7791F", borderRadius: "8px", padding: "6px 12px", marginBottom: "20px", fontWeight: "600", display: "inline-block" }}>
+                    初月合計 ¥{firstMonth.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: "13px", fontWeight: "700", color: "#2C7A4B", background: "#F0FAF4", borderRadius: "8px", padding: "6px 12px", marginBottom: "24px", display: "inline-block", marginLeft: "8px" }}>
+                    {plan.limit}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "28px", textAlign: "left" }}>
+                    {plan.features.map((f, j) => (
+                      <div key={j} style={{ display: "flex", gap: "10px", alignItems: "flex-start", fontSize: "14px", color: "#555" }}>
+                        <span style={{ color: "#2C7A4B", flexShrink: 0, marginTop: "1px" }}>✓</span>
+                        {f}
+                      </div>
+                    ))}
+                  </div>
+                  <Link href="/signup" style={{ display: "block", padding: "14px", borderRadius: "12px", background: plan.recommended ? "linear-gradient(135deg, #2C7A4B, #3DA66A)" : "#F4F6F9", color: plan.recommended ? "#fff" : "#555", fontWeight: "700", fontSize: "15px", textDecoration: "none", textAlign: "center", transition: "all 0.2s" }}>
+                    {plan.cta} →
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+          <p style={{ color: "#aaa", fontSize: "14px", marginTop: "32px" }}>
+            ※ 初月は月額＋導入設定費のお支払いとなります。2ヶ月目以降は月額のみ。
+          </p>
         </div>
       </section>
 
@@ -253,7 +291,7 @@ export default function LandingPage() {
             今すぐ口コミを<br />増やし始めましょう
           </h2>
           <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "17px", marginBottom: "40px", lineHeight: 1.8 }}>
-            ライトプランは導入設定費無料。<br />設定は5分で完了します。
+            年契約なら月々¥3,980から。<br />設定は5分で完了します。
           </p>
           <Link href="/signup" className="btn-primary" style={{ fontSize: "18px", padding: "20px 56px" }}>
             今すぐ申し込む →
