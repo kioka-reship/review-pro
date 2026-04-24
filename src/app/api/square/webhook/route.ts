@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            const tmpl = emailTemplates.welcome(store.name, store.email, PLAN_LABELS[store.plan] || store.plan);
+            const tmpl = emailTemplates.welcome(store.name, store.email, PLAN_LABELS[store.plan] || store.plan, storeId);
             await sendEmail({ to: store.email, ...tmpl, storeId });
             console.log("[Webhook] → 契約中（新規）:", storeId);
 
