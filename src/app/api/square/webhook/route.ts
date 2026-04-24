@@ -10,20 +10,20 @@ const supabase = createClient(
 );
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
-const SQUARE_API_BASE = "https://connect.squareup.com/v2";
+const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
+  ? "https://connect.squareupsandbox.com/v2"
+  : "https://connect.squareup.com/v2";
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID!;
 
 const PLAN_LABELS: Record<string, string> = {
-  light: "ライト ¥2,980/月",
-  standard: "スタンダード ¥5,980/月",
-  premium: "プレミアム ¥9,800/月",
+  light:    "ライト ¥4,980/月",
+  standard: "スタンダード ¥9,800/月",
+  premium:  "プレミアム ¥19,800/月",
 };
 
 // プラン別月額（オプションなし）
 const PLAN_MONTHLY: Record<string, number> = {
-  light: 2980,
-  standard: 5980,
-  premium: 9800,
+  light: 4980, standard: 9800, premium: 19800,
 };
 
 function verifySquareSignature(req: NextRequest, body: string): boolean {
