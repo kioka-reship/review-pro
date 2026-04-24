@@ -7,7 +7,9 @@ const supabase = createClient(
 );
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
-const SQUARE_API_BASE = "https://connect.squareup.com/v2";
+const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
+  ? "https://connect.squareupsandbox.com/v2"
+  : "https://connect.squareup.com/v2";
 
 // 月額（billing_cycle別）
 const MONTHLY_PRICES: Record<string, Record<string, number>> = {
