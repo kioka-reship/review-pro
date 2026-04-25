@@ -446,18 +446,24 @@ export default function AdminPage() {
     setDirectPwLoading(true);
     setRepairLogs([]);
     setRepairStoreName("");
-    const res = await fetch("/api/admin/repair-auth", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store_name, new_password }),
-    });
-    const data = await res.json();
-    setRepairLogs(data.logs || []);
-    setRepairStoreName(data.store_name || store_name);
-    setDirectPwLoading(false);
-    if (data.success) {
-      setDirectPwForm({ store_name: "", new_password: "" });
-      await handleCheckAuthSync();
+    try {
+      const res = await fetch("/api/admin/repair-auth", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ store_name, new_password }),
+      });
+      const data = await res.json();
+      setRepairLogs(data.logs || [{ level: "error", message: `HTTP ${res.status}`, time: new Date().toISOString().slice(11,19) }]);
+      setRepairStoreName(data.store_name || store_name);
+      if (data.success) {
+        setDirectPwForm({ store_name: "", new_password: "" });
+        await handleCheckAuthSync();
+      }
+    } catch (err: any) {
+      setRepairLogs([{ level: "error", message: `通信エラー: ${err?.message ?? "不明"}`, time: new Date().toISOString().slice(11,19) }]);
+      setRepairStoreName(store_name);
+    } finally {
+      setDirectPwLoading(false);
     }
   };
 
@@ -468,18 +474,24 @@ export default function AdminPage() {
     setEmailFixLoading(true);
     setRepairLogs([]);
     setRepairStoreName("");
-    const res = await fetch("/api/admin/repair-auth", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store_name, new_email }),
-    });
-    const data = await res.json();
-    setRepairLogs(data.logs || []);
-    setRepairStoreName(data.store_name || store_name);
-    setEmailFixLoading(false);
-    if (data.success) {
-      setEmailFixForm({ store_name: "", new_email: "" });
-      await handleCheckAuthSync();
+    try {
+      const res = await fetch("/api/admin/repair-auth", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ store_name, new_email }),
+      });
+      const data = await res.json();
+      setRepairLogs(data.logs || [{ level: "error", message: `HTTP ${res.status}`, time: new Date().toISOString().slice(11,19) }]);
+      setRepairStoreName(data.store_name || store_name);
+      if (data.success) {
+        setEmailFixForm({ store_name: "", new_email: "" });
+        await handleCheckAuthSync();
+      }
+    } catch (err: any) {
+      setRepairLogs([{ level: "error", message: `通信エラー: ${err?.message ?? "不明"}`, time: new Date().toISOString().slice(11,19) }]);
+      setRepairStoreName(store_name);
+    } finally {
+      setEmailFixLoading(false);
     }
   };
 
@@ -488,17 +500,23 @@ export default function AdminPage() {
     setRepairingEmail(storeEmail);
     setRepairLogs([]);
     setRepairStoreName("");
-    const res = await fetch("/api/admin/repair-auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: storeEmail }),
-    });
-    const data = await res.json();
-    setRepairLogs(data.logs || []);
-    setRepairStoreName(data.store_name || storeEmail);
-    setRepairingEmail(null);
-    if (data.success) {
-      await handleCheckAuthSync();
+    try {
+      const res = await fetch("/api/admin/repair-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: storeEmail }),
+      });
+      const data = await res.json();
+      setRepairLogs(data.logs || [{ level: "error", message: `HTTP ${res.status}`, time: new Date().toISOString().slice(11,19) }]);
+      setRepairStoreName(data.store_name || storeEmail);
+      if (data.success) {
+        await handleCheckAuthSync();
+      }
+    } catch (err: any) {
+      setRepairLogs([{ level: "error", message: `通信エラー: ${err?.message ?? "不明"}`, time: new Date().toISOString().slice(11,19) }]);
+      setRepairStoreName(storeEmail);
+    } finally {
+      setRepairingEmail(null);
     }
   };
 
