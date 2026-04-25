@@ -401,6 +401,9 @@ export default function AdminPage() {
   const [authCheckResults, setAuthCheckResults] = useState<any[]>([]);
   const [authCheckSummary, setAuthCheckSummary] = useState<{ total: number; ok: number; warn: number; error: number; no_auth: number; id_mismatch_only: number; email_mismatch_only: number } | null>(null);
   const [authCheckLoading, setAuthCheckLoading] = useState(false);
+  const [repairingEmail, setRepairingEmail] = useState<string | null>(null);
+  const [repairLogs, setRepairLogs] = useState<{ level: string; message: string; time: string }[]>([]);
+  const [repairStoreName, setRepairStoreName] = useState<string>("");
 
   const handleDeleteStore = async (store: Store) => {
     setDeleteLoading(true);
@@ -416,6 +419,25 @@ export default function AdminPage() {
       alert("❌ 削除に失敗しました");
     }
     setDeleteLoading(false);
+  };
+
+  const handleRepairAuth = async (storeEmail: string) => {
+    if (!window.confirm(`【確認】\n\n${storeEmail}\n\nこの店舗のSupabase Authユーザーを作成し、パスワード再設定メールを送信します。\n\nよろしいですか？`)) return;
+    setRepairingEmail(storeEmail);
+    setRepairLogs([]);
+    setRepairStoreName("");
+    const res = await fetch("/api/admin/repair-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: storeEmail }),
+    });
+    const data = await res.json();
+    setRepairLogs(data.logs || []);
+    setRepairStoreName(data.store_name || storeEmail);
+    setRepairingEmail(null);
+    if (data.success) {
+      await handleCheckAuthSync();
+    }
   };
 
   const handleCheckAuthSync = async () => {
@@ -817,7 +839,7 @@ export default function AdminPage() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
                     <thead>
                       <tr style={{ borderBottom: "2px solid #F0F0F0", background: "#F8FAFC" }}>
-                        {["重要度", "店舗名", "stores.email", "stores.id", "Auth登録", "ID一致", "email一致", "修復推奨"].map(h => (
+                        {["重要度", "店舗名", "stores.email", "stores.id", "Auth登録", "ID一致", "email一致", "修復推奨", "操作"].map(h => (
                           <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: "#888", fontWeight: "600", fontSize: "11px", whiteSpace: "nowrap" }}>{h}</th>
                         ))}
                       </tr>
@@ -848,11 +870,71 @@ export default function AdminPage() {
                               <span style={{ color: r.email_matches_auth ? "#16a34a" : "#dc2626", fontSize: "16px" }}>{r.email_matches_auth ? "✓" : "✗"}</span>
                             </td>
                             <td style={{ padding: "8px 10px", color: "#555", maxWidth: "260px" }}>{r.recommendation}</td>
+                            <td style={{ padding: "8px 10px" }}>
+                              {r.severity !== "ok" && (
+                                <button
+                                  onClick={() => handleRepairAuth(r.store_email)}
+                                  disabled={repairingEmail === r.store_email}
+                                  style={{
+                                    background: r.severity === "error" ? "#DC2626" : "#D97706",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    padding: "4px 10px",
+                                    fontSize: "11px",
+                                    fontWeight: "600",
+                                    cursor: repairingEmail === r.store_email ? "not-allowed" : "pointer",
+                                    fontFamily: "inherit",
+                                    whiteSpace: "nowrap",
+                                    opacity: repairingEmail === r.store_email ? 0.6 : 1,
+                                  }}
+                                >
+                                  {repairingEmail === r.store_email ? "修復中..." : r.severity === "error" ? "🔧 修復する" : "📧 メール送信"}
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {repairLogs.length > 0 && (
+                <div style={{ marginTop: "24px", background: "#0F1923", borderRadius: "12px", padding: "20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <span style={{ color: "#7a9ab5", fontSize: "12px", fontWeight: "600" }}>実行ログ — {repairStoreName}</span>
+                    <button
+                      onClick={() => setRepairLogs([])}
+                      style={{ background: "none", border: "1px solid #2a3f5a", color: "#7a9ab5", borderRadius: "6px", padding: "3px 10px", fontSize: "11px", cursor: "pointer", fontFamily: "inherit" }}
+                    >
+                      閉じる
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    {repairLogs.map((entry, i) => {
+                      const colors: Record<string, string> = {
+                        ok: "#34D399",
+                        info: "#93C5FD",
+                        warn: "#FCD34D",
+                        error: "#F87171",
+                      };
+                      const prefixes: Record<string, string> = {
+                        ok: "✓",
+                        info: "›",
+                        warn: "⚠",
+                        error: "✗",
+                      };
+                      return (
+                        <div key={i} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                          <span style={{ color: "#4a6a8a", fontSize: "11px", fontFamily: "monospace", flexShrink: 0 }}>{entry.time}</span>
+                          <span style={{ color: colors[entry.level] ?? "#fff", fontSize: "11px", fontFamily: "monospace", flexShrink: 0 }}>{prefixes[entry.level] ?? "·"}</span>
+                          <span style={{ color: entry.level === "ok" ? "#D1FAE5" : entry.level === "error" ? "#FEE2E2" : "#E2E8F0", fontSize: "12px", lineHeight: "1.5" }}>{entry.message}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
