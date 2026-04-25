@@ -452,7 +452,7 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ store_name, new_password }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ success: false, logs: [{ level: "error", message: `サーバーエラー HTTP ${res.status} — JSONなし`, time: new Date().toISOString().slice(11,19) }] }));
       setRepairLogs(data.logs || [{ level: "error", message: `HTTP ${res.status}`, time: new Date().toISOString().slice(11,19) }]);
       setRepairStoreName(data.store_name || store_name);
       if (data.success) {
@@ -480,7 +480,7 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ store_name, new_email }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ success: false, logs: [{ level: "error", message: `サーバーエラー HTTP ${res.status} — JSONなし`, time: new Date().toISOString().slice(11,19) }] }));
       setRepairLogs(data.logs || [{ level: "error", message: `HTTP ${res.status}`, time: new Date().toISOString().slice(11,19) }]);
       setRepairStoreName(data.store_name || store_name);
       if (data.success) {
@@ -506,7 +506,7 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: storeEmail }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ success: false, logs: [{ level: "error", message: `サーバーエラー HTTP ${res.status} — JSONなし`, time: new Date().toISOString().slice(11,19) }] }));
       setRepairLogs(data.logs || [{ level: "error", message: `HTTP ${res.status}`, time: new Date().toISOString().slice(11,19) }]);
       setRepairStoreName(data.store_name || storeEmail);
       if (data.success) {

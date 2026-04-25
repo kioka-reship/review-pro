@@ -25,9 +25,10 @@ function makeLogger() {
 
 // メール不要でSupabase Authパスワードを直接設定
 export async function PATCH(req: NextRequest) {
+  const log = makeLogger();
+  try {
   const supabase = getAdminClient();
   const { store_name, new_password } = await req.json();
-  const log = makeLogger();
 
   if (!store_name || !new_password) {
     log.error("store_name と new_password が必要です");
@@ -91,13 +92,18 @@ export async function PATCH(req: NextRequest) {
   log.info("設定したパスワードでログインできます（メール不要）");
 
   return NextResponse.json({ success: true, logs: log.logs, store_name: store.name, login_email: store.email });
+  } catch (err: any) {
+    log.error(`予期しないエラー: ${err?.message ?? "不明"}`);
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
+  }
 }
 
 // stores.email 変更 + Supabase Auth 同期 + パスワード再設定メール送信
 export async function PUT(req: NextRequest) {
+  const log = makeLogger();
+  try {
   const supabase = getAdminClient();
   const { store_name, new_email } = await req.json();
-  const log = makeLogger();
 
   if (!store_name || !new_email) {
     log.error("store_name と new_email が必要です");
@@ -207,13 +213,18 @@ export async function PUT(req: NextRequest) {
   log.info("リンクの有効期限は24時間です。早めにパスワードを設定してください。");
 
   return NextResponse.json({ success: true, logs: log.logs, store_name: store.name, old_email: oldEmail, new_email, auth_user_id: authUserId });
+  } catch (err: any) {
+    log.error(`予期しないエラー: ${err?.message ?? "不明"}`);
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
+  }
 }
 
 // Auth未登録店舗にユーザー作成 + パスワード再設定メール送信
 export async function POST(req: NextRequest) {
+  const log = makeLogger();
+  try {
   const supabase = getAdminClient();
   const { email } = await req.json();
-  const log = makeLogger();
 
   if (!email) {
     return NextResponse.json({ success: false, logs: log.logs, error: "emailが必要です" }, { status: 400 });
@@ -302,4 +313,8 @@ export async function POST(req: NextRequest) {
   log.info("店舗オーナーにメールが届いたことを確認してください。");
 
   return NextResponse.json({ success: true, logs: log.logs, store_name: store.name, auth_user_id: authUserId });
+  } catch (err: any) {
+    log.error(`予期しないエラー: ${err?.message ?? "不明"}`);
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
+  }
 }
