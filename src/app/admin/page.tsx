@@ -406,6 +406,11 @@ export default function AdminPage() {
   const [repairStoreName, setRepairStoreName] = useState<string>("");
   const [emailFixForm, setEmailFixForm] = useState({ store_name: "", new_email: "" });
   const [emailFixLoading, setEmailFixLoading] = useState(false);
+  const [brevoCheckEmail, setBrevoCheckEmail] = useState("");
+  const [brevoCheckResult, setBrevoCheckResult] = useState<any>(null);
+  const [brevoCheckLoading, setBrevoCheckLoading] = useState(false);
+  const [directPwForm, setDirectPwForm] = useState({ store_name: "", new_password: "" });
+  const [directPwLoading, setDirectPwLoading] = useState(false);
 
   const handleDeleteStore = async (store: Store) => {
     setDeleteLoading(true);
@@ -421,6 +426,39 @@ export default function AdminPage() {
       alert("❌ 削除に失敗しました");
     }
     setDeleteLoading(false);
+  };
+
+  const handleBrevoCheck = async () => {
+    if (!brevoCheckEmail) { alert("メールアドレスを入力してください"); return; }
+    setBrevoCheckLoading(true);
+    setBrevoCheckResult(null);
+    const res = await fetch(`/api/admin/brevo-check?email=${encodeURIComponent(brevoCheckEmail)}`);
+    const data = await res.json();
+    setBrevoCheckResult(data);
+    setBrevoCheckLoading(false);
+  };
+
+  const handleDirectPw = async () => {
+    const { store_name, new_password } = directPwForm;
+    if (!store_name || !new_password) { alert("店舗名とパスワードを入力してください"); return; }
+    if (new_password.length < 8) { alert("パスワードは8文字以上で入力してください"); return; }
+    if (!window.confirm(`【確認】\n\n店舗名: ${store_name}\n\nSupabase Auth のパスワードを直接設定します。\n設定後すぐにマイページにログインできます（メール不要）。\n\nよろしいですか？`)) return;
+    setDirectPwLoading(true);
+    setRepairLogs([]);
+    setRepairStoreName("");
+    const res = await fetch("/api/admin/repair-auth", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store_name, new_password }),
+    });
+    const data = await res.json();
+    setRepairLogs(data.logs || []);
+    setRepairStoreName(data.store_name || store_name);
+    setDirectPwLoading(false);
+    if (data.success) {
+      setDirectPwForm({ store_name: "", new_password: "" });
+      await handleCheckAuthSync();
+    }
   };
 
   const handleEmailFix = async () => {
@@ -836,6 +874,75 @@ export default function AdminPage() {
                       📥 CSVダウンロード
                     </a>
                   )}
+                </div>
+              </div>
+
+              {/* Brevo 送信診断 */}
+              <div style={{ background: "#FFF7ED", border: "1.5px solid #FED7AA", borderRadius: "12px", padding: "16px 20px", marginBottom: "12px" }}>
+                <div style={{ fontSize: "13px", fontWeight: "700", color: "#C2410C", marginBottom: "10px" }}>📊 Brevo 送信ログ確認</div>
+                <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
+                  <div style={{ flex: "1" }}>
+                    <div style={{ fontSize: "11px", color: "#555", marginBottom: "4px", fontWeight: "600" }}>確認するメールアドレス</div>
+                    <input
+                      value={brevoCheckEmail}
+                      onChange={e => setBrevoCheckEmail(e.target.value)}
+                      placeholder="例: yck.kioka@gmail.com"
+                      type="email"
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #FED7AA", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <button onClick={handleBrevoCheck} disabled={brevoCheckLoading}
+                    style={{ background: "#C2410C", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 16px", fontSize: "13px", fontWeight: "600", cursor: brevoCheckLoading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: brevoCheckLoading ? 0.7 : 1, whiteSpace: "nowrap" }}>
+                    {brevoCheckLoading ? "確認中..." : "🔎 Brevo確認"}
+                  </button>
+                </div>
+                {brevoCheckResult && (
+                  <div style={{ marginTop: "12px", fontSize: "12px" }}>
+                    <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "8px" }}>
+                      <span style={{ color: "#555" }}>送信元: <strong>{brevoCheckResult.from_email}</strong></span>
+                      <span style={{ color: "#555" }}>件名: <strong>{brevoCheckResult.subject}</strong></span>
+                      <span style={{ color: "#555" }}>送信ログ件数: <strong>{brevoCheckResult.smtp_events_count ?? 0}件</strong></span>
+                      {brevoCheckResult.contact_email_blacklisted === true && (
+                        <span style={{ color: "#DC2626", fontWeight: "700" }}>❌ Suppression登録済み</span>
+                      )}
+                      {brevoCheckResult.contact_email_blacklisted === false && (
+                        <span style={{ color: "#16a34a" }}>✓ Suppressionなし</span>
+                      )}
+                    </div>
+                    {brevoCheckResult.latest_event && (
+                      <div style={{ background: "#FEF3C7", borderRadius: "6px", padding: "8px 10px", marginBottom: "8px" }}>
+                        最新イベント: <strong>{brevoCheckResult.latest_event.event}</strong> — {brevoCheckResult.latest_event.date}
+                        {brevoCheckResult.latest_event.reason && <span style={{ color: "#DC2626" }}> ({brevoCheckResult.latest_event.reason})</span>}
+                      </div>
+                    )}
+                    {(brevoCheckResult.analysis ?? []).map((a: string, i: number) => (
+                      <div key={i} style={{ color: a.startsWith("❌") ? "#DC2626" : a.startsWith("⚠️") ? "#B45309" : "#16a34a", marginBottom: "3px" }}>{a}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 手動パスワード設定（メール不要） */}
+              <div style={{ background: "#FFF1F2", border: "1.5px solid #FECDD3", borderRadius: "12px", padding: "16px 20px", marginBottom: "12px" }}>
+                <div style={{ fontSize: "13px", fontWeight: "700", color: "#BE123C", marginBottom: "4px" }}>🔑 手動パスワード設定（メール不要・即時ログイン可）</div>
+                <div style={{ fontSize: "11px", color: "#888", marginBottom: "10px" }}>メールが届かない場合の一時対応。パスワードを直接設定してすぐにログインできます。</div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "flex-end" }}>
+                  <div style={{ flex: "1", minWidth: "140px" }}>
+                    <div style={{ fontSize: "11px", color: "#555", marginBottom: "4px", fontWeight: "600" }}>店舗名</div>
+                    <input value={directPwForm.store_name} onChange={e => setDirectPwForm(f => ({ ...f, store_name: e.target.value }))}
+                      placeholder="例: PlusBelle"
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #FECDD3", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <div style={{ flex: "2", minWidth: "180px" }}>
+                    <div style={{ fontSize: "11px", color: "#555", marginBottom: "4px", fontWeight: "600" }}>新しいパスワード（8文字以上）</div>
+                    <input value={directPwForm.new_password} onChange={e => setDirectPwForm(f => ({ ...f, new_password: e.target.value }))}
+                      placeholder="8文字以上" type="password"
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #FECDD3", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <button onClick={handleDirectPw} disabled={directPwLoading}
+                    style={{ background: "#BE123C", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 16px", fontSize: "13px", fontWeight: "600", cursor: directPwLoading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: directPwLoading ? 0.7 : 1, whiteSpace: "nowrap" }}>
+                    {directPwLoading ? "設定中..." : "🔑 パスワード設定"}
+                  </button>
                 </div>
               </div>
 

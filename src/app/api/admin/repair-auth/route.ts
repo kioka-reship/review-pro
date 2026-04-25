@@ -28,6 +28,79 @@ function makeLogger() {
   };
 }
 
+// メール不要でSupabase Authパスワードを直接設定
+export async function PATCH(req: NextRequest) {
+  const { store_name, new_password } = await req.json();
+  const log = makeLogger();
+
+  if (!store_name || !new_password) {
+    log.error("store_name と new_password が必要です");
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 400 });
+  }
+  if (new_password.length < 8) {
+    log.error("パスワードは8文字以上で入力してください");
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 400 });
+  }
+
+  // ① 店舗を名前で検索
+  log.info(`店舗を名前で検索中... "${store_name}"`);
+  const { data: storeList } = await supabase
+    .from("stores")
+    .select("id, name, email, status")
+    .ilike("name", `%${store_name}%`);
+
+  if (!storeList || storeList.length === 0) {
+    log.error(`店舗が見つかりません: "${store_name}"`);
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 404 });
+  }
+  if (storeList.length > 1) {
+    log.error(`複数該当: ${storeList.map(s => s.name).join(", ")} — 店舗名を絞り込んでください`);
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 400 });
+  }
+  const store = storeList[0];
+  log.ok(`店舗を確認: ${store.name}  email=${store.email}`);
+
+  // ② Auth ユーザーをメールで検索
+  log.info("Supabase Auth ユーザーを確認中...");
+  const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+  const authUser = listData?.users?.find(
+    u => u.email?.toLowerCase() === store.email?.toLowerCase(),
+  );
+
+  if (authUser) {
+    // Auth ユーザーが存在 → パスワードを直接更新
+    log.info(`Auth ユーザーが存在します (UUID: ${authUser.id}) → パスワードを更新`);
+    const { error: updateErr } = await supabase.auth.admin.updateUserById(authUser.id, {
+      password: new_password,
+    });
+    if (updateErr) {
+      log.error(`パスワード更新失敗 → ${updateErr.message}`);
+      return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
+    }
+    log.ok("パスワードを更新しました");
+  } else {
+    // Auth 未登録 → 指定パスワードで新規作成
+    log.info("Auth 未登録 → 指定パスワードで新規 Auth ユーザーを作成します");
+    const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+      email: store.email,
+      password: new_password,
+      email_confirm: true,
+    });
+    if (createErr || !newUser?.user) {
+      log.error(`Auth ユーザー作成失敗 → ${createErr?.message ?? "不明なエラー"}`);
+      return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
+    }
+    log.ok(`Auth ユーザーを作成しました (UUID: ${newUser.user.id})`);
+  }
+
+  log.ok(`━━ 完了: ${store.name} のパスワードを設定しました ━━`);
+  log.info(`ログインURL: ${APP_URL}/mypage`);
+  log.info(`メール: ${store.email}`);
+  log.info("設定したパスワードでログインできます（メール不要）");
+
+  return NextResponse.json({ success: true, logs: log.logs, store_name: store.name, login_email: store.email });
+}
+
 // stores.email 変更 + Supabase Auth 同期 + パスワード再設定メール送信
 export async function PUT(req: NextRequest) {
   const { store_name, new_email } = await req.json();
