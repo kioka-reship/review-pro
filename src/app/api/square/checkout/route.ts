@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getAdminClient } from "../../../../lib/supabase-admin";
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
@@ -35,6 +30,7 @@ const BILLING_CYCLE_LABELS: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
+  const supabase = getAdminClient();
   const { storeId, plan, billing_cycle = "monthly" } = await req.json();
 
   if (!storeId || !plan) {

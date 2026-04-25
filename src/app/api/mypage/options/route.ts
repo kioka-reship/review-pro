@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "../../../../lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function GET(req: NextRequest) {
+  const supabase = getAdminClient();
   const { searchParams } = new URL(req.url);
   const store_id = searchParams.get("store_id");
 
@@ -27,6 +23,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = getAdminClient();
   const { store_id, option_id } = await req.json();
   if (!store_id || !option_id) {
     return NextResponse.json({ error: "store_id and option_id required" }, { status: 400 });

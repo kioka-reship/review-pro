@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "../../../../lib/supabase-admin";
 import { createHmac } from "crypto";
 import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
 import { sendAdminNotification } from "../../../../lib/sendAdminNotification";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
@@ -37,7 +32,9 @@ function verifySquareSignature(req: NextRequest, body: string): boolean {
   return signature === expected;
 }
 
-async function isAlreadyProcessed(eventId: string): Promise<boolean> {
+type SupabaseClient = ReturnType<typeof getAdminClient>;
+
+async function isAlreadyProcessed(supabase: SupabaseClient, eventId: string): Promise<boolean> {
   const { data } = await supabase
     .from("webhook_events")
     .select("id")
@@ -46,7 +43,7 @@ async function isAlreadyProcessed(eventId: string): Promise<boolean> {
   return !!data;
 }
 
-async function markAsProcessed(eventId: string, eventType: string, payload: any) {
+async function markAsProcessed(supabase: SupabaseClient, eventId: string, eventType: string, payload: any) {
   await supabase.from("webhook_events").insert({
     event_id: eventId,
     event_type: eventType,
@@ -54,7 +51,7 @@ async function markAsProcessed(eventId: string, eventType: string, payload: any)
   });
 }
 
-async function updateStoreStatus(storeId: string, nextStatus: string) {
+async function updateStoreStatus(supabase: SupabaseClient, storeId: string, nextStatus: string) {
   if (!storeId) return false;
   const { error } = await supabase
     .from("stores")
@@ -64,7 +61,7 @@ async function updateStoreStatus(storeId: string, nextStatus: string) {
   return true;
 }
 
-async function findStoreByCustomerId(customerId: string): Promise<string | null> {
+async function findStoreByCustomerId(supabase: SupabaseClient, customerId: string): Promise<string | null> {
   const { data } = await supabase
     .from("stores")
     .select("id")
@@ -73,7 +70,7 @@ async function findStoreByCustomerId(customerId: string): Promise<string | null>
   return data[0].id;
 }
 
-async function findPendingStoreByEmail(email: string): Promise<string | null> {
+async function findPendingStoreByEmail(supabase: SupabaseClient, email: string): Promise<string | null> {
   const { data } = await supabase
     .from("stores")
     .select("id")
@@ -85,7 +82,7 @@ async function findPendingStoreByEmail(email: string): Promise<string | null> {
   return data[0].id;
 }
 
-async function findStoreByOrderId(orderId: string): Promise<string | null> {
+async function findStoreByOrderId(supabase: SupabaseClient, orderId: string): Promise<string | null> {
   const { data } = await supabase
     .from("stores")
     .select("id")
@@ -95,7 +92,7 @@ async function findStoreByOrderId(orderId: string): Promise<string | null> {
   return data[0].id;
 }
 
-async function writeAuditLog(storeId: string, action: string, detail: any) {
+async function writeAuditLog(supabase: SupabaseClient, storeId: string, action: string, detail: any) {
   await supabase.from("audit_logs").insert({
     store_id: storeId,
     actor: "system",
@@ -170,6 +167,7 @@ async function createSquareSubscription(
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = getAdminClient();
   const body = await req.text();
 
   if (!verifySquareSignature(req, body)) {
@@ -188,7 +186,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "event_id missing" }, { status: 400 });
   }
 
-  const alreadyProcessed = await isAlreadyProcessed(eventId);
+  const alreadyProcessed = await isAlreadyProcessed(supabase, eventId);
   if (alreadyProcessed) {
     console.log("[Webhook] already processed, skip:", eventId);
     return NextResponse.json({ received: true, skipped: true });
@@ -207,9 +205,9 @@ export async function POST(req: NextRequest) {
         const orderId = payment?.order_id;
 
         if (payment?.status === "COMPLETED") {
-          let storeId = customerId ? await findStoreByCustomerId(customerId) : null;
-          if (!storeId && buyerEmail) storeId = await findPendingStoreByEmail(buyerEmail);
-          if (!storeId && orderId) storeId = await findStoreByOrderId(orderId);
+          let storeId = customerId ? await findStoreByCustomerId(supabase, customerId) : null;
+          if (!storeId && buyerEmail) storeId = await findPendingStoreByEmail(supabase, buyerEmail);
+          if (!storeId && orderId) storeId = await findStoreByOrderId(supabase, orderId);
           if (!storeId) { console.log("[Webhook] store not found:", paymentId); break; }
 
           const { data: store } = await supabase
@@ -247,7 +245,7 @@ export async function POST(req: NextRequest) {
             await supabase.from("plan_histories")
               .update({ square_payment_id: paymentId })
               .eq("id", history.id);
-            await writeAuditLog(storeId, "plan_upgraded", { from: history.from_plan, to: history.to_plan, payment_id: paymentId });
+            await writeAuditLog(supabase, storeId, "plan_upgraded", { from: history.from_plan, to: history.to_plan, payment_id: paymentId });
             const tmpl = emailTemplates.upgraded(store.name, PLAN_LABELS[history.from_plan] || history.from_plan, PLAN_LABELS[history.to_plan] || history.to_plan, history.amount_charged || 0);
             await sendEmail({ to: store.email, ...tmpl, storeId });
             console.log("[Webhook] → アップグレード完了:", storeId);
@@ -259,8 +257,8 @@ export async function POST(req: NextRequest) {
               setup_fee_paid_at: now,
             }).eq("id", storeId);
 
-            await updateStoreStatus(storeId, "契約中");
-            await writeAuditLog(storeId, "payment_completed", { payment_id: paymentId });
+            await updateStoreStatus(supabase, storeId, "契約中");
+            await writeAuditLog(supabase, storeId, "payment_completed", { payment_id: paymentId });
 
             if (customerId) {
               const billingCycle = store.billing_cycle || "monthly";
@@ -312,17 +310,17 @@ export async function POST(req: NextRequest) {
               console.log("[Webhook] → OP追加完了:", opt.option_name);
             }
 
-            await updateStoreStatus(storeId, "契約中");
-            await writeAuditLog(storeId, "payment_completed", { payment_id: paymentId });
+            await updateStoreStatus(supabase, storeId, "契約中");
+            await writeAuditLog(supabase, storeId, "payment_completed", { payment_id: paymentId });
           }
 
         } else if (payment?.status === "FAILED") {
-          let storeId = customerId ? await findStoreByCustomerId(customerId) : null;
-          if (!storeId && buyerEmail) storeId = await findPendingStoreByEmail(buyerEmail);
-          if (!storeId && orderId) storeId = await findStoreByOrderId(orderId);
+          let storeId = customerId ? await findStoreByCustomerId(supabase, customerId) : null;
+          if (!storeId && buyerEmail) storeId = await findPendingStoreByEmail(supabase, buyerEmail);
+          if (!storeId && orderId) storeId = await findStoreByOrderId(supabase, orderId);
           if (!storeId) break;
-          await updateStoreStatus(storeId, "停止中");
-          await writeAuditLog(storeId, "payment_failed", { payment_id: paymentId });
+          await updateStoreStatus(supabase, storeId, "停止中");
+          await writeAuditLog(supabase, storeId, "payment_failed", { payment_id: paymentId });
           console.log("[Webhook] → 停止中:", storeId);
         }
         break;
@@ -338,8 +336,8 @@ export async function POST(req: NextRequest) {
           .eq("subscription_id", subscriptionId);
         if (!stores || stores.length !== 1) break;
         const storeId = stores[0].id;
-        await updateStoreStatus(storeId, "契約中");
-        await writeAuditLog(storeId, "invoice_paid", { subscription_id: subscriptionId });
+        await updateStoreStatus(supabase, storeId, "契約中");
+        await writeAuditLog(supabase, storeId, "invoice_paid", { subscription_id: subscriptionId });
         console.log("[Webhook] → 契約中（請求書）:", storeId);
         break;
       }
@@ -354,8 +352,8 @@ export async function POST(req: NextRequest) {
           .eq("subscription_id", subscriptionId);
         if (!stores || stores.length !== 1) break;
         const storeId = stores[0].id;
-        await updateStoreStatus(storeId, "停止中");
-        await writeAuditLog(storeId, "charge_failed", { subscription_id: subscriptionId });
+        await updateStoreStatus(supabase, storeId, "停止中");
+        await writeAuditLog(supabase, storeId, "charge_failed", { subscription_id: subscriptionId });
         console.log("[Webhook] → 停止中（課金失敗）:", storeId);
         break;
       }
@@ -364,7 +362,7 @@ export async function POST(req: NextRequest) {
         console.log("[Webhook] unhandled event:", eventType);
     }
 
-    await markAsProcessed(eventId, eventType, payload);
+    await markAsProcessed(supabase, eventId, eventType, payload);
     return NextResponse.json({ received: true });
 
   } catch (err: any) {

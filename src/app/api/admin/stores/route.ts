@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getAdminClient } from "../../../../lib/supabase-admin";
 
 // 全店舗取得
 export async function GET() {
+  const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("stores")
     .select("*")
@@ -19,6 +15,7 @@ export async function GET() {
 
 // 店舗追加
 export async function POST(req: NextRequest) {
+  const supabase = getAdminClient();
   const body = await req.json();
   const { name, type, owner_name, email, password, plan, place_id } = body;
 
@@ -40,6 +37,7 @@ export async function POST(req: NextRequest) {
 
 // 店舗更新（停止・再開・プラン変更）
 export async function PATCH(req: NextRequest) {
+  const supabase = getAdminClient();
   const { id, ...updates } = await req.json();
 
   const { error } = await supabase
@@ -53,6 +51,7 @@ export async function PATCH(req: NextRequest) {
 
 // 店舗削除
 export async function DELETE(req: NextRequest) {
+  const supabase = getAdminClient();
   const { id } = await req.json();
 
   if (!id) {

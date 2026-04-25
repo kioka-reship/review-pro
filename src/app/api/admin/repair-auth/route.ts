@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getAdminClient } from "../../../../lib/supabase-admin";
 
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
@@ -30,6 +25,7 @@ function makeLogger() {
 
 // メール不要でSupabase Authパスワードを直接設定
 export async function PATCH(req: NextRequest) {
+  const supabase = getAdminClient();
   const { store_name, new_password } = await req.json();
   const log = makeLogger();
 
@@ -42,7 +38,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: false, logs: log.logs }, { status: 400 });
   }
 
-  // ① 店舗を名前で検索
   log.info(`店舗を名前で検索中... "${store_name}"`);
   const { data: storeList } = await supabase
     .from("stores")
@@ -60,7 +55,6 @@ export async function PATCH(req: NextRequest) {
   const store = storeList[0];
   log.ok(`店舗を確認: ${store.name}  email=${store.email}`);
 
-  // ② Auth ユーザーをメールで検索
   log.info("Supabase Auth ユーザーを確認中...");
   const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   const authUser = listData?.users?.find(
@@ -68,7 +62,6 @@ export async function PATCH(req: NextRequest) {
   );
 
   if (authUser) {
-    // Auth ユーザーが存在 → パスワードを直接更新
     log.info(`Auth ユーザーが存在します (UUID: ${authUser.id}) → パスワードを更新`);
     const { error: updateErr } = await supabase.auth.admin.updateUserById(authUser.id, {
       password: new_password,
@@ -79,7 +72,6 @@ export async function PATCH(req: NextRequest) {
     }
     log.ok("パスワードを更新しました");
   } else {
-    // Auth 未登録 → 指定パスワードで新規作成
     log.info("Auth 未登録 → 指定パスワードで新規 Auth ユーザーを作成します");
     const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
       email: store.email,
@@ -103,6 +95,7 @@ export async function PATCH(req: NextRequest) {
 
 // stores.email 変更 + Supabase Auth 同期 + パスワード再設定メール送信
 export async function PUT(req: NextRequest) {
+  const supabase = getAdminClient();
   const { store_name, new_email } = await req.json();
   const log = makeLogger();
 
@@ -111,7 +104,6 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: false, logs: log.logs }, { status: 400 });
   }
 
-  // ① 店舗を名前で検索（大文字小文字を区別しない）
   log.info(`店舗を名前で検索中... "${store_name}"`);
   const { data: storeList } = await supabase
     .from("stores")
@@ -131,7 +123,6 @@ export async function PUT(req: NextRequest) {
   const oldEmail = store.email;
   log.ok(`店舗を確認: ${store.name}  旧email=${oldEmail}  status=${store.status}`);
 
-  // ② new_email に既存 Auth ユーザーがないか確認（重複防止）
   log.info(`新しいメールアドレス "${new_email}" の重複確認中...`);
   const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   const authByOldEmail = listData?.users?.find(u => u.email?.toLowerCase() === oldEmail?.toLowerCase());
@@ -143,7 +134,6 @@ export async function PUT(req: NextRequest) {
   }
   log.ok("メールアドレスの重複なし");
 
-  // ③ stores.email を更新
   log.info(`stores.email を更新中: ${oldEmail} → ${new_email}`);
   const { error: emailUpdateErr } = await supabase
     .from("stores")
@@ -156,12 +146,10 @@ export async function PUT(req: NextRequest) {
   }
   log.ok(`stores.email を更新しました → ${new_email}`);
 
-  // ④ Supabase Auth ユーザーを更新 or 新規作成
   const tempPassword = randomBytes(16).toString("base64url");
   let authUserId: string;
 
   if (authByOldEmail) {
-    // 旧メールの Auth ユーザーが存在 → email と仮パスワードを更新
     log.info(`Auth ユーザー (UUID: ${authByOldEmail.id}) のメールアドレスを更新中...`);
     const { error: authEmailErr } = await supabase.auth.admin.updateUserById(
       authByOldEmail.id,
@@ -174,7 +162,6 @@ export async function PUT(req: NextRequest) {
     authUserId = authByOldEmail.id;
     log.ok(`Auth email を更新しました → ${new_email}`);
   } else {
-    // Auth 未登録 → 新規ユーザーを作成
     log.info("Auth 未登録を確認 → 新しいメールで Auth ユーザーを作成します");
     const { data: newUserData, error: createErr } = await supabase.auth.admin.createUser({
       email: new_email,
@@ -189,7 +176,6 @@ export async function PUT(req: NextRequest) {
     log.ok(`Auth ユーザーを作成しました (UUID: ${authUserId})`);
   }
 
-  // ⑤ password_resets トークンを生成（24時間有効）
   log.info("パスワード再設定トークンを生成中...");
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -206,7 +192,6 @@ export async function PUT(req: NextRequest) {
   }
   log.ok("トークンを保存しました（有効期限: 24時間）");
 
-  // ⑥ 新しいメールアドレスへパスワード再設定メールを送信
   log.info(`パスワード再設定メールを送信中... → ${new_email}`);
   const resetUrl = `${APP_URL}/mypage/reset-password/confirm?token=${token}`;
   const tmpl = emailTemplates.passwordReset(resetUrl);
@@ -217,22 +202,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
   }
   log.ok(`パスワード再設定メールを送信しました → ${new_email}`);
-
   log.ok(`━━ 完了: ${store.name} のメールアドレスを更新し、パスワード再設定メールを送信しました ━━`);
   log.info(`新メールアドレス: ${new_email}`);
   log.info("リンクの有効期限は24時間です。早めにパスワードを設定してください。");
 
-  return NextResponse.json({
-    success: true,
-    logs: log.logs,
-    store_name: store.name,
-    old_email: oldEmail,
-    new_email,
-    auth_user_id: authUserId,
-  });
+  return NextResponse.json({ success: true, logs: log.logs, store_name: store.name, old_email: oldEmail, new_email, auth_user_id: authUserId });
 }
 
+// Auth未登録店舗にユーザー作成 + パスワード再設定メール送信
 export async function POST(req: NextRequest) {
+  const supabase = getAdminClient();
   const { email } = await req.json();
   const log = makeLogger();
 
@@ -240,7 +219,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, logs: log.logs, error: "emailが必要です" }, { status: 400 });
   }
 
-  // ① storesテーブルから店舗を取得
   log.info(`店舗情報を取得中... (${email})`);
   const { data: store, error: storeErr } = await supabase
     .from("stores")
@@ -254,7 +232,6 @@ export async function POST(req: NextRequest) {
   }
   log.ok(`店舗を確認: ${store.name}  status=${store.status}`);
 
-  // ② Supabase Auth ユーザーをメールアドレスで検索
   log.info("Supabase Auth ユーザーを確認中...");
   const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   const existingAuthUser = listData?.users?.find(
@@ -264,10 +241,8 @@ export async function POST(req: NextRequest) {
   let authUserId: string;
 
   if (existingAuthUser) {
-    // Auth ユーザーが既に存在する場合 → 仮パスワードで上書きしてからリセットメールを送る
     log.warn(`Auth ユーザーが既に存在します (UUID: ${existingAuthUser.id})`);
     log.info("仮パスワードを生成して上書き中...");
-
     const tempPassword = randomBytes(16).toString("base64url");
     const { error: updateErr } = await supabase.auth.admin.updateUserById(
       existingAuthUser.id,
@@ -280,17 +255,14 @@ export async function POST(req: NextRequest) {
     authUserId = existingAuthUser.id;
     log.ok("仮パスワードを設定しました");
   } else {
-    // Auth ユーザーが存在しない場合 → 新規作成
     log.info("Auth 未登録を確認 → 新規ユーザーを作成します");
     const tempPassword = randomBytes(16).toString("base64url");
     log.info("仮パスワードを生成しました");
-
     const { data: newUserData, error: createErr } = await supabase.auth.admin.createUser({
       email,
       password: tempPassword,
       email_confirm: true,
     });
-
     if (createErr || !newUserData?.user) {
       log.error(`Auth ユーザー作成失敗 → ${createErr?.message ?? "不明なエラー"}`);
       return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
@@ -299,7 +271,6 @@ export async function POST(req: NextRequest) {
     log.ok(`Auth ユーザーを作成しました (UUID: ${authUserId})`);
   }
 
-  // ③ password_resets テーブルにトークンを保存（有効期限24時間）
   log.info("パスワード再設定トークンを生成中...");
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -317,7 +288,6 @@ export async function POST(req: NextRequest) {
   }
   log.ok("トークンを保存しました（有効期限: 24時間）");
 
-  // ④ パスワード再設定メールを送信
   log.info(`パスワード再設定メールを送信中... → ${email}`);
   const resetUrl = `${APP_URL}/mypage/reset-password/confirm?token=${token}`;
   const tmpl = emailTemplates.passwordReset(resetUrl);
@@ -328,14 +298,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
   }
   log.ok(`パスワード再設定メールを送信しました → ${email}`);
-
   log.ok(`━━ 修復完了: ${store.name} のパスワード再設定メールを送信しました ━━`);
   log.info("店舗オーナーにメールが届いたことを確認してください。");
 
-  return NextResponse.json({
-    success: true,
-    logs: log.logs,
-    store_name: store.name,
-    auth_user_id: authUserId,
-  });
+  return NextResponse.json({ success: true, logs: log.logs, store_name: store.name, auth_user_id: authUserId });
 }

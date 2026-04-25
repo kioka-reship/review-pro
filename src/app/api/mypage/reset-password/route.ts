@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "../../../../lib/supabase-admin";
 import { randomBytes } from "crypto";
 import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
 export async function POST(req: NextRequest) {
+  const supabase = getAdminClient();
   const { email } = await req.json();
   if (!email) {
     return NextResponse.json({ error: "メールアドレスが必要です" }, { status: 400 });

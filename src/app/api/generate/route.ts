@@ -1,9 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getAdminClient } from "../../../lib/supabase-admin";
 
 const NG_WORDS = [
   "殺", "死ね", "バカ", "アホ", "クソ", "最悪", "詐欺", "偽物",
@@ -20,7 +15,7 @@ const PLAN_LIMITS: Record<string, number> = {
   premium: 99999,
 };
 
-async function getMonthlySessionCount(storeId: string): Promise<number> {
+async function getMonthlySessionCount(supabase: ReturnType<typeof getAdminClient>, storeId: string): Promise<number> {
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
@@ -38,7 +33,7 @@ async function getMonthlySessionCount(storeId: string): Promise<number> {
   return uniqueSessions.size;
 }
 
-async function getSessionGenerationCount(sessionId: string): Promise<number> {
+async function getSessionGenerationCount(supabase: ReturnType<typeof getAdminClient>, sessionId: string): Promise<number> {
   const { count } = await supabase
     .from("usage")
     .select("*", { count: "exact", head: true })
@@ -47,6 +42,7 @@ async function getSessionGenerationCount(sessionId: string): Promise<number> {
 }
 
 export async function POST(req: Request) {
+  const supabase = getAdminClient();
   try {
     const { store, answers, style, session_id } = await req.json();
     const storeId = store?.id;
@@ -64,7 +60,7 @@ export async function POST(req: Request) {
 
       // セッション内3回まで
       if (session_id) {
-        const sessionCount = await getSessionGenerationCount(session_id);
+        const sessionCount = await getSessionGenerationCount(supabase, session_id);
         if (sessionCount >= 3) {
           return Response.json({
             error: "1回のQR読み取りで生成できるのは最大3回までです。QRコードを再度読み取ってください。"
@@ -74,7 +70,7 @@ export async function POST(req: Request) {
 
       // 月間QRスキャン数チェック
       const limit = PLAN_LIMITS[storeData.plan] || 10;
-      const monthlyScans = await getMonthlySessionCount(storeId);
+      const monthlyScans = await getMonthlySessionCount(supabase, storeId);
 
       if (session_id && monthlyScans >= limit) {
         const { data: existingLog } = await supabase

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getAdminClient } from "../../../../lib/supabase-admin";
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = "https://connect.squareup.com/v2";
@@ -12,6 +7,7 @@ const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID!;
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
 export async function POST(req: NextRequest) {
+  const supabase = getAdminClient();
   const { store_id, option_key, option_name, price } = await req.json();
 
   if (!store_id || !option_key || !price) {

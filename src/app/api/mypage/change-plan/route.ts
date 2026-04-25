@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "../../../../lib/supabase-admin";
 import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
@@ -29,6 +24,7 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
+  const supabase = getAdminClient();
   const { store_id, current_plan, new_plan, billing_cycle = "monthly" } = await req.json();
 
   if (!store_id || !current_plan || !new_plan) {

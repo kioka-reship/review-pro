@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminClient } from "../../../../lib/supabase-admin";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const dynamic = "force-dynamic";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -23,8 +20,8 @@ export type AuthCheckResult = {
   severity: "ok" | "warn" | "error";
 };
 
-// ページネーションで全Authユーザーを取得（読み取り専用）
 async function getAllAuthUsers() {
+  const supabase = getAdminClient();
   const allUsers: { id: string; email?: string }[] = [];
   let page = 1;
   const perPage = 1000;
@@ -73,9 +70,9 @@ function classify(
 }
 
 export async function GET(req: NextRequest) {
+  const supabase = getAdminClient();
   const format = req.nextUrl.searchParams.get("format");
 
-  // 全店舗取得（読み取り専用）
   const { data: storeList, error: storeError } = await supabase
     .from("stores")
     .select("id, name, email, status")
@@ -88,10 +85,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // 全Authユーザー取得（読み取り専用）
   const authUsers = await getAllAuthUsers();
 
-  // 検索用インデックスを構築（メモリ内、DB変更なし）
   const authById = new Map(authUsers.map(u => [u.id, u]));
   const authByEmail = new Map(
     authUsers
@@ -99,7 +94,6 @@ export async function GET(req: NextRequest) {
       .map(u => [u.email!.toLowerCase(), u]),
   );
 
-  // 突き合わせ（読み取りのみ）
   const results: AuthCheckResult[] = storeList.map(store => {
     const idIsUuid = UUID_REGEX.test(store.id);
     const foundById = authById.get(store.id);
@@ -128,7 +122,6 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  // サマリー
   const summary = {
     total: results.length,
     ok: results.filter(r => r.severity === "ok").length,
@@ -140,45 +133,18 @@ export async function GET(req: NextRequest) {
   };
 
   if (format === "csv") {
-    const BOM = "﻿"; // Excel日本語対応
-    const headers = [
-      "店舗名",
-      "stores.id",
-      "stores.email",
-      "契約状態",
-      "IDはUUID",
-      "Auth登録有無",
-      "ID一致",
-      "email一致",
-      "Auth UUID",
-      "Auth email",
-      "修復推奨",
-      "重要度",
-    ];
-
+    const BOM = "﻿";
+    const headers = ["店舗名","stores.id","stores.email","契約状態","IDはUUID","Auth登録有無","ID一致","email一致","Auth UUID","Auth email","修復推奨","重要度"];
     const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-
     const rows = results.map(r =>
-      [
-        r.store_name,
-        r.store_id,
-        r.store_email,
-        r.store_status,
-        r.id_is_uuid ? "○" : "×",
-        r.auth_user_exists ? "○" : "×",
-        r.id_matches_auth_uuid ? "○" : "×",
-        r.email_matches_auth ? "○" : "×",
-        r.auth_uuid ?? "",
-        r.auth_email ?? "",
-        r.recommendation,
-        r.severity === "ok" ? "正常" : r.severity === "warn" ? "要確認" : "要修復",
-      ]
-        .map(escape)
-        .join(","),
+      [r.store_name, r.store_id, r.store_email, r.store_status,
+       r.id_is_uuid ? "○" : "×", r.auth_user_exists ? "○" : "×",
+       r.id_matches_auth_uuid ? "○" : "×", r.email_matches_auth ? "○" : "×",
+       r.auth_uuid ?? "", r.auth_email ?? "", r.recommendation,
+       r.severity === "ok" ? "正常" : r.severity === "warn" ? "要確認" : "要修復",
+      ].map(escape).join(","),
     );
-
     const csv = BOM + [headers.map(escape).join(","), ...rows].join("\r\n");
-
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

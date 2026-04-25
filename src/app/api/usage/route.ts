@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getAnonClient } from "../../../lib/supabase-admin";
 
 const PLAN_LIMITS: Record<string, number> = {
   light: 10,
@@ -13,6 +8,7 @@ const PLAN_LIMITS: Record<string, number> = {
 };
 
 export async function POST(req: NextRequest) {
+  const supabase = getAnonClient();
   const { storeId, plan } = await req.json();
 
   if (!storeId) {

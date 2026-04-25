@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getAdminClient } from "../../../lib/supabase-admin";
 
 export async function GET() {
+  const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("cancellation_requests")
     .select("*")
@@ -17,6 +13,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  const supabase = getAdminClient();
   const { id, status } = await req.json();
   if (!id || !status) {
     return NextResponse.json({ error: "id and status required" }, { status: 400 });
