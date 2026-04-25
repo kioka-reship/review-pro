@@ -404,6 +404,8 @@ export default function AdminPage() {
   const [repairingEmail, setRepairingEmail] = useState<string | null>(null);
   const [repairLogs, setRepairLogs] = useState<{ level: string; message: string; time: string }[]>([]);
   const [repairStoreName, setRepairStoreName] = useState<string>("");
+  const [emailFixForm, setEmailFixForm] = useState({ store_name: "", new_email: "" });
+  const [emailFixLoading, setEmailFixLoading] = useState(false);
 
   const handleDeleteStore = async (store: Store) => {
     setDeleteLoading(true);
@@ -419,6 +421,28 @@ export default function AdminPage() {
       alert("❌ 削除に失敗しました");
     }
     setDeleteLoading(false);
+  };
+
+  const handleEmailFix = async () => {
+    const { store_name, new_email } = emailFixForm;
+    if (!store_name || !new_email) { alert("店舗名と新しいメールアドレスを入力してください"); return; }
+    if (!window.confirm(`【確認】\n\n店舗名: ${store_name}\n新メール: ${new_email}\n\nstores.email と Supabase Auth email を更新し、\nパスワード再設定メールを送信します。\n\nよろしいですか？`)) return;
+    setEmailFixLoading(true);
+    setRepairLogs([]);
+    setRepairStoreName("");
+    const res = await fetch("/api/admin/repair-auth", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store_name, new_email }),
+    });
+    const data = await res.json();
+    setRepairLogs(data.logs || []);
+    setRepairStoreName(data.store_name || store_name);
+    setEmailFixLoading(false);
+    if (data.success) {
+      setEmailFixForm({ store_name: "", new_email: "" });
+      await handleCheckAuthSync();
+    }
   };
 
   const handleRepairAuth = async (storeEmail: string) => {
@@ -812,6 +836,39 @@ export default function AdminPage() {
                       📥 CSVダウンロード
                     </a>
                   )}
+                </div>
+              </div>
+
+              {/* メールアドレス変更 + Auth同期フォーム */}
+              <div style={{ background: "#F0F9FF", border: "1.5px solid #BAE6FD", borderRadius: "12px", padding: "16px 20px", marginBottom: "20px" }}>
+                <div style={{ fontSize: "13px", fontWeight: "700", color: "#0369A1", marginBottom: "10px" }}>📧 メールアドレス変更 + Auth同期 + 再設定メール送信</div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "flex-end" }}>
+                  <div style={{ flex: "1", minWidth: "150px" }}>
+                    <div style={{ fontSize: "11px", color: "#555", marginBottom: "4px", fontWeight: "600" }}>店舗名</div>
+                    <input
+                      value={emailFixForm.store_name}
+                      onChange={e => setEmailFixForm(f => ({ ...f, store_name: e.target.value }))}
+                      placeholder="例: PlusBelle"
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #BAE6FD", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div style={{ flex: "2", minWidth: "200px" }}>
+                    <div style={{ fontSize: "11px", color: "#555", marginBottom: "4px", fontWeight: "600" }}>新しいメールアドレス</div>
+                    <input
+                      value={emailFixForm.new_email}
+                      onChange={e => setEmailFixForm(f => ({ ...f, new_email: e.target.value }))}
+                      placeholder="例: owner@example.com"
+                      type="email"
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #BAE6FD", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <button
+                    onClick={handleEmailFix}
+                    disabled={emailFixLoading}
+                    style={{ background: "#0369A1", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 16px", fontSize: "13px", fontWeight: "600", cursor: emailFixLoading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: emailFixLoading ? 0.7 : 1, whiteSpace: "nowrap" }}
+                  >
+                    {emailFixLoading ? "処理中..." : "✉️ 更新して修復する"}
+                  </button>
                 </div>
               </div>
 

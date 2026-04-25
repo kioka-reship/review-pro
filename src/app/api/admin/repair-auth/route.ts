@@ -28,6 +28,137 @@ function makeLogger() {
   };
 }
 
+// stores.email 変更 + Supabase Auth 同期 + パスワード再設定メール送信
+export async function PUT(req: NextRequest) {
+  const { store_name, new_email } = await req.json();
+  const log = makeLogger();
+
+  if (!store_name || !new_email) {
+    log.error("store_name と new_email が必要です");
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 400 });
+  }
+
+  // ① 店舗を名前で検索（大文字小文字を区別しない）
+  log.info(`店舗を名前で検索中... "${store_name}"`);
+  const { data: storeList } = await supabase
+    .from("stores")
+    .select("id, name, email, status")
+    .ilike("name", `%${store_name}%`);
+
+  if (!storeList || storeList.length === 0) {
+    log.error(`店舗が見つかりません: "${store_name}"`);
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 404 });
+  }
+  if (storeList.length > 1) {
+    log.warn(`複数の店舗が該当しました: ${storeList.map(s => s.name).join(", ")}`);
+    log.error("店舗名をより具体的に指定してください");
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 400 });
+  }
+  const store = storeList[0];
+  const oldEmail = store.email;
+  log.ok(`店舗を確認: ${store.name}  旧email=${oldEmail}  status=${store.status}`);
+
+  // ② new_email に既存 Auth ユーザーがないか確認（重複防止）
+  log.info(`新しいメールアドレス "${new_email}" の重複確認中...`);
+  const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+  const authByOldEmail = listData?.users?.find(u => u.email?.toLowerCase() === oldEmail?.toLowerCase());
+  const authByNewEmail = listData?.users?.find(u => u.email?.toLowerCase() === new_email.toLowerCase());
+
+  if (authByNewEmail && authByNewEmail.id !== authByOldEmail?.id) {
+    log.error(`"${new_email}" は別のアカウントで既に使用されています`);
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 409 });
+  }
+  log.ok("メールアドレスの重複なし");
+
+  // ③ stores.email を更新
+  log.info(`stores.email を更新中: ${oldEmail} → ${new_email}`);
+  const { error: emailUpdateErr } = await supabase
+    .from("stores")
+    .update({ email: new_email, updated_at: new Date().toISOString() })
+    .eq("id", store.id);
+
+  if (emailUpdateErr) {
+    log.error(`stores.email 更新失敗 → ${emailUpdateErr.message}`);
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
+  }
+  log.ok(`stores.email を更新しました → ${new_email}`);
+
+  // ④ Supabase Auth ユーザーを更新 or 新規作成
+  const tempPassword = randomBytes(16).toString("base64url");
+  let authUserId: string;
+
+  if (authByOldEmail) {
+    // 旧メールの Auth ユーザーが存在 → email と仮パスワードを更新
+    log.info(`Auth ユーザー (UUID: ${authByOldEmail.id}) のメールアドレスを更新中...`);
+    const { error: authEmailErr } = await supabase.auth.admin.updateUserById(
+      authByOldEmail.id,
+      { email: new_email, password: tempPassword },
+    );
+    if (authEmailErr) {
+      log.error(`Auth email 更新失敗 → ${authEmailErr.message}`);
+      return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
+    }
+    authUserId = authByOldEmail.id;
+    log.ok(`Auth email を更新しました → ${new_email}`);
+  } else {
+    // Auth 未登録 → 新規ユーザーを作成
+    log.info("Auth 未登録を確認 → 新しいメールで Auth ユーザーを作成します");
+    const { data: newUserData, error: createErr } = await supabase.auth.admin.createUser({
+      email: new_email,
+      password: tempPassword,
+      email_confirm: true,
+    });
+    if (createErr || !newUserData?.user) {
+      log.error(`Auth ユーザー作成失敗 → ${createErr?.message ?? "不明なエラー"}`);
+      return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
+    }
+    authUserId = newUserData.user.id;
+    log.ok(`Auth ユーザーを作成しました (UUID: ${authUserId})`);
+  }
+
+  // ⑤ password_resets トークンを生成（24時間有効）
+  log.info("パスワード再設定トークンを生成中...");
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  const { error: tokenErr } = await supabase.from("password_resets").insert({
+    email: new_email,
+    token,
+    expires_at: expiresAt.toISOString(),
+  });
+
+  if (tokenErr) {
+    log.error(`トークン保存失敗 → ${tokenErr.message}`);
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
+  }
+  log.ok("トークンを保存しました（有効期限: 24時間）");
+
+  // ⑥ 新しいメールアドレスへパスワード再設定メールを送信
+  log.info(`パスワード再設定メールを送信中... → ${new_email}`);
+  const resetUrl = `${APP_URL}/mypage/reset-password/confirm?token=${token}`;
+  const tmpl = emailTemplates.passwordReset(resetUrl);
+  const sent = await sendEmail({ to: new_email, ...tmpl, storeId: store.id });
+
+  if (!sent) {
+    log.error("メール送信に失敗しました。BREVO_API_KEY と FROM_EMAIL を確認してください。");
+    return NextResponse.json({ success: false, logs: log.logs }, { status: 500 });
+  }
+  log.ok(`パスワード再設定メールを送信しました → ${new_email}`);
+
+  log.ok(`━━ 完了: ${store.name} のメールアドレスを更新し、パスワード再設定メールを送信しました ━━`);
+  log.info(`新メールアドレス: ${new_email}`);
+  log.info("リンクの有効期限は24時間です。早めにパスワードを設定してください。");
+
+  return NextResponse.json({
+    success: true,
+    logs: log.logs,
+    store_name: store.name,
+    old_email: oldEmail,
+    new_email,
+    auth_user_id: authUserId,
+  });
+}
+
 export async function POST(req: NextRequest) {
   const { email } = await req.json();
   const log = makeLogger();
