@@ -30,11 +30,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "リンクが無効または期限切れです" }, { status: 400 });
   }
 
-  // パスワードを更新
-  const { error: updateError } = await supabase
+  // storesテーブルからstore_id（= Supabase Auth user id）を取得
+  const { data: store, error: storeError } = await supabase
     .from("stores")
-    .update({ password, updated_at: new Date().toISOString() })
-    .eq("email", reset.email);
+    .select("id")
+    .eq("email", reset.email)
+    .single();
+
+  if (storeError || !store) {
+    return NextResponse.json({ error: "店舗情報が見つかりません" }, { status: 400 });
+  }
+
+  // Supabase Auth のパスワードを更新
+  const { error: updateError } = await supabase.auth.admin.updateUserById(store.id, {
+    password,
+  });
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });

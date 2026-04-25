@@ -28,11 +28,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "メールアドレスまたはパスワードが違います" }, { status: 401 });
   }
 
-  // storesテーブルからstore情報を取得
+  // storesテーブルからstore情報を取得（emailで検索することで管理画面追加店舗にも対応）
   const { data: store, error: storeError } = await supabase
     .from("stores")
     .select("id, name, plan, billing_cycle, status, next_billing_date, email, setup_fee_paid_amount, pending_plan, pending_billing_cycle")
-    .eq("id", authData.user.id)
+    .eq("email", authData.user.email!)
     .single();
 
   if (storeError || !store) {

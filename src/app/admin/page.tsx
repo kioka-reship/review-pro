@@ -349,7 +349,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState("");
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"stores" | "add" | "questions" | "cancels" | "logs">("stores");
+  const [activeTab, setActiveTab] = useState<"stores" | "add" | "questions" | "cancels" | "logs" | "auth-check">("stores");
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [editStore, setEditStore] = useState<Store | null>(null);
@@ -398,6 +398,9 @@ export default function AdminPage() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<Store | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [authCheckResults, setAuthCheckResults] = useState<any[]>([]);
+  const [authCheckSummary, setAuthCheckSummary] = useState<{ total: number; ok: number; warn: number; error: number; no_auth: number; id_mismatch_only: number; email_mismatch_only: number } | null>(null);
+  const [authCheckLoading, setAuthCheckLoading] = useState(false);
 
   const handleDeleteStore = async (store: Store) => {
     setDeleteLoading(true);
@@ -413,6 +416,17 @@ export default function AdminPage() {
       alert("❌ 削除に失敗しました");
     }
     setDeleteLoading(false);
+  };
+
+  const handleCheckAuthSync = async () => {
+    setAuthCheckLoading(true);
+    setAuthCheckResults([]);
+    setAuthCheckSummary(null);
+    const res = await fetch("/api/admin/check-auth-sync");
+    const data = await res.json();
+    setAuthCheckResults(data.results || []);
+    setAuthCheckSummary(data.summary || null);
+    setAuthCheckLoading(false);
   };
 
   const handleLogin = async () => {
@@ -580,6 +594,7 @@ export default function AdminPage() {
               { key: "add", label: "➕ 店舗追加" },
               { key: "cancels", label: "🚪 解約申請" },
               { key: "logs", label: "📋 監査ログ" },
+              { key: "auth-check", label: "🔍 Auth診断" },
             ].map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key as any)}
                 style={{ padding: "10px 20px", borderRadius: "10px", border: "none", background: activeTab === t.key ? "#2C7A4B" : "#fff", color: activeTab === t.key ? "#fff" : "#555", fontFamily: "inherit", fontSize: "14px", fontWeight: "600", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
@@ -747,6 +762,102 @@ export default function AdminPage() {
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "auth-check" && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+                <div>
+                  <h2 style={{ margin: "0 0 4px", fontSize: "16px", color: "#1a2533" }}>Auth整合性チェック</h2>
+                  <p style={{ margin: 0, fontSize: "12px", color: "#888" }}>読み取り専用 — データは一切変更しません</p>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    onClick={handleCheckAuthSync}
+                    disabled={authCheckLoading}
+                    style={{ background: "#2C7A4B", border: "none", color: "#fff", borderRadius: "8px", padding: "8px 16px", fontSize: "13px", fontWeight: "600", cursor: authCheckLoading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: authCheckLoading ? 0.7 : 1 }}
+                  >
+                    {authCheckLoading ? "診断中..." : "🔍 全店舗を診断する"}
+                  </button>
+                  {authCheckResults.length > 0 && (
+                    <a
+                      href="/api/admin/check-auth-sync?format=csv"
+                      download
+                      style={{ background: "#1a2533", color: "#fff", borderRadius: "8px", padding: "8px 16px", fontSize: "13px", fontWeight: "600", textDecoration: "none", display: "flex", alignItems: "center" }}
+                    >
+                      📥 CSVダウンロード
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {authCheckSummary && (
+                <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
+                  {[
+                    { label: "総店舗数", value: authCheckSummary.total, bg: "#F4F6F9", color: "#1a2533" },
+                    { label: "正常", value: authCheckSummary.ok, bg: "#ECFDF5", color: "#065F46" },
+                    { label: "要確認", value: authCheckSummary.warn, bg: "#FFFBEB", color: "#92400E" },
+                    { label: "要修復", value: authCheckSummary.error, bg: "#FEF2F2", color: "#991B1B" },
+                    { label: "Auth未登録", value: authCheckSummary.no_auth, bg: "#FEF2F2", color: "#991B1B" },
+                    { label: "ID不一致", value: authCheckSummary.id_mismatch_only, bg: "#FFFBEB", color: "#92400E" },
+                    { label: "email不一致", value: authCheckSummary.email_mismatch_only, bg: "#FFFBEB", color: "#92400E" },
+                  ].map(s => (
+                    <div key={s.label} style={{ background: s.bg, borderRadius: "10px", padding: "12px 16px", minWidth: "90px", textAlign: "center" }}>
+                      <div style={{ fontSize: "22px", fontWeight: "700", color: s.color }}>{s.value}</div>
+                      <div style={{ fontSize: "11px", color: s.color, marginTop: "2px" }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {authCheckResults.length > 0 && (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #F0F0F0", background: "#F8FAFC" }}>
+                        {["重要度", "店舗名", "stores.email", "stores.id", "Auth登録", "ID一致", "email一致", "修復推奨"].map(h => (
+                          <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: "#888", fontWeight: "600", fontSize: "11px", whiteSpace: "nowrap" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {authCheckResults.map((r: any, i: number) => {
+                        const bg = r.severity === "error" ? "#FFF5F5" : r.severity === "warn" ? "#FFFDF0" : "#fff";
+                        const badge = r.severity === "error"
+                          ? { label: "要修復", bg: "#FEE2E2", color: "#991B1B" }
+                          : r.severity === "warn"
+                          ? { label: "要確認", bg: "#FEF9C3", color: "#854D0E" }
+                          : { label: "正常", bg: "#DCFCE7", color: "#166534" };
+                        return (
+                          <tr key={i} style={{ borderBottom: "1px solid #F0F0F0", background: bg }}>
+                            <td style={{ padding: "8px 10px" }}>
+                              <span style={{ background: badge.bg, color: badge.color, borderRadius: "6px", padding: "2px 8px", fontSize: "11px", fontWeight: "600" }}>{badge.label}</span>
+                            </td>
+                            <td style={{ padding: "8px 10px", fontWeight: "600", color: "#1a2533" }}>{r.store_name}</td>
+                            <td style={{ padding: "8px 10px", color: "#555" }}>{r.store_email}</td>
+                            <td style={{ padding: "8px 10px", color: "#888", fontFamily: "monospace", fontSize: "11px" }}>{r.store_id}</td>
+                            <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                              <span style={{ color: r.auth_user_exists ? "#16a34a" : "#dc2626", fontSize: "16px" }}>{r.auth_user_exists ? "✓" : "✗"}</span>
+                            </td>
+                            <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                              <span style={{ color: r.id_matches_auth_uuid ? "#16a34a" : "#dc2626", fontSize: "16px" }}>{r.id_matches_auth_uuid ? "✓" : "✗"}</span>
+                            </td>
+                            <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                              <span style={{ color: r.email_matches_auth ? "#16a34a" : "#dc2626", fontSize: "16px" }}>{r.email_matches_auth ? "✓" : "✗"}</span>
+                            </td>
+                            <td style={{ padding: "8px 10px", color: "#555", maxWidth: "260px" }}>{r.recommendation}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {!authCheckLoading && authCheckResults.length === 0 && (
+                <p style={{ color: "#aaa", textAlign: "center", padding: "48px" }}>「全店舗を診断する」ボタンを押すと結果が表示されます</p>
               )}
             </div>
           )}
