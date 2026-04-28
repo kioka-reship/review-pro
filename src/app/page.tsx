@@ -4,6 +4,7 @@ import { useState } from "react";
 
 export default function LandingPage() {
   const [billingCycle, setBillingCycle] = useState<"yearly" | "monthly">("yearly");
+  const [activeTab, setActiveTab] = useState<"user" | "admin">("user");
 
   const plans = [
     {
@@ -121,19 +122,120 @@ export default function LandingPage() {
         <div className="container" style={{ textAlign: "center" }}>
           <h2 className="section-title">たった3ステップで<br />口コミが集まる仕組み</h2>
           <p className="section-sub">難しい設定は一切不要。今日から始められます。</p>
-          <div className="step-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "32px", position: "relative" }}>
-            {[
-              { num: "01", icon: "📱", title: "QRコードを設置", desc: "マイページからQRコードを印刷して、レジや卓上に設置するだけ。数分で完了します。" },
-              { num: "02", icon: "✨", title: "お客様がQRを読み取る", desc: "7つの質問に答えるだけでAIが口コミ文を3パターン自動生成。選ぶだけでOK。" },
-              { num: "03", icon: "🎯", title: "Googleに自動投稿", desc: "生成された文章をコピーしてGoogleマップに投稿。お客様の負担を最小限に。" },
-            ].map((step, i) => (
-              <div key={i} style={{ background: "#fff", borderRadius: "20px", padding: "36px 28px", border: "1.5px solid #E8EDE8", position: "relative", textAlign: "left" }}>
-                <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: "64px", fontWeight: "900", color: "#F0FAF4", position: "absolute", top: "16px", right: "20px", lineHeight: 1 }}>{step.num}</div>
-                <div style={{ fontSize: "40px", marginBottom: "20px" }}>{step.icon}</div>
-                <h3 style={{ fontSize: "20px", fontWeight: "700", color: "#1a2533", marginBottom: "12px" }}>{step.title}</h3>
-                <p style={{ fontSize: "15px", color: "#888", lineHeight: 1.8 }}>{step.desc}</p>
+          <div className="step-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "32px" }}>
+
+            {/* STEP 1 */}
+            <div style={{ background: "#fff", borderRadius: "20px", padding: "28px 24px", border: "1.5px solid #E8EDE8", textAlign: "left" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "50%", background: "#2C7A4B", color: "#fff", fontWeight: "700", fontSize: "15px", marginBottom: "20px", fontFamily: "'Outfit', sans-serif" }}>1</div>
+              <div style={{ background: "#F8FAF8", borderRadius: "16px", padding: "16px", marginBottom: "20px", textAlign: "center" }}>
+                <svg viewBox="0 0 200 130" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "130px" }}>
+                  {/* QR Code border */}
+                  <rect x="14" y="8" width="88" height="88" rx="8" fill="white" stroke="#E8EDE8" strokeWidth="1.5"/>
+                  {/* Corner squares */}
+                  <rect x="24" y="18" width="24" height="24" rx="3" fill="#2C7A4B"/>
+                  <rect x="68" y="18" width="24" height="24" rx="3" fill="#2C7A4B"/>
+                  <rect x="24" y="62" width="24" height="24" rx="3" fill="#2C7A4B"/>
+                  {/* Inner whites */}
+                  <rect x="28" y="22" width="16" height="16" rx="1" fill="white"/>
+                  <rect x="72" y="22" width="16" height="16" rx="1" fill="#2C7A4B" opacity="0.15"/>
+                  <rect x="28" y="66" width="16" height="16" rx="1" fill="white"/>
+                  {/* QR data dots */}
+                  <rect x="54" y="18" width="7" height="7" rx="1" fill="#2C7A4B"/>
+                  <rect x="54" y="32" width="7" height="7" rx="1" fill="#2C7A4B"/>
+                  <rect x="63" y="25" width="7" height="7" rx="1" fill="#2C7A4B"/>
+                  <rect x="54" y="46" width="7" height="7" rx="1" fill="#2C7A4B"/>
+                  <rect x="63" y="53" width="7" height="7" rx="1" fill="#2C7A4B"/>
+                  <rect x="54" y="62" width="20" height="7" rx="1" fill="#2C7A4B"/>
+                  <rect x="78" y="46" width="8" height="22" rx="1" fill="#2C7A4B"/>
+                  {/* Arrow */}
+                  <line x1="106" y1="52" x2="116" y2="52" stroke="#2C7A4B" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M113 46 L119 52 L113 58" fill="none" stroke="#2C7A4B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  {/* Printer body */}
+                  <rect x="118" y="38" width="66" height="46" rx="7" fill="#F0FAF4" stroke="#2C7A4B" strokeWidth="1.5"/>
+                  {/* Paper tray top */}
+                  <rect x="128" y="27" width="46" height="14" rx="3" fill="white" stroke="#E8EDE8" strokeWidth="1.5"/>
+                  {/* Paper output */}
+                  <rect x="128" y="82" width="46" height="26" rx="3" fill="white" stroke="#E8EDE8" strokeWidth="1.5"/>
+                  <rect x="134" y="91" width="30" height="3" rx="1.5" fill="#E8EDE8"/>
+                  <rect x="134" y="98" width="22" height="3" rx="1.5" fill="#E8EDE8"/>
+                  {/* Printer lights */}
+                  <circle cx="132" cy="61" r="4" fill="#2C7A4B" opacity="0.7"/>
+                  <circle cx="146" cy="61" r="4" fill="#3DA66A" opacity="0.5"/>
+                </svg>
               </div>
-            ))}
+              <h3 style={{ fontSize: "19px", fontWeight: "700", color: "#1a2533", marginBottom: "10px" }}>QRコードを設置</h3>
+              <p style={{ fontSize: "14px", color: "#888", lineHeight: 1.8 }}>マイページからQRコードを印刷して、レジや卓上に設置するだけ。数分で完了します。</p>
+            </div>
+
+            {/* STEP 2 */}
+            <div style={{ background: "#fff", borderRadius: "20px", padding: "28px 24px", border: "1.5px solid #E8EDE8", textAlign: "left" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "50%", background: "#2C7A4B", color: "#fff", fontWeight: "700", fontSize: "15px", marginBottom: "20px", fontFamily: "'Outfit', sans-serif" }}>2</div>
+              <div style={{ background: "#F8FAF8", borderRadius: "16px", padding: "16px", marginBottom: "20px", textAlign: "center" }}>
+                <svg viewBox="0 0 200 130" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "130px" }}>
+                  {/* Phone outer */}
+                  <rect x="60" y="4" width="80" height="122" rx="14" fill="#1a2533"/>
+                  {/* Screen */}
+                  <rect x="65" y="16" width="70" height="102" rx="4" fill="white"/>
+                  {/* Notch */}
+                  <rect x="85" y="8" width="30" height="7" rx="3.5" fill="#0A1219"/>
+                  {/* App header */}
+                  <rect x="65" y="16" width="70" height="18" rx="0" fill="#2C7A4B"/>
+                  <text x="100" y="28" textAnchor="middle" fill="white" fontSize="7" fontWeight="700" fontFamily="sans-serif">口コミ投稿</text>
+                  {/* Title text */}
+                  <text x="69" y="46" fill="#1a2533" fontSize="6.5" fontWeight="700" fontFamily="sans-serif">ご来店ありがとうございます！</text>
+                  {/* Stars row */}
+                  <text x="69" y="60" fill="#F5A623" fontSize="11" fontFamily="sans-serif">★★★★</text>
+                  <text x="113" y="60" fill="#E8EDE8" fontSize="11" fontFamily="sans-serif">★</text>
+                  {/* Choice chips */}
+                  <rect x="69" y="65" width="30" height="9" rx="4.5" fill="#E8F5EE" stroke="#2C7A4B" strokeWidth="0.8"/>
+                  <text x="84" y="72" textAnchor="middle" fill="#2C7A4B" fontSize="5" fontFamily="sans-serif">スタッフの対応</text>
+                  <rect x="102" y="65" width="30" height="9" rx="4.5" fill="#E8F5EE" stroke="#2C7A4B" strokeWidth="0.8"/>
+                  <text x="117" y="72" textAnchor="middle" fill="#2C7A4B" fontSize="5" fontFamily="sans-serif">施術の仕上がり</text>
+                  <rect x="69" y="78" width="22" height="9" rx="4.5" fill="#F4F6F9"/>
+                  <text x="80" y="85" textAnchor="middle" fill="#888" fontSize="5" fontFamily="sans-serif">清潔感</text>
+                  <rect x="94" y="78" width="16" height="9" rx="4.5" fill="#F4F6F9"/>
+                  <text x="102" y="85" textAnchor="middle" fill="#888" fontSize="5" fontFamily="sans-serif">価格</text>
+                  {/* Button */}
+                  <rect x="69" y="93" width="62" height="14" rx="7" fill="#2C7A4B"/>
+                  <text x="100" y="103" textAnchor="middle" fill="white" fontSize="6" fontWeight="700" fontFamily="sans-serif">Googleで口コミを書く</text>
+                  {/* Home indicator */}
+                  <rect x="87" y="113" width="26" height="3" rx="1.5" fill="#E8EDE8"/>
+                </svg>
+              </div>
+              <h3 style={{ fontSize: "19px", fontWeight: "700", color: "#1a2533", marginBottom: "10px" }}>お客様がQRを読み取る</h3>
+              <p style={{ fontSize: "14px", color: "#888", lineHeight: 1.8 }}>7つの質問に答えるだけでAIが口コミ文を3パターン自動生成。選ぶだけでOK。</p>
+            </div>
+
+            {/* STEP 3 */}
+            <div style={{ background: "#fff", borderRadius: "20px", padding: "28px 24px", border: "1.5px solid #E8EDE8", textAlign: "left" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "50%", background: "#2C7A4B", color: "#fff", fontWeight: "700", fontSize: "15px", marginBottom: "20px", fontFamily: "'Outfit', sans-serif" }}>3</div>
+              <div style={{ background: "#F8FAF8", borderRadius: "16px", padding: "16px", marginBottom: "20px", textAlign: "center" }}>
+                <svg viewBox="0 0 200 130" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "130px" }}>
+                  {/* Card background */}
+                  <rect x="20" y="14" width="160" height="102" rx="12" fill="white" stroke="#E8EDE8" strokeWidth="1.5"/>
+                  {/* Google logo G */}
+                  <circle cx="50" cy="42" r="16" fill="white" stroke="#E8EDE8" strokeWidth="1"/>
+                  <text x="50" y="48" textAnchor="middle" fill="#4285F4" fontSize="18" fontWeight="900" fontFamily="sans-serif">G</text>
+                  {/* Google text */}
+                  <text x="75" y="40" fill="#1a2533" fontSize="13" fontWeight="700" fontFamily="sans-serif">oogle</text>
+                  <text x="75" y="52" fill="#888" fontSize="7" fontFamily="sans-serif">マップに投稿されました</text>
+                  {/* Divider */}
+                  <line x1="30" y1="64" x2="170" y2="64" stroke="#F0F0F0" strokeWidth="1"/>
+                  {/* Stars */}
+                  <text x="30" y="82" fill="#F5A623" fontSize="16" fontFamily="sans-serif">★★★★★</text>
+                  <text x="145" y="82" fill="#888" fontSize="10" fontWeight="700" fontFamily="sans-serif">5.0</text>
+                  {/* Review lines */}
+                  <rect x="30" y="88" width="110" height="5" rx="2.5" fill="#E8EDE8"/>
+                  <rect x="30" y="97" width="80" height="5" rx="2.5" fill="#E8EDE8"/>
+                  {/* Checkmark badge */}
+                  <circle cx="162" cy="28" r="20" fill="#2C7A4B"/>
+                  <path d="M153 28 L159 35 L172 21" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <h3 style={{ fontSize: "19px", fontWeight: "700", color: "#1a2533", marginBottom: "10px" }}>Googleに自動投稿</h3>
+              <p style={{ fontSize: "14px", color: "#888", lineHeight: 1.8 }}>生成された文章をコピーしてGoogleマップに投稿。お客様の負担を最小限に。</p>
+            </div>
+
           </div>
         </div>
       </section>
@@ -162,40 +264,127 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 導入事例 */}
-      <section id="cases">
+      {/* 実際の画面 */}
+      <section id="cases" style={{ background: "#F8FAF8" }}>
         <div className="container" style={{ textAlign: "center" }}>
-          <h2 className="section-title">導入事例</h2>
-          <p className="section-sub">様々な業種で口コミ増加の実績があります</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "28px", textAlign: "left" }}>
-            {[
-              { type: "美容脱毛サロン", name: "Plus Belle", result: "導入3ヶ月で口コミ47件増加", stars: 5, comment: "QRコードを置いただけで、毎週コンスタントに口コミが入るようになりました。スタッフがお願いしなくてもお客様が自然に投稿してくれます。", owner: "オーナー" },
-              { type: "飲食店", name: "博多ラーメン 一風堂風", result: "Googleマップの評価が3.8→4.4に向上", stars: 5, comment: "AIが自然な文章を作ってくれるので、お客様が気軽に投稿できるようになりました。星5の口コミが増えて集客にも繋がっています。", owner: "店主" },
-              { type: "整体・接骨院", name: "コーネリアス整体院", result: "月間口コミ投稿数が0件→12件に", stars: 5, comment: "今まで口コミ0件でしたが、導入後すぐに投稿が増えました。患者さんから「簡単に書けた」と言われて嬉しかったです。", owner: "院長" },
-            ].map((c, i) => (
-              <div key={i} style={{ background: "#fff", border: "1.5px solid #E8EDE8", borderRadius: "20px", padding: "28px", position: "relative" }}>
-                <div style={{ display: "flex", gap: "4px", marginBottom: "16px" }}>
-                  {[...Array(c.stars)].map((_, j) => <span key={j} style={{ color: "#F5A623", fontSize: "18px" }}>★</span>)}
+          <h2 className="section-title">実際の画面をご覧ください</h2>
+          <p className="section-sub">シンプルで使いやすい画面設計で、お客様もオーナーも迷わず使えます</p>
+
+          {/* Tab switcher */}
+          <div style={{ display: "inline-flex", background: "#E8EDE8", borderRadius: "100px", padding: "4px", marginBottom: "48px" }}>
+            <button
+              onClick={() => setActiveTab("user")}
+              style={{ padding: "10px 28px", borderRadius: "100px", border: "none", background: activeTab === "user" ? "#2C7A4B" : "transparent", color: activeTab === "user" ? "#fff" : "#888", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
+              エンドユーザー画面
+            </button>
+            <button
+              onClick={() => setActiveTab("admin")}
+              style={{ padding: "10px 28px", borderRadius: "100px", border: "none", background: activeTab === "admin" ? "#2C7A4B" : "transparent", color: activeTab === "admin" ? "#fff" : "#888", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
+              管理画面
+            </button>
+          </div>
+
+          {/* Phone mockup */}
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            {activeTab === "user" ? (
+              <div style={{ width: "280px", background: "#fff", borderRadius: "40px", border: "8px solid #1a2533", boxShadow: "0 32px 80px rgba(0,0,0,0.18)", overflow: "hidden" }}>
+                <div style={{ background: "#1a2533", height: "28px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ width: "64px", height: "10px", background: "#0A1219", borderRadius: "6px" }} />
                 </div>
-                <p style={{ fontSize: "15px", color: "#555", lineHeight: 1.8, marginBottom: "20px" }}>"{c.comment}"</p>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", borderTop: "1px solid #F0F0F0", paddingTop: "16px" }}>
-                  <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#F0FAF4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>👤</div>
-                  <div>
-                    <div style={{ fontWeight: "700", fontSize: "14px", color: "#1a2533" }}>{c.name}</div>
-                    <div style={{ fontSize: "12px", color: "#2C7A4B", fontWeight: "600" }}>{c.type} / {c.owner}</div>
+                <div style={{ background: "#2C7A4B", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: "900", color: "#fff", fontSize: "15px" }}>REVIEW PRO</span>
+                  <span style={{ background: "rgba(255,255,255,0.2)", color: "#fff", fontSize: "10px", fontWeight: "700", padding: "3px 10px", borderRadius: "100px" }}>口コミ投稿</span>
+                </div>
+                <div style={{ padding: "20px 16px 8px", background: "#fff" }}>
+                  <h3 style={{ fontSize: "15px", fontWeight: "700", color: "#1a2533", marginBottom: "4px", textAlign: "left" }}>ご来店ありがとうございます！</h3>
+                  <p style={{ fontSize: "12px", color: "#888", marginBottom: "16px", textAlign: "left" }}>○○サロン 渋谷店</p>
+                  <div style={{ marginBottom: "14px", textAlign: "left" }}>
+                    <p style={{ fontSize: "11px", color: "#555", fontWeight: "600", marginBottom: "6px" }}>総合評価</p>
+                    <div style={{ display: "flex", gap: "2px" }}>
+                      {[1,2,3,4,5].map(s => (
+                        <span key={s} style={{ fontSize: "24px", color: s <= 4 ? "#F5A623" : "#E8EDE8" }}>★</span>
+                      ))}
+                    </div>
                   </div>
+                  <div style={{ marginBottom: "16px", textAlign: "left" }}>
+                    <p style={{ fontSize: "11px", color: "#555", fontWeight: "600", marginBottom: "8px" }}>特に良かった点は？</p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {[
+                        { label: "スタッフの対応", selected: true },
+                        { label: "施術の仕上がり", selected: true },
+                        { label: "清潔感", selected: false },
+                        { label: "価格", selected: false },
+                      ].map((item, idx) => (
+                        <span key={idx} style={{ background: item.selected ? "#E8F5EE" : "#F4F6F9", color: item.selected ? "#2C7A4B" : "#888", fontSize: "11px", fontWeight: "600", padding: "4px 10px", borderRadius: "100px", border: `1px solid ${item.selected ? "#2C7A4B" : "#E8EDE8"}` }}>{item.label}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <button style={{ width: "100%", padding: "12px", background: "linear-gradient(135deg, #2C7A4B, #3DA66A)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "inherit", marginBottom: "12px" }}>
+                    Googleで口コミを書く
+                  </button>
                 </div>
-                <div style={{ position: "absolute", top: "20px", right: "20px", background: "#F0FAF4", borderRadius: "8px", padding: "4px 12px", fontSize: "12px", color: "#2C7A4B", fontWeight: "700" }}>
-                  {c.result}
+                <div style={{ background: "#fff", height: "24px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ width: "52px", height: "4px", background: "#E8EDE8", borderRadius: "2px" }} />
                 </div>
               </div>
-            ))}
+            ) : (
+              <div style={{ width: "280px", background: "#fff", borderRadius: "40px", border: "8px solid #1a2533", boxShadow: "0 32px 80px rgba(0,0,0,0.18)", overflow: "hidden" }}>
+                <div style={{ background: "#1a2533", height: "28px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ width: "64px", height: "10px", background: "#0A1219", borderRadius: "6px" }} />
+                </div>
+                <div style={{ background: "#2C7A4B", padding: "12px 16px" }}>
+                  <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "10px", marginBottom: "2px" }}>マイページ</p>
+                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: "900", color: "#fff", fontSize: "15px" }}>ダッシュボード</span>
+                </div>
+                <div style={{ padding: "14px", background: "#F8FAF8" }}>
+                  <div style={{ background: "#fff", borderRadius: "12px", padding: "12px 14px", marginBottom: "10px", border: "1px solid #E8EDE8", textAlign: "left" }}>
+                    <p style={{ fontSize: "10px", color: "#888", marginBottom: "4px" }}>今月の口コミ件数</p>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+                      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: "28px", fontWeight: "900", color: "#1a2533", lineHeight: 1 }}>12</span>
+                      <span style={{ fontSize: "11px", color: "#888" }}>件</span>
+                      <span style={{ fontSize: "11px", color: "#2C7A4B", fontWeight: "700", background: "#E8F5EE", padding: "2px 8px", borderRadius: "100px" }}>+12件</span>
+                    </div>
+                  </div>
+                  <div style={{ background: "#fff", borderRadius: "12px", padding: "12px 14px", marginBottom: "10px", border: "1px solid #E8EDE8", textAlign: "left" }}>
+                    <p style={{ fontSize: "10px", color: "#888", marginBottom: "4px" }}>平均評価</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: "28px", fontWeight: "900", color: "#F5A623", lineHeight: 1 }}>4.8</span>
+                      <span style={{ color: "#F5A623", fontSize: "16px" }}>★</span>
+                    </div>
+                  </div>
+                  <div style={{ background: "#fff", borderRadius: "12px", padding: "12px 14px", marginBottom: "10px", border: "1px solid #E8EDE8", textAlign: "left" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <p style={{ fontSize: "10px", color: "#888" }}>今月の利用状況</p>
+                      <span style={{ fontSize: "10px", color: "#2C7A4B", fontWeight: "700" }}>14/20回</span>
+                    </div>
+                    <div style={{ background: "#F0F4F0", borderRadius: "100px", height: "6px", overflow: "hidden" }}>
+                      <div style={{ width: "70%", height: "100%", background: "linear-gradient(90deg, #2C7A4B, #3DA66A)", borderRadius: "100px" }} />
+                    </div>
+                  </div>
+                  <div style={{ background: "#fff", borderRadius: "12px", padding: "12px 14px", border: "1px solid #E8EDE8", textAlign: "left" }}>
+                    <p style={{ fontSize: "10px", color: "#888", marginBottom: "8px" }}>契約情報</p>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
+                      <span style={{ color: "#555" }}>プラン</span>
+                      <span style={{ color: "#1a2533", fontWeight: "700" }}>スタンダード</span>
+                    </div>
+                    <div style={{ height: "1px", background: "#F0F0F0", margin: "6px 0" }} />
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
+                      <span style={{ color: "#555" }}>次回請求日</span>
+                      <span style={{ color: "#1a2533", fontWeight: "700" }}>2025/05/01</span>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ background: "#F8FAF8", height: "24px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ width: "52px", height: "4px", background: "#E8EDE8", borderRadius: "2px" }} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
 
       {/* 料金 */}
-      <section id="pricing" style={{ background: "#F8FAF8" }}>
+      <section id="pricing" style={{ background: "#fff" }}>
         <div className="container" style={{ textAlign: "center" }}>
           <h2 className="section-title">シンプルな料金プラン</h2>
           <p className="section-sub">年契約なら毎月お得。いつでも解約可能。</p>
@@ -262,7 +451,7 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ */}
-      <section id="faq">
+      <section id="faq" style={{ background: "#F8FAF8" }}>
         <div className="container" style={{ textAlign: "center" }}>
           <h2 className="section-title">よくある質問</h2>
           <p className="section-sub">ご不明な点はお気軽にお問い合わせください</p>
