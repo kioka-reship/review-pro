@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../lib/supabase-admin";
+import { sendEmail, emailTemplates } from "../../../lib/sendEmail";
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest) {
           line_items: lineItems,
         },
         checkout_options: {
-          redirect_url: `${APP_URL}/admin`,
+          redirect_url: `${APP_URL}/mypage`,
           ask_for_shipping_address: false,
         },
         pre_populated_data: {
@@ -152,6 +153,14 @@ if (squareOrderId) {
   }).eq("id", userId);
 }
     
+    const PLAN_LABELS: Record<string, string> = {
+      light: "ライト ¥4,980/月",
+      standard: "スタンダード ¥9,800/月",
+      premium: "プレミアム ¥19,800/月",
+    };
+    const registeredTmpl = emailTemplates.registered(store_name, email, PLAN_LABELS[plan] || plan);
+    await sendEmail({ to: email, ...registeredTmpl, storeId: userId });
+
     return NextResponse.json({ url: data?.payment_link?.url });
 
   } catch (err: any) {

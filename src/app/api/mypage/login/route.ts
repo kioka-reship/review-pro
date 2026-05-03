@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminClient, getAnonClient } from "../../../../lib/supabase-admin";
+import { getAdminClient } from "../../../../lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
   const supabase = getAdminClient();
-  const supabaseAuth = getAnonClient();
   const { email, password } = await req.json();
 
   if (!email || !password) {
     return NextResponse.json({ error: "メールアドレスとパスワードを入力してください" }, { status: 400 });
   }
 
-  // Supabase Authで認証
-  const { data: authData, error: authError } = await supabaseAuth.auth.signInWithPassword({
+  // Supabase Authで認証（サーバーサイドではservice role keyを使用）
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
