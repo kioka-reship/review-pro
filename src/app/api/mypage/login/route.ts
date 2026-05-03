@@ -16,7 +16,20 @@ export async function POST(req: NextRequest) {
   });
 
   if (authError || !authData?.user) {
-    return NextResponse.json({ error: "メールアドレスまたはパスワードが違います" }, { status: 401 });
+    console.error("[mypage/login] signInWithPassword failed:", {
+      code: authError?.code,
+      status: authError?.status,
+      message: authError?.message,
+    });
+    // 認証情報の不一致はそのまま返す。それ以外（Supabase障害等）はシステムエラーとして返す
+    const isCredentialError = authError?.status === 400 || authError?.code === "invalid_credentials";
+    if (isCredentialError || !authError) {
+      return NextResponse.json({ error: "メールアドレスまたはパスワードが違います" }, { status: 401 });
+    }
+    return NextResponse.json(
+      { error: "システムエラーが発生しました。しばらく経ってからお試しください" },
+      { status: 503 }
+    );
   }
 
   // storesテーブルからstore情報を取得（emailで検索することで管理画面追加店舗にも対応）
