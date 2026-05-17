@@ -444,6 +444,31 @@ export default function LandingPage() {
               );
             })}
           </div>
+          {/* オプション料金表 */}
+          <div style={{ marginTop: "48px" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: "700", color: "#1a2533", marginBottom: "6px", textAlign: "center" }}>オプション料金</h3>
+            <p style={{ fontSize: "14px", color: "#888", marginBottom: "24px", textAlign: "center" }}>スタンダードプランに追加可能。プレミアムプランには全て含まれています。</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px" }}>
+              {[
+                { name: "低評価対策PRO", price: 3980, desc: "★2以下の低評価をGoogleへの投稿前に店舗へ回収" },
+                { name: "QRアクセス分析PRO", price: 2980, desc: "QRコードの読取数を日別・月別でグラフ表示" },
+                { name: "フィードバック一覧", price: 1980, desc: "低評価フィードバックをマイページで一覧確認" },
+                { name: "月次自動レポート", price: 1480, desc: "口コミ数・評価推移を毎月メールで自動送信" },
+              ].map((opt, i) => (
+                <div key={i} style={{ background: "#fff", border: "1.5px solid #E8EDE8", borderRadius: "16px", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: "700", fontSize: "14px", color: "#1a2533", marginBottom: "4px" }}>{opt.name}</div>
+                    <div style={{ fontSize: "12px", color: "#888" }}>{opt.desc}</div>
+                  </div>
+                  <div style={{ whiteSpace: "nowrap", marginLeft: "16px", textAlign: "right" }}>
+                    <span style={{ fontWeight: "800", fontSize: "18px", color: "#2C7A4B" }}>¥{opt.price.toLocaleString()}</span>
+                    <span style={{ fontSize: "12px", color: "#888" }}>/月</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <p style={{ color: "#aaa", fontSize: "14px", marginTop: "32px" }}>
             ※ 初月は月額＋導入設定費のお支払いとなります。2ヶ月目以降は月額のみ。
           </p>
@@ -462,7 +487,7 @@ export default function LandingPage() {
               { q: "お客様のスマートフォンで操作は難しくないですか？", a: "QRコードを読み取るだけで、選ぶだけの簡単な操作で口コミ文が完成します。入力不要のため、高齢の方にも使っていただけます。" },
               { q: "口コミの内容をコントロールできますか？", a: "業種に合わせた質問テンプレートを設定することで、お店の魅力が伝わる口コミが生成されやすくなります。プランによって質問の編集も可能です。" },
               { q: "解約はいつでもできますか？", a: "はい、いつでもマイページから解約申請できます。解約後も翌月末まではサービスをご利用いただけます。" },
-              { q: "複数店舗で使えますか？", a: "現在は1プランにつき1店舗です。複数店舗の場合はプランを複数ご契約いただくか、オプションで店舗追加（¥3,980/月）が可能です。" },
+              { q: "複数店舗で使えますか？", a: "現在は1プランにつき1店舗です。複数店舗の場合は、店舗数分のプランをそれぞれご契約いただく形となります。" },
             ].map((faq, i) => (
               <div key={i} style={{ background: "#fff", border: "1.5px solid #E8EDE8", borderRadius: "16px", padding: "24px" }}>
                 <h3 style={{ fontSize: "15px", fontWeight: "700", color: "#1a2533", marginBottom: "10px" }}>Q. {faq.q}</h3>

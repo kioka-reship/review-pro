@@ -7,10 +7,10 @@ const SQUARE_API_BASE = "https://connect.squareup.com/v2";
 const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID!;
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
-const PLAN_PRICES: Record<string, { price: number; setupFee: number; name: string }> = {
-  light:    { price: 2980,  setupFee: 0,     name: "REVIEW PRO ライト" },
-  standard: { price: 5980,  setupFee: 9800,  name: "REVIEW PRO スタンダード" },
-  premium:  { price: 9800,  setupFee: 19800, name: "REVIEW PRO プレミアム" },
+const PLAN_PRICES: Record<string, { monthly_price: number; yearly_price: number; setupFee_monthly: number; setupFee_yearly: number; name: string }> = {
+  light:    { monthly_price: 4980,  yearly_price: 3980,  setupFee_monthly: 4980,  setupFee_yearly: 3980,  name: "REVIEW PRO ライト" },
+  standard: { monthly_price: 9800,  yearly_price: 7980,  setupFee_monthly: 9800,  setupFee_yearly: 7980,  name: "REVIEW PRO スタンダード" },
+  premium:  { monthly_price: 19800, yearly_price: 15800, setupFee_monthly: 19800, setupFee_yearly: 15800, name: "REVIEW PRO プレミアム" },
 };
 
 const PLAN_ORDER: Record<string, number> = { light: 0, standard: 1, premium: 2 };
@@ -28,20 +28,24 @@ export async function POST(req: NextRequest) {
 
   const { data: store } = await supabase
     .from("stores")
-    .select("id, name, email, setup_fee_paid")
+    .select("id, name, email, billing_cycle, setup_fee_paid_amount")
     .eq("id", store_id)
     .single();
 
   if (!store) return NextResponse.json({ error: "店舗が見つかりません" }, { status: 404 });
 
+  const billingCycle = store.billing_cycle || "monthly";
   const isUpgrade = PLAN_ORDER[new_plan] > PLAN_ORDER[current_plan];
   const newPlanInfo = PLAN_PRICES[new_plan];
   const currentPlanInfo = PLAN_PRICES[current_plan];
+  const newPrice = billingCycle === "yearly" ? newPlanInfo.yearly_price : newPlanInfo.monthly_price;
+  const currentPrice = billingCycle === "yearly" ? currentPlanInfo.yearly_price : currentPlanInfo.monthly_price;
+  const newSetupFee = billingCycle === "yearly" ? newPlanInfo.setupFee_yearly : newPlanInfo.setupFee_monthly;
 
   if (isUpgrade) {
     // アップグレード：差額を即時決済
-    const priceDiff = newPlanInfo.price - currentPlanInfo.price;
-    const setupFeeDiff = Math.max(newPlanInfo.setupFee - (store.setup_fee_paid || 0), 0);
+    const priceDiff = newPrice - currentPrice;
+    const setupFeeDiff = Math.max(newSetupFee - (store.setup_fee_paid_amount || 0), 0);
     const totalDiff = priceDiff + setupFeeDiff;
 
     const lineItems = [];

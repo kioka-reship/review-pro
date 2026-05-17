@@ -155,12 +155,13 @@ if (orderId) {
   }).eq("id", userId);
 }
     
-    const PLAN_LABELS: Record<string, string> = {
-      light: "ライト ¥4,980/月",
-      standard: "スタンダード ¥9,800/月",
-      premium: "プレミアム ¥19,800/月",
+    const PLAN_LABELS: Record<string, { monthly: string; yearly: string }> = {
+      light:    { monthly: "ライト ¥4,980/月（月契約）",    yearly: "ライト ¥3,980/月（年契約）" },
+      standard: { monthly: "スタンダード ¥9,800/月（月契約）", yearly: "スタンダード ¥7,980/月（年契約）" },
+      premium:  { monthly: "プレミアム ¥19,800/月（月契約）",  yearly: "プレミアム ¥15,800/月（年契約）" },
     };
-    const registeredTmpl = emailTemplates.registered(store_name, email, PLAN_LABELS[plan] || plan);
+    const planLabel = PLAN_LABELS[plan]?.[billing_cycle as "monthly" | "yearly"] ?? plan;
+    const registeredTmpl = emailTemplates.registered(store_name, email, planLabel);
     await sendEmail({ to: email, ...registeredTmpl, storeId: userId });
 
     return NextResponse.json({ url: data?.payment_link?.url });
