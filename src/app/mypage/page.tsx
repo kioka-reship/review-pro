@@ -12,6 +12,8 @@ type Store = {
   setup_fee_paid_amount: number;
   pending_plan: string | null;
   pending_billing_cycle: string | null;
+  created_at: string;
+  monthly_price: number;
 };
 
 type Usage = {
@@ -93,6 +95,18 @@ const OPTION_LIST = [
   { key: "feedback_list", name: "フィードバック一覧", price: 1980, description: "低評価ユーザーからのフィードバックをマイページで一覧表示。改善ポイントの把握に役立ちます。" },
   { key: "monthly_report", name: "月次自動レポート", price: 1480, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
 ];
+
+function calcCancellationFee(createdAt: string, monthlyPrice: number): { remainingMonths: number; fee: number } {
+  const now = new Date();
+  const created = new Date(createdAt);
+  const contractEndDate = new Date(created.getFullYear(), created.getMonth() + 12, 0);
+  const effectiveDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+  const remainingMonths = Math.max(0,
+    (contractEndDate.getFullYear() - effectiveDate.getFullYear()) * 12 +
+    (contractEndDate.getMonth() - effectiveDate.getMonth())
+  );
+  return { remainingMonths, fee: remainingMonths * monthlyPrice };
+}
 
 export default function MyPage() {
   const [authed, setAuthed] = useState(false);
@@ -264,13 +278,30 @@ export default function MyPage() {
 
   const handleCancelRequest = async () => {
     if (!store) return;
+
+    // 年契約の場合、解約金を計算して確認ダイアログを表示
+    if (store.billing_cycle === "yearly") {
+      const { fee, remainingMonths } = calcCancellationFee(store.created_at, store.monthly_price);
+      if (fee > 0) {
+        const confirmed = window.confirm(
+          `年契約の解約金 ¥${fee.toLocaleString()}（残${remainingMonths}ヶ月分）がSquareで請求されます。\n\n解約申請を続行しますか？`
+        );
+        if (!confirmed) return;
+      }
+    }
+
     const res = await fetch("/api/mypage/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ store_id: store.id, reason: cancelReason }),
     });
+    const data = await res.json();
     if (res.ok) {
-      setCancelMsg("✅ 解約申請を受け付けました。確認メールをお送りしました。");
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setCancelMsg("✅ 解約申請を受け付けました。翌月末でサービスが終了します。");
+      }
     } else {
       setCancelMsg("❌ エラーが発生しました。お問い合わせください。");
     }
@@ -777,25 +808,42 @@ export default function MyPage() {
           )}
 
           {/* 解約申請 */}
-          {activeTab === "cancel" && (
-            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>解約申請</h2>
-              <div style={{ background: "#FFFBEB", border: "1px solid #F59E0B", borderRadius: "10px", padding: "16px", marginBottom: "20px", fontSize: "13px", color: "#92400E" }}>
-                ⚠️ 解約申請後、翌月末をもってサービスを停止します。<br />
-                データは解約後90日間保持されます。
+          {activeTab === "cancel" && store && (() => {
+            const isYearly = store.billing_cycle === "yearly";
+            const { remainingMonths, fee } = isYearly
+              ? calcCancellationFee(store.created_at, store.monthly_price)
+              : { remainingMonths: 0, fee: 0 };
+            return (
+              <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>解約申請</h2>
+                {isYearly ? (
+                  <div style={{ background: "#FEF2F2", border: "1px solid #E53E3E", borderRadius: "10px", padding: "16px", marginBottom: "20px", fontSize: "13px", color: "#991B1B" }}>
+                    ⚠️ 年契約中です。解約申請の翌月末をもってサービスを停止します。<br />
+                    {fee > 0
+                      ? <><strong>解約金：¥{fee.toLocaleString()}（残{remainingMonths}ヶ月分）</strong>がSquareで自動請求されます。<br /></>
+                      : <>解約金：なし（年契約期間は終了しています）<br /></>
+                    }
+                    申請月の料金は返金されません。データは解約後90日間保持されます。
+                  </div>
+                ) : (
+                  <div style={{ background: "#FFFBEB", border: "1px solid #F59E0B", borderRadius: "10px", padding: "16px", marginBottom: "20px", fontSize: "13px", color: "#92400E" }}>
+                    ⚠️ 解約申請後、翌月末をもってサービスを停止します。解約金は発生しません。<br />
+                    申請月の料金は返金されません。データは解約後90日間保持されます。
+                  </div>
+                )}
+                <div style={{ marginBottom: "16px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "600", color: "#555", display: "block", marginBottom: "6px" }}>解約理由（任意）</label>
+                  <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={4} placeholder="解約理由をお聞かせください（任意）"
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none", resize: "vertical" }} />
+                </div>
+                {cancelMsg && <p style={{ color: cancelMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontSize: "13px", fontWeight: "600", marginBottom: "16px" }}>{cancelMsg}</p>}
+                <button onClick={handleCancelRequest}
+                  style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "none", background: "#DC2626", color: "#fff", fontFamily: "inherit", fontSize: "15px", fontWeight: "700", cursor: "pointer" }}>
+                  解約申請を送信する
+                </button>
               </div>
-              <div style={{ marginBottom: "16px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "600", color: "#555", display: "block", marginBottom: "6px" }}>解約理由（任意）</label>
-                <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={4} placeholder="解約理由をお聞かせください（任意）"
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none", resize: "vertical" }} />
-              </div>
-              {cancelMsg && <p style={{ color: cancelMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontSize: "13px", fontWeight: "600", marginBottom: "16px" }}>{cancelMsg}</p>}
-              <button onClick={handleCancelRequest}
-                style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "none", background: "#DC2626", color: "#fff", fontFamily: "inherit", fontSize: "15px", fontWeight: "700", cursor: "pointer" }}>
-                解約申請を送信する
-              </button>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
     </>
