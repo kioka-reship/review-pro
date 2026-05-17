@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { requireAdminOrStoreOwner } from "../../../../lib/auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -7,11 +8,13 @@ export const revalidate = 0;
 export async function GET(req: NextRequest) {
   const supabase = getAdminClient();
   const { searchParams } = new URL(req.url);
-  const store_id = searchParams.get("store_id");
+  const store_id = searchParams.get("store_id") ?? undefined;
 
   if (!store_id) {
     return NextResponse.json({ error: "store_id is required" }, { status: 400 });
   }
+  const result = await requireAdminOrStoreOwner(req, store_id);
+  if (result instanceof NextResponse) return result;
 
   const { data, error } = await supabase
     .from("questions")
@@ -34,11 +37,14 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const supabase = getAdminClient();
-  const { store_id, questions } = await req.json();
+  const body = await req.json();
+  const { store_id, questions } = body;
 
   if (!store_id || !questions) {
     return NextResponse.json({ error: "store_id and questions are required" }, { status: 400 });
   }
+  const result = await requireAdminOrStoreOwner(req, store_id);
+  if (result instanceof NextResponse) return result;
 
   await supabase.from("questions").delete().eq("store_id", store_id);
 

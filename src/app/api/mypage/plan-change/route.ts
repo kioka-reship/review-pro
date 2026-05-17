@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { requireStoreOwner } from "../../../../lib/auth";
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = "https://connect.squareup.com/v2";
@@ -16,11 +17,14 @@ const PLAN_ORDER: Record<string, number> = { light: 0, standard: 1, premium: 2 }
 
 export async function POST(req: NextRequest) {
   const supabase = getAdminClient();
-  const { store_id, current_plan, new_plan } = await req.json();
+  const body = await req.json();
+  const { store_id, current_plan, new_plan } = body;
 
   if (!store_id || !current_plan || !new_plan) {
     return NextResponse.json({ error: "必須パラメータが不足しています" }, { status: 400 });
   }
+  const guard = await requireStoreOwner(req, store_id);
+  if (guard) return guard;
 
   const { data: store } = await supabase
     .from("stores")

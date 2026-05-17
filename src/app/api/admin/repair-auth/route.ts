@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { requireAdmin } from "../../../../lib/auth";
 
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
@@ -25,6 +26,8 @@ function makeLogger() {
 
 // メール不要でSupabase Authパスワードを直接設定
 export async function PATCH(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
   const log = makeLogger();
   try {
   const supabase = getAdminClient();
@@ -100,6 +103,8 @@ export async function PATCH(req: NextRequest) {
 
 // stores.email 変更 + Supabase Auth 同期 + パスワード再設定メール送信
 export async function PUT(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
   const log = makeLogger();
   try {
   const supabase = getAdminClient();
@@ -221,6 +226,8 @@ export async function PUT(req: NextRequest) {
 
 // Auth未登録店舗にユーザー作成 + パスワード再設定メール送信
 export async function POST(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
   const log = makeLogger();
   try {
   const supabase = getAdminClient();

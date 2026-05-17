@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "../../../../lib/auth";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY!;
 const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@review-pro.jp";
 
 export async function GET(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
   const email = req.nextUrl.searchParams.get("email");
 
   if (!email) {

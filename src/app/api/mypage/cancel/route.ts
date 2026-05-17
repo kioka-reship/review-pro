@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { requireStoreOwner } from "../../../../lib/auth";
 
 export async function POST(req: NextRequest) {
   const supabase = getAdminClient();
-  const { store_id, reason } = await req.json();
+  const body = await req.json();
+  const { store_id, reason } = body;
   if (!store_id) {
     return NextResponse.json({ error: "store_id required" }, { status: 400 });
   }
+  const guard = await requireStoreOwner(req, store_id);
+  if (guard) return guard;
 
   // 翌月末を解約反映日に設定
   const now = new Date();

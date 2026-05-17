@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { requireStoreOwner } from "../../../../lib/auth";
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = "https://connect.squareup.com/v2";
@@ -8,11 +9,14 @@ const APP_URL = "https://review-pro-ay7x.vercel.app";
 
 export async function POST(req: NextRequest) {
   const supabase = getAdminClient();
-  const { store_id, option_key, option_name, price } = await req.json();
+  const body = await req.json();
+  const { store_id, option_key, option_name, price } = body;
 
   if (!store_id || !option_key || !price) {
     return NextResponse.json({ error: "必須パラメータが不足しています" }, { status: 400 });
   }
+  const guard = await requireStoreOwner(req, store_id);
+  if (guard) return guard;
 
   const { data: store } = await supabase
     .from("stores")

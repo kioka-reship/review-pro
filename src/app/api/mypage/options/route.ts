@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { requireStoreOwner } from "../../../../lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,8 @@ export async function GET(req: NextRequest) {
   if (!store_id) {
     return NextResponse.json({ error: "store_id required" }, { status: 400 });
   }
+  const guard = await requireStoreOwner(req, store_id);
+  if (guard) return guard;
 
   const { data, error } = await supabase
     .from("option_subscriptions")
@@ -24,10 +27,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const supabase = getAdminClient();
-  const { store_id, option_id } = await req.json();
+  const body = await req.json();
+  const { store_id, option_id } = body;
   if (!store_id || !option_id) {
     return NextResponse.json({ error: "store_id and option_id required" }, { status: 400 });
   }
+  const guard = await requireStoreOwner(req, store_id);
+  if (guard) return guard;
 
   const now = new Date();
   const effectiveDate = new Date(now.getFullYear(), now.getMonth() + 1, 5);

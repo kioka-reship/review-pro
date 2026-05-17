@@ -51,5 +51,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "このアカウントは停止されています。" }, { status: 403 });
   }
 
-  return NextResponse.json({ store });
+  const res = NextResponse.json({ store });
+  res.cookies.set("store_auth", authData.session?.access_token ?? "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60, // 1時間（Supabase JWTのデフォルト有効期限に合わせる）
+    path: "/",
+  });
+  return res;
 }

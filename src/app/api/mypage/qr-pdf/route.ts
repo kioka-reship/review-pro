@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { requireStoreOwner } from "../../../../lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export async function GET(req: NextRequest) {
   if (!storeId) {
     return NextResponse.json({ error: "store_id required" }, { status: 400 });
   }
+  const guard = await requireStoreOwner(req, storeId);
+  if (guard) return guard;
 
   const { data: store } = await supabase
     .from("stores")

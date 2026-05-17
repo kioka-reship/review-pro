@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { requireAdminOrStoreOwner } from "../../../../lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const supabase = getAdminClient();
   const { searchParams } = new URL(req.url);
-  const store_id = searchParams.get("store_id");
+  const store_id = searchParams.get("store_id") ?? undefined;
 
+  // 管理者：store_id 任意。ユーザー：自店舗の store_id 必須
+  const result = await requireAdminOrStoreOwner(req, store_id);
+  if (result instanceof NextResponse) return result;
+
+  const supabase = getAdminClient();
   let query = supabase
     .from("feedback")
     .select("*, stores(name)")

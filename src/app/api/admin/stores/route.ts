@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { requireAdmin } from "../../../../lib/auth";
 
 // 全店舗取得
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
   const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("stores")
@@ -15,6 +18,8 @@ export async function GET() {
 
 // 店舗追加
 export async function POST(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
   const supabase = getAdminClient();
   const body = await req.json();
   const { name, type, owner_name, email, password, plan, place_id } = body;
@@ -37,6 +42,8 @@ export async function POST(req: NextRequest) {
 
 // 店舗更新（停止・再開・プラン変更）
 export async function PATCH(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
   const supabase = getAdminClient();
   const { id, ...updates } = await req.json();
 
@@ -51,6 +58,8 @@ export async function PATCH(req: NextRequest) {
 
 // 店舗削除
 export async function DELETE(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
   const supabase = getAdminClient();
   const { id } = await req.json();
 

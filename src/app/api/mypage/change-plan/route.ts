@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
 import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
+import { requireStoreOwner } from "../../../../lib/auth";
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
@@ -25,11 +26,14 @@ const PLAN_LABELS: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   const supabase = getAdminClient();
-  const { store_id, current_plan, new_plan, billing_cycle = "monthly" } = await req.json();
+  const body = await req.json();
+  const { store_id, current_plan, new_plan, billing_cycle = "monthly" } = body;
 
   if (!store_id || !current_plan || !new_plan) {
     return NextResponse.json({ error: "必須パラメータが不足しています" }, { status: 400 });
   }
+  const guard = await requireStoreOwner(req, store_id);
+  if (guard) return guard;
 
   const { data: store } = await supabase
     .from("stores")

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { requireAdmin } from "../../../../lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,8 @@ function classify(
 }
 
 export async function GET(req: NextRequest) {
+  const guard = requireAdmin(req);
+  if (guard) return guard;
   const supabase = getAdminClient();
   const format = req.nextUrl.searchParams.get("format");
 
