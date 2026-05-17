@@ -87,6 +87,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: storeError?.message || "店舗登録失敗" }, { status: 500 });
   }
 
+  // 同意ログを記録
+  const ipRaw = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? null;
+  const ipAddress = ipRaw ? ipRaw.split(",")[0].trim() : null;
+  await supabase.from("consent_logs").insert({
+    store_id: userId,
+    consented_at: new Date().toISOString(),
+    ip_address: ipAddress,
+    terms_version: "2024-01-01",
+  });
+
   // Square 決済リンク生成
   const planLabel = `${PLAN_NAMES[plan]}（${BILLING_CYCLE_LABELS[billing_cycle]}）`;
   const lineItems = [];

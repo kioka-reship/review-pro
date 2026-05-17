@@ -59,12 +59,24 @@ insert into stores (id, name, type, owner_name, email, password, plan, place_id)
   ('store-001', '博多ラーメン 一風堂風', '飲食店', '田中 太郎', 'tanaka@example.com', '1234', 'light',    'ChIJxxxxxx'),
   ('store-002', 'ヘアサロン BLOOM',      '美容室', '佐藤 花子', 'sato@example.com',   '1234', 'standard', 'ChIJyyyyyy');
 
+-- 同意ログテーブル
+create table consent_logs (
+  id            bigserial primary key,
+  store_id      text references stores(id) on delete cascade,
+  consented_at  timestamp not null default now(),
+  ip_address    text,
+  terms_version text not null,
+  created_at    timestamp default now()
+);
+
 -- RLS（Row Level Security）を有効化
 alter table stores         enable row level security;
 alter table monthly_usage  enable row level security;
 alter table questions      enable row level security;
+alter table consent_logs   enable row level security;
 
 -- サービスロールはすべてアクセス可能（サーバーサイドAPIから使う）
 create policy "service role full access" on stores         for all using (true);
 create policy "service role full access" on monthly_usage  for all using (true);
 create policy "service role full access" on questions      for all using (true);
+create policy "service role full access" on consent_logs   for all using (true);
