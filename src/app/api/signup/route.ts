@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
 
   // 月額
   lineItems.push({
-    name: `${planLabel} 月額`,
+    name: `${planLabel} 月額（税込）`,
     quantity: "1",
     base_price_money: { amount: monthly_price, currency: "JPY" },
   });
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
   // 初期費用（紹介コードなしの場合）
   if (setup_fee > 0) {
     lineItems.push({
-      name: `${planLabel} 導入設定費`,
+      name: `${planLabel} 導入設定費（税込）`,
       quantity: "1",
       base_price_money: { amount: setup_fee, currency: "JPY" },
     });

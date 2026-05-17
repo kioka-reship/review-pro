@@ -229,12 +229,13 @@ export default function MyPage() {
 
   const handleOptionAdd = async (optionKey: string, optionName: string, price: number) => {
     if (!store) return;
-    if (!confirm(`${optionName}（¥${price.toLocaleString()}/月）を追加します。即時決済されます。よろしいですか？`)) return;
+    const taxInclusivePrice = Math.floor(price * 1.1);
+    if (!confirm(`${optionName}（¥${price.toLocaleString()}/月・税別）を追加します。\n即時決済（税込 ¥${taxInclusivePrice.toLocaleString()}）されます。よろしいですか？`)) return;
 
     const res = await fetch("/api/mypage/option-add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store_id: store.id, option_key: optionKey, option_name: optionName, price }),
+      body: JSON.stringify({ store_id: store.id, option_key: optionKey, option_name: optionName, price: taxInclusivePrice }),
     });
     const data = await res.json();
     if (data.url) {
@@ -556,7 +557,7 @@ export default function MyPage() {
                           <div>
                             <div style={{ fontWeight: "600", fontSize: "13px" }}>{opt.name}</div>
                             <div style={{ fontSize: "11px", color: "#888", marginTop: "3px", lineHeight: "1.6", maxWidth: "380px" }}>{opt.description}</div>
-                            <div style={{ fontSize: "12px", color: "#2C7A4B", fontWeight: "700", marginTop: "4px" }}>¥{opt.price.toLocaleString()}/月</div>
+                            <div style={{ fontSize: "12px", color: "#2C7A4B", fontWeight: "700", marginTop: "4px" }}>¥{opt.price.toLocaleString()}/月（税別）</div>
                           </div>
                           {alreadyAdded ? (
                             <span style={{ fontSize: "12px", padding: "4px 12px", borderRadius: "20px", background: "#ECFDF5", color: "#065F46", fontWeight: "600" }}>契約中</span>

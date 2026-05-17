@@ -462,7 +462,7 @@ export default function LandingPage() {
                   </div>
                   <div style={{ whiteSpace: "nowrap", marginLeft: "16px", textAlign: "right" }}>
                     <span style={{ fontWeight: "800", fontSize: "18px", color: "#2C7A4B" }}>¥{opt.price.toLocaleString()}</span>
-                    <span style={{ fontSize: "12px", color: "#888" }}>/月</span>
+                    <span style={{ fontSize: "12px", color: "#888" }}>/月（税別）</span>
                   </div>
                 </div>
               ))}

@@ -109,9 +109,9 @@ export async function POST(req: NextRequest) {
           order: {
             location_id: SQUARE_LOCATION_ID,
             line_items: [{
-              name: `REVIEW PRO 年契約解約金（残${remainingMonths}ヶ月分）`,
+              name: `REVIEW PRO 年契約解約金（残${remainingMonths}ヶ月分・税込）`,
               quantity: "1",
-              base_price_money: { amount: cancellationFee, currency: "JPY" },
+              base_price_money: { amount: Math.floor(cancellationFee * 1.1), currency: "JPY" },
             }],
           },
           checkout_options: {
