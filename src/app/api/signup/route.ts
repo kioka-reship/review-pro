@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       owner_name: owner_name || null,
       contact_name: contact_name || null,
       email,
-      type: type || null,
+      type: type || "飲食店",
       place_id,
       plan,
       billing_cycle,
@@ -152,14 +152,6 @@ const orderId = data?.payment_link?.order_id;
 if (orderId) {
   await supabase.from("stores").update({
     square_order_id: orderId,
-  }).eq("id", userId);
-}
-
-   // order_idをSupabaseに保存
-const squareOrderId = data?.payment_link?.order_id;
-if (squareOrderId) {
-  await supabase.from("stores").update({
-    square_order_id: squareOrderId,
   }).eq("id", userId);
 }
     

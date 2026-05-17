@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
 import { requireStoreOwner } from "../../../../lib/auth";
+import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
   // 翌月末を解約反映日に設定
   const now = new Date();
   const effectiveDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+  const effectiveDateStr = effectiveDate.toISOString().split("T")[0];
 
   // 解約金計算（年契約のみ）
   let cancellationFee = 0;
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
     request_type: "store",
     reason,
     requested_at: now.toISOString(),
-    effective_date: effectiveDate.toISOString().split("T")[0],
+    effective_date: effectiveDateStr,
     status: "pending",
     cancellation_fee: cancellationFee,
     remaining_months: remainingMonths,
@@ -85,7 +87,7 @@ export async function POST(req: NextRequest) {
     action: "cancellation_requested",
     detail: {
       reason,
-      effective_date: effectiveDate.toISOString().split("T")[0],
+      effective_date: effectiveDateStr,
       billing_cycle: store.billing_cycle,
       cancellation_fee: cancellationFee,
       remaining_months: remainingMonths,
@@ -123,18 +125,37 @@ export async function POST(req: NextRequest) {
       });
 
       const data = await res.json();
-      if (res.ok) {
-        return NextResponse.json({
-          url: data?.payment_link?.url,
-          cancellation_fee: cancellationFee,
-          remaining_months: remainingMonths,
-        });
+      if (!res.ok) {
+        console.error("[cancel] Square payment link error:", data);
+        // Square失敗時はエラーを返す（解約金未徴収のまま完了させない）
+        return NextResponse.json(
+          { error: "解約金の決済リンク生成に失敗しました。お問い合わせください。" },
+          { status: 500 }
+        );
       }
-      console.error("[cancel] Square payment link error:", data);
+
+      // 解約確認メール（解約金あり）
+      const tmpl = emailTemplates.cancelRequested(store.name, effectiveDateStr);
+      await sendEmail({ to: store.email, ...tmpl, storeId: store_id });
+
+      return NextResponse.json({
+        url: data?.payment_link?.url,
+        cancellation_fee: cancellationFee,
+        remaining_months: remainingMonths,
+      });
+
     } catch (err: any) {
       console.error("[cancel] Square error:", err);
+      return NextResponse.json(
+        { error: "解約金の決済処理でエラーが発生しました。お問い合わせください。" },
+        { status: 500 }
+      );
     }
   }
+
+  // 月契約または解約金なしの場合：解約確認メールを送信
+  const tmpl = emailTemplates.cancelRequested(store.name, effectiveDateStr);
+  await sendEmail({ to: store.email, ...tmpl, storeId: store_id });
 
   return NextResponse.json({ success: true });
 }
