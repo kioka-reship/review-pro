@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
             line_items: [{
               name: `REVIEW PRO 年契約解約金（残${remainingMonths}ヶ月分・税込）`,
               quantity: "1",
-              base_price_money: { amount: Math.floor(cancellationFee * 1.1), currency: "JPY" },
+              base_price_money: { amount: cancellationFee, currency: "JPY" },
             }],
           },
           checkout_options: {

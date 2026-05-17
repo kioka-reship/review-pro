@@ -48,22 +48,19 @@ export async function POST(req: NextRequest) {
     const setupFeeDiff = Math.max(newSetupFee - (store.setup_fee_paid_amount || 0), 0);
     const totalDiff = priceDiff + setupFeeDiff;
 
-    const taxedPriceDiff = Math.floor(priceDiff * 1.1);
-    const taxedSetupFeeDiff = Math.floor(setupFeeDiff * 1.1);
-
     const lineItems = [];
     if (priceDiff > 0) {
       lineItems.push({
-        name: `${newPlanInfo.name} アップグレード差額（月額・税込）`,
+        name: `${newPlanInfo.name} アップグレード差額（月額）`,
         quantity: "1",
-        base_price_money: { amount: taxedPriceDiff, currency: "JPY" },
+        base_price_money: { amount: priceDiff, currency: "JPY" },
       });
     }
     if (setupFeeDiff > 0) {
       lineItems.push({
-        name: `${newPlanInfo.name} 導入設定費差額（税込）`,
+        name: `${newPlanInfo.name} 導入設定費差額`,
         quantity: "1",
-        base_price_money: { amount: taxedSetupFeeDiff, currency: "JPY" },
+        base_price_money: { amount: setupFeeDiff, currency: "JPY" },
       });
     }
 
@@ -103,7 +100,7 @@ export async function POST(req: NextRequest) {
       from_plan: current_plan,
       to_plan: new_plan,
       change_type: "upgrade",
-      amount_charged: taxedPriceDiff + taxedSetupFeeDiff,
+      amount_charged: totalDiff,
       effective_date: new Date().toISOString().split("T")[0],
     });
 

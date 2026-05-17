@@ -229,13 +229,12 @@ export default function MyPage() {
 
   const handleOptionAdd = async (optionKey: string, optionName: string, price: number) => {
     if (!store) return;
-    const taxInclusivePrice = Math.floor(price * 1.1);
-    if (!confirm(`${optionName}（¥${price.toLocaleString()}/月・税別）を追加します。\n即時決済（税込 ¥${taxInclusivePrice.toLocaleString()}）されます。よろしいですか？`)) return;
+    if (!confirm(`${optionName}（¥${price.toLocaleString()}/月・税別）を追加します。即時決済されます。よろしいですか？`)) return;
 
     const res = await fetch("/api/mypage/option-add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store_id: store.id, option_key: optionKey, option_name: optionName, price: taxInclusivePrice }),
+      body: JSON.stringify({ store_id: store.id, option_key: optionKey, option_name: optionName, price }),
     });
     const data = await res.json();
     if (data.url) {

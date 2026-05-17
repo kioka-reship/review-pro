@@ -79,8 +79,6 @@ export default function SignupPage() {
     return sum + (opt?.price || 0);
   }, 0);
   const total = setupFee + price + optionTotal;
-  const totalWithTax = Math.floor(total * 1.1);
-  const taxAmount = totalWithTax - total;
 
   const premiumPrice = billingCycle === "monthly" ? 19800 : 15800;
   const upsellSuggestion = selectedPlan === "standard" && (price + optionTotal) >= premiumPrice;
@@ -107,9 +105,9 @@ export default function SignupPage() {
         billing_cycle: billingCycle,
         options: selectedOptions,
         referral_code: referralCode.toUpperCase(),
-        setup_fee: Math.floor(setupFee * 1.1),
-        monthly_price: Math.floor((price + optionTotal) * 1.1),
-        total: totalWithTax,
+        setup_fee: setupFee,
+        monthly_price: price + optionTotal,
+        total,
       }),
     });
     const data = await res.json();
@@ -272,16 +270,10 @@ export default function SignupPage() {
                 <span>導入設定費{referralValid ? "（紹介コード適用）" : ""}</span>
                 <span>{setupFee === 0 ? "無料" : `¥${setupFee.toLocaleString()}（税別）`}</span>
               </div>
-              <div style={{ borderTop: "1px solid #E5E7EB", paddingTop: "12px", display: "flex", justifyContent: "space-between", fontSize: "13px", color: "#888", marginBottom: "4px" }}>
-                <span>小計（税別）</span><span>¥{total.toLocaleString()}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", color: "#888", marginBottom: "8px" }}>
-                <span>消費税（10%）</span><span>¥{taxAmount.toLocaleString()}</span>
-              </div>
               <div style={{ borderTop: "1px solid #E5E7EB", paddingTop: "12px", display: "flex", justifyContent: "space-between", fontWeight: "700", fontSize: "16px" }}>
-                <span>初回合計（税込）</span><span style={{ color: "#2C7A4B" }}>¥{totalWithTax.toLocaleString()}</span>
+                <span>初回合計</span><span style={{ color: "#2C7A4B" }}>¥{total.toLocaleString()}</span>
               </div>
-              <div style={{ fontSize: "12px", color: "#888", marginTop: "8px" }}>翌月以降：¥{Math.floor((price + optionTotal) * 1.1).toLocaleString()}/月（税込）</div>
+              <div style={{ fontSize: "12px", color: "#888", marginTop: "8px" }}>翌月以降：¥{(price + optionTotal).toLocaleString()}/月（税別）</div>
               {billingCycle === "yearly" && (
                 <div style={{ fontSize: "12px", color: "#F59E0B", marginTop: "4px", fontWeight: "600" }}>※年契約は12ヶ月継続が条件です</div>
               )}
@@ -298,7 +290,7 @@ export default function SignupPage() {
             {error && <p style={{ color: "#E53E3E", fontSize: "13px", marginTop: "12px" }}>{error}</p>}
             <button onClick={handleSubmit} disabled={loading || !agreed}
               style={{ width: "100%", marginTop: "20px", padding: "16px", borderRadius: "12px", border: "none", background: agreed ? "linear-gradient(135deg,#2C7A4B,#3DA66A)" : "#ccc", color: "#fff", fontFamily: "inherit", fontSize: "16px", fontWeight: "700", cursor: agreed ? "pointer" : "not-allowed" }}>
-              {loading ? "処理中..." : `💳 決済へ進む（税込 ¥${totalWithTax.toLocaleString()}）`}
+              {loading ? "処理中..." : `💳 決済へ進む（¥${total.toLocaleString()}）`}
             </button>
           </div>
         </div>
