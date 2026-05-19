@@ -144,7 +144,7 @@ fetch("/api/qr-log", {
           }
         } catch { /* オプション取得失敗時は無視 */ }
 
-        const qRes = await fetch(`/api/admin/questions?store_id=${params.storeId}`);
+        const qRes = await fetch(`/api/questions?store_id=${params.storeId}`);
         const qData = await qRes.json();
         setQuestions(qData.questions || []);
       } catch {
