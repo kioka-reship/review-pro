@@ -10,11 +10,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-const validEmails = validEmail.split(",").map(e => e.trim());
+const validEmails = validEmail.split(",").map(e => e.trim().toLowerCase());
+const normalizedEmail = (email || "").trim().toLowerCase();
 console.log("ADMIN_EMAIL env:", process.env.ADMIN_EMAIL);
-console.log("Input email:", email);
+console.log("Input email (raw):", email);
+console.log("Input email (normalized):", normalizedEmail);
+console.log("Email match:", validEmails.includes(normalizedEmail));
 console.log("Password match:", password === process.env.ADMIN_PASSWORD);
-if (validEmails.includes(email) && password === validPassword) {
+if (validEmails.includes(normalizedEmail) && password === validPassword) {
   const res = NextResponse.json({ success: true });
   res.cookies.set("admin_auth", validPassword, {
     httpOnly: true,
