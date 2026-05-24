@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
   console.log("validEmails array:", JSON.stringify(validEmails));
   console.log("normalizedEmail:", JSON.stringify(normalizedEmail));
   console.log("includes result:", validEmails.includes(normalizedEmail));
+  console.log("validEmails charCodes:", JSON.stringify(validEmails[0]?.split('').map(c => c.charCodeAt(0))));
+  console.log("normalizedEmail charCodes:", JSON.stringify(normalizedEmail.split('').map(c => c.charCodeAt(0))));
   console.log("Password match:", password === process.env.ADMIN_PASSWORD);
   if (validEmails.includes(normalizedEmail) && password === validPassword) {
     const res = NextResponse.json({ success: true });
