@@ -375,7 +375,7 @@ export default function MyPage() {
               { key: "plan", label: "📋 プラン変更" },
               ...(store?.plan === "standard" || store?.plan === "premium" ? [{ key: "options", label: "➕ オプション" }] : []),
               ...(store?.plan !== "light" ? [{ key: "questions", label: "❓ 質問設定" }] : []),
-              ...(store?.plan === "premium" ? [{ key: "feedback", label: "⭐ 低評価FB" }] : []),
+              ...(options.some(o => o.option_key === "feedback_list" && o.status === "active") ? [{ key: "feedback", label: "⭐ 低評価FB" }] : []),
               { key: "billing", label: "💳 請求履歴" },
               ...(options.some(o => o.option_key === "qr_analytics" && o.status !== "canceled") || store?.plan === "premium" ? [{ key: "qr_analytics", label: "📊 QR分析" }] : []),
               { key: "qr", label: "📱 QRコード" },

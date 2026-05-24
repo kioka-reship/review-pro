@@ -9,16 +9,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "store_id and rating are required" }, { status: 400 });
   }
 
-  // feedback_list オプションが active の場合のみ保存
+  // low_review_pro が active の場合のみ保存（feedback_list の契約状態は不問）
   const { data: opt } = await supabase
     .from("option_subscriptions")
     .select("status")
     .eq("store_id", store_id)
-    .eq("option_key", "feedback_list")
+    .eq("option_key", "low_review_pro")
     .maybeSingle();
 
   if (opt?.status !== "active") {
-    // オプション未契約の場合は保存しないが 200 を返す（フォーム側にエラーを表示しない）
+    // low_review_pro 未契約の場合は保存しないが 200 を返す（フォーム側にエラーを表示しない）
     return NextResponse.json({ success: true });
   }
 
