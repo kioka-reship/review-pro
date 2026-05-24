@@ -134,9 +134,9 @@ fetch("/api/qr-log", {
   body: JSON.stringify({ store_id: params.storeId, session_id: sid }),
 });
 
-       // 低評価対策PROの契約確認
+        // 低評価対策PROの契約確認（認証不要の公開エンドポイントを使用）
         try {
-          const optRes = await fetch(`/api/mypage/options?store_id=${params.storeId}`);
+          const optRes = await fetch(`/api/store-options?store_id=${params.storeId}`);
           if (optRes.ok) {
             const optData = await optRes.json();
             const hasOpt = (optData.options || []).some((o: any) => o.option_key === "low_review_pro" && o.status === "active");
