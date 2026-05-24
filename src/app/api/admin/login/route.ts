@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Remove invisible/control characters (keep only printable ASCII 0x20-0x7E)
+// Normalize full-width ASCII (U+FF01-FF5E) to half-width, then strip control/invisible chars
 function cleanString(str: string): string {
   let result = "";
   for (let i = 0; i < str.length; i++) {
     const code = str.charCodeAt(i);
-    if (code >= 0x20 && code <= 0x7E) { result += str[i]; }
+    // Full-width ASCII (e.g. full-width @ U+FF20 -> @ U+0040)
+    if (code >= 0xFF01 && code <= 0xFF5E) {
+      result += String.fromCharCode(code - 0xFEE0);
+    }
+    // Keep printable ASCII only (0x20-0x7E)
+    else if (code >= 0x20 && code <= 0x7E) {
+      result += str[i];
+    }
+    // Discard everything else (control chars, zero-width spaces, BOM, etc.)
   }
   return result.trim().toLowerCase();
 }
