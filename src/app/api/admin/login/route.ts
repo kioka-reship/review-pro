@@ -33,15 +33,6 @@ export async function POST(req: NextRequest) {
     .map(e => cleanString(e))
     .filter(e => e.length > 0);
   const normalizedEmail = cleanString(email || '');
-  console.log("ADMIN_EMAIL env:", process.env.ADMIN_EMAIL);
-  console.log("Input email (raw):", email);
-  console.log("Input email (normalized):", normalizedEmail);
-  console.log("validEmails array:", JSON.stringify(validEmails));
-  console.log("normalizedEmail:", JSON.stringify(normalizedEmail));
-  console.log("includes result:", validEmails.includes(normalizedEmail));
-  console.log("validEmails charCodes:", JSON.stringify(validEmails[0]?.split('').map(c => c.charCodeAt(0))));
-  console.log("normalizedEmail charCodes:", JSON.stringify(normalizedEmail.split('').map(c => c.charCodeAt(0))));
-  console.log("Password match:", password === process.env.ADMIN_PASSWORD);
   if (validEmails.includes(normalizedEmail) && password === validPassword) {
     const res = NextResponse.json({ success: true });
     res.cookies.set("admin_auth", validPassword, {
