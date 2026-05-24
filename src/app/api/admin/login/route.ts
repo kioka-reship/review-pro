@@ -10,7 +10,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-const validEmails = validEmail.split(",").map(e => e.trim().toLowerCase());
+const validEmails = validEmail
+  .split(/[\s,]+/)
+  .map(e => e.trim().toLowerCase())
+  .filter(e => e.length > 0);
 const normalizedEmail = (email || "").trim().toLowerCase();
 console.log("ADMIN_EMAIL env:", process.env.ADMIN_EMAIL);
 console.log("Input email (raw):", email);
