@@ -11,6 +11,9 @@ export async function POST(req: NextRequest) {
   }
 
 const validEmails = validEmail.split(",").map(e => e.trim());
+console.log("ADMIN_EMAIL env:", process.env.ADMIN_EMAIL);
+console.log("Input email:", email);
+console.log("Password match:", password === process.env.ADMIN_PASSWORD);
 if (validEmails.includes(email) && password === validPassword) {
   const res = NextResponse.json({ success: true });
   res.cookies.set("admin_auth", validPassword, {
