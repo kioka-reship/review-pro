@@ -28,6 +28,12 @@ export async function GET(req: NextRequest) {
       .lte("downgrade_effective_date", today);
 
     for (const store of downgrades || []) {
+      // 年契約中のダウングレードは安全弁としてスキップ
+      if (store.billing_cycle === "yearly") {
+        console.log("[Cron] 年契約のためダウングレードスキップ:", store.id);
+        continue;
+      }
+
       const { error } = await supabase
         .from("stores")
         .update({

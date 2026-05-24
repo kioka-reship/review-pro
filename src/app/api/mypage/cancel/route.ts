@@ -46,6 +46,8 @@ export async function POST(req: NextRequest) {
   // 解約金計算（年契約のみ）
   let cancellationFee = 0;
   let remainingMonths = 0;
+  let remainingMonthsFee = 0;
+  let earlyTerminationPenalty = 0;
 
   if (store.billing_cycle === "yearly") {
     const createdAt = new Date(store.created_at);
@@ -57,7 +59,9 @@ export async function POST(req: NextRequest) {
       (contractEndDate.getMonth() - effectiveDate.getMonth())
     );
     const monthlyPrice = store.monthly_price || YEARLY_PLAN_PRICES[store.plan] || 0;
-    cancellationFee = remainingMonths * monthlyPrice;
+    remainingMonthsFee = remainingMonths * monthlyPrice;
+    earlyTerminationPenalty = Math.floor(remainingMonthsFee * 0.5);
+    cancellationFee = remainingMonthsFee + earlyTerminationPenalty;
   }
 
   // 解約申請を保存
@@ -91,6 +95,8 @@ export async function POST(req: NextRequest) {
       billing_cycle: store.billing_cycle,
       cancellation_fee: cancellationFee,
       remaining_months: remainingMonths,
+      remaining_months_fee: remainingMonthsFee,
+      early_termination_penalty: earlyTerminationPenalty,
     },
   });
 
@@ -109,7 +115,7 @@ export async function POST(req: NextRequest) {
           order: {
             location_id: SQUARE_LOCATION_ID,
             line_items: [{
-              name: `REVIEW PRO 年契約解約金（残${remainingMonths}ヶ月分・税込）`,
+              name: `REVIEW PRO 年契約解約金（残月数分¥${remainingMonthsFee.toLocaleString()}＋途中解約違約金¥${earlyTerminationPenalty.toLocaleString()}）`,
               quantity: "1",
               base_price_money: { amount: cancellationFee, currency: "JPY" },
             }],
@@ -135,7 +141,12 @@ export async function POST(req: NextRequest) {
       }
 
       // 解約確認メール（解約金あり）
-      const tmpl = emailTemplates.cancelRequested(store.name, effectiveDateStr);
+      const tmpl = emailTemplates.cancelRequested(store.name, effectiveDateStr, {
+        remainingMonths,
+        remainingMonthsFee,
+        earlyTerminationPenalty,
+        cancellationFee,
+      });
       await sendEmail({ to: store.email, ...tmpl, storeId: store_id });
 
       return NextResponse.json({

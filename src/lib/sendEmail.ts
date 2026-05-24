@@ -175,21 +175,41 @@ export const emailTemplates = {
     `,
   }),
 
-  cancelRequested: (storeName: string, effectiveDate: string) => ({
-    subject: "【REVIEW PRO】解約申請受付完了",
-    html: `
-      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px;">
-        <h2 style="color:#DC2626;">解約申請を受け付けました</h2>
-        <p>${storeName} 様、解約申請を受け付けました。</p>
-        <div style="background:#FEF2F2;padding:16px;border-radius:8px;margin:20px 0;">
-          <p><strong>サービス停止日：</strong>${effectiveDate}</p>
+  cancelRequested: (storeName: string, effectiveDate: string, feeInfo?: {
+    remainingMonths: number;
+    remainingMonthsFee: number;
+    earlyTerminationPenalty: number;
+    cancellationFee: number;
+  }) => {
+    const monthlyPrice = feeInfo && feeInfo.remainingMonths > 0
+      ? Math.round(feeInfo.remainingMonthsFee / feeInfo.remainingMonths)
+      : 0;
+    const feeBlock = feeInfo && feeInfo.cancellationFee > 0
+      ? `<div style="background:#FFF0F0;border:1px solid #FCA5A5;border-radius:8px;padding:16px;margin:16px 0;">
+          <p style="font-weight:700;color:#991B1B;margin:0 0 10px;">解約金の内訳</p>
+          <p style="margin:0;color:#555;">残月数分の料金：<strong>&#165;${feeInfo.remainingMonthsFee.toLocaleString()}</strong>（残${feeInfo.remainingMonths}ヶ月 &times; &#165;${monthlyPrice.toLocaleString()}）</p>
+          <p style="margin:6px 0;color:#555;">途中解約違約金（50%）：<strong>&#165;${feeInfo.earlyTerminationPenalty.toLocaleString()}</strong></p>
+          <hr style="border:none;border-top:1px solid #FCA5A5;margin:10px 0;" />
+          <p style="margin:0;font-weight:700;color:#991B1B;">解約金合計：&#165;${feeInfo.cancellationFee.toLocaleString()}</p>
+        </div>`
+      : '';
+    return {
+      subject: "【REVIEW PRO】解約申請受付完了",
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px;">
+          <h2 style="color:#DC2626;">解約申請を受け付けました</h2>
+          <p>${storeName} 様、解約申請を受け付けました。</p>
+          <div style="background:#FEF2F2;padding:16px;border-radius:8px;margin:20px 0;">
+            <p><strong>サービス停止日：</strong>${effectiveDate}</p>
+          </div>
+          ${feeBlock}
+          <p>停止日まで引き続きご利用いただけます。<br>データは解約後90日間保持されます。</p>
+          <p>解約を取り消したい場合はお問い合わせください。</p>
+          <p style="color:#888;font-size:12px;">REVIEW PRO サポート</p>
         </div>
-        <p>停止日まで引き続きご利用いただけます。<br>データは解約後90日間保持されます。</p>
-        <p>解約を取り消したい場合はお問い合わせください。</p>
-        <p style="color:#888;font-size:12px;">REVIEW PRO サポート</p>
-      </div>
-    `,
-  }),
+      `,
+    };
+  },
 
   registered: (storeName: string, email: string, plan: string) => ({
     subject: "【REVIEW PRO】登録が完了しました",

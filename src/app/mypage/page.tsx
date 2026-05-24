@@ -96,7 +96,12 @@ const OPTION_LIST = [
   { key: "monthly_report", name: "月次自動レポート", price: 1480, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
 ];
 
-function calcCancellationFee(createdAt: string, monthlyPrice: number): { remainingMonths: number; fee: number } {
+function calcCancellationFee(createdAt: string, monthlyPrice: number): {
+  remainingMonths: number;
+  remainingMonthsFee: number;
+  earlyTerminationPenalty: number;
+  fee: number;
+} {
   const now = new Date();
   const created = new Date(createdAt);
   const contractEndDate = new Date(created.getFullYear(), created.getMonth() + 12, 0);
@@ -105,7 +110,9 @@ function calcCancellationFee(createdAt: string, monthlyPrice: number): { remaini
     (contractEndDate.getFullYear() - effectiveDate.getFullYear()) * 12 +
     (contractEndDate.getMonth() - effectiveDate.getMonth())
   );
-  return { remainingMonths, fee: remainingMonths * monthlyPrice };
+  const remainingMonthsFee = remainingMonths * monthlyPrice;
+  const earlyTerminationPenalty = Math.floor(remainingMonthsFee * 0.5);
+  return { remainingMonths, remainingMonthsFee, earlyTerminationPenalty, fee: remainingMonthsFee + earlyTerminationPenalty };
 }
 
 export default function MyPage() {
@@ -281,10 +288,10 @@ export default function MyPage() {
 
     // 年契約の場合、解約金を計算して確認ダイアログを表示
     if (store.billing_cycle === "yearly") {
-      const { fee, remainingMonths } = calcCancellationFee(store.created_at, store.monthly_price);
+      const { fee, remainingMonths, remainingMonthsFee, earlyTerminationPenalty } = calcCancellationFee(store.created_at, store.monthly_price);
       if (fee > 0) {
         const confirmed = window.confirm(
-          `年契約の解約金 ¥${fee.toLocaleString()}（残${remainingMonths}ヶ月分）がSquareで請求されます。\n\n解約申請を続行しますか？`
+          `年契約解約金の内訳\n\n残月数分の料金：¥${remainingMonthsFee.toLocaleString()}（残${remainingMonths}ヶ月 × ¥${store.monthly_price.toLocaleString()}）\n途中解約違約金（50%）：¥${earlyTerminationPenalty.toLocaleString()}\n━━━━━━━━━━━━━━\n解約金合計：¥${fee.toLocaleString()}\n\nSquareで自動請求されます。解約申請を続行しますか？`
         );
         if (!confirmed) return;
       }
@@ -527,6 +534,10 @@ export default function MyPage() {
                       </div>
                       {isCurrentPlan ? (
                         <div style={{ textAlign: "center", padding: "8px", background: "#ECFDF5", borderRadius: "8px", color: "#065F46", fontSize: "13px", fontWeight: "600" }}>現在のプラン</div>
+                      ) : store.billing_cycle === "yearly" && isDowngrade ? (
+                        <div style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "#F3F4F6", color: "#9CA3AF", fontFamily: "inherit", fontSize: "12px", fontWeight: "600", textAlign: "center", cursor: "not-allowed", boxSizing: "border-box" }}>
+                          年契約中は変更不可
+                        </div>
                       ) : (
                         <button onClick={() => handlePlanChange(p.key, selectedBillingCycle)}
                           style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", fontFamily: "inherit", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>
@@ -810,19 +821,25 @@ export default function MyPage() {
           {/* 解約申請 */}
           {activeTab === "cancel" && store && (() => {
             const isYearly = store.billing_cycle === "yearly";
-            const { remainingMonths, fee } = isYearly
+            const { remainingMonths, remainingMonthsFee, earlyTerminationPenalty, fee } = isYearly
               ? calcCancellationFee(store.created_at, store.monthly_price)
-              : { remainingMonths: 0, fee: 0 };
+              : { remainingMonths: 0, remainingMonthsFee: 0, earlyTerminationPenalty: 0, fee: 0 };
             return (
               <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>解約申請</h2>
                 {isYearly ? (
                   <div style={{ background: "#FEF2F2", border: "1px solid #E53E3E", borderRadius: "10px", padding: "16px", marginBottom: "20px", fontSize: "13px", color: "#991B1B" }}>
                     ⚠️ 年契約中です。解約申請の翌月末をもってサービスを停止します。<br />
-                    {fee > 0
-                      ? <><strong>解約金：¥{fee.toLocaleString()}（残{remainingMonths}ヶ月分）</strong>がSquareで自動請求されます。<br /></>
-                      : <>解約金：なし（年契約期間は終了しています）<br /></>
-                    }
+                    {fee > 0 ? (
+                      <div style={{ marginTop: "8px" }}>
+                        <div>残月数分の料金：<strong>¥{remainingMonthsFee.toLocaleString()}</strong>（残{remainingMonths}ヶ月 × ¥{store.monthly_price.toLocaleString()}）</div>
+                        <div style={{ marginTop: "4px" }}>途中解約違約金（50%）：<strong>¥{earlyTerminationPenalty.toLocaleString()}</strong></div>
+                        <div style={{ borderTop: "1px solid #FCA5A5", margin: "8px 0" }} />
+                        <div>解約金合計：<strong>¥{fee.toLocaleString()}</strong>　がSquareで自動請求されます。</div>
+                      </div>
+                    ) : (
+                      <>解約金：なし（年契約期間は終了しています）<br /></>
+                    )}
                     申請月の料金は返金されません。データは解約後90日間保持されます。
                   </div>
                 ) : (
