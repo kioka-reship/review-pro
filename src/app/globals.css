@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+:root {
+  --lp-bg: #0F1115;
+  --lp-card: #171A21;
+  --lp-border: #252A34;
+  --lp-border-gold: #D6B25E;
+  --lp-accent: #6E8BFF;
+  --lp-accent-hover: #8BA3FF;
+  --lp-gold: #D6B25E;
+  --lp-text: #FFFFFF;
+  --lp-text-sub: #A5ACB8;
+  --lp-text-muted: #5A6478;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
