@@ -62,6 +62,18 @@ const features = [
   },
 ];
 
+const premiumFeature = {
+  icon: (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="#D6B25E" strokeWidth="1.8"/>
+      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="#D6B25E" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  ),
+  title: "多言語口コミ対応",
+  desc: "プレミアムプランでは英語・中国語・韓国語での口コミ生成に対応。外国人観光客や海外のお客様の口コミ獲得をサポートします。",
+  langs: ["🇯🇵 日本語", "🇺🇸 English", "🇨🇳 中文", "🇰🇷 한국어"],
+};
+
 export default function LPFeatures() {
   return (
     <section
@@ -138,6 +150,87 @@ export default function LPFeatures() {
               </p>
             </div>
           ))}
+        </div>
+
+        {/* Premium限定: 多言語口コミ対応 */}
+        <div
+          style={{
+            marginTop: "24px",
+            background: "linear-gradient(135deg, rgba(214,178,94,0.06) 0%, rgba(23,26,33,0.9) 100%)",
+            border: "1px solid rgba(214,178,94,0.3)",
+            borderRadius: "20px",
+            padding: "36px 40px",
+            display: "flex",
+            alignItems: "center",
+            gap: "40px",
+            boxShadow: "0 0 48px rgba(214,178,94,0.05)",
+          }}
+          className="premium-feature-card"
+        >
+          <div style={{ flexShrink: 0 }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "56px",
+                height: "56px",
+                borderRadius: "16px",
+                background: "rgba(214,178,94,0.1)",
+                border: "1px solid rgba(214,178,94,0.25)",
+              }}
+            >
+              {premiumFeature.icon}
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+              <h3 style={{ fontSize: "18px", fontWeight: "700", color: "#fff", margin: 0 }}>
+                {premiumFeature.title}
+              </h3>
+              <span
+                style={{
+                  background: "linear-gradient(135deg, #D6B25E, #B8942A)",
+                  color: "#0F1115",
+                  fontSize: "10px",
+                  fontWeight: "800",
+                  padding: "3px 10px",
+                  borderRadius: "100px",
+                  letterSpacing: "0.06em",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                PREMIUM限定
+              </span>
+            </div>
+            <p style={{ fontSize: "14px", color: "#A5ACB8", lineHeight: 1.8, margin: "0 0 16px" }}>
+              {premiumFeature.desc}
+            </p>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {premiumFeature.langs.map((lang, i) => (
+                <span
+                  key={i}
+                  style={{
+                    background: "rgba(214,178,94,0.08)",
+                    border: "1px solid rgba(214,178,94,0.2)",
+                    color: "#D6B25E",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    padding: "4px 12px",
+                    borderRadius: "100px",
+                  }}
+                >
+                  {lang}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div style={{ flexShrink: 0, textAlign: "center" }}>
+            <div style={{ fontSize: "13px", color: "#D6B25E", fontWeight: "700", marginBottom: "4px" }}>インバウンド対応</div>
+            <div style={{ fontSize: "12px", color: "#5A6478", lineHeight: 1.6 }}>
+              外国人のお客様も<br />自然な口コミ投稿が可能
+            </div>
+          </div>
         </div>
       </div>
     </section>

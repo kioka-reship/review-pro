@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { LangCode, LANGUAGE_LIST, JA_ISSUES, getT } from "../../../lib/i18n";
 
 type Store = {
   id: string;
@@ -9,6 +10,7 @@ type Store = {
   plan: string;
   status: string;
   low_review_pro?: boolean;
+  multilingual_enabled?: boolean;
 };
 
 type Question = {
@@ -20,65 +22,77 @@ type Question = {
   options: string[] | null;
 };
 
-type StyleType = {
-  key: "casual" | "honest" | "formal";
-  label: string;
-  emoji: string;
-  prompt: string;
-};
+type StyleKey = "casual" | "honest" | "formal";
+type StyleType = { key: StyleKey; label: string; emoji: string };
+type LoadingStates = { casual: boolean; honest: boolean; formal: boolean };
+type Reviews = { casual: string; honest: string; formal: string };
 
-type LoadingStates = { casual: boolean; honest: boolean; formal: boolean; };
-type Reviews = { casual: string; honest: string; formal: string; };
+const STYLE_KEYS: StyleKey[] = ["casual", "honest", "formal"];
 
-const RATING_LABELS = ["", "残念でした", "もう少し", "普通", "良かった！", "最高でした！"];
-const RATING_EMOJI = ["", "😞", "😐", "🙂", "😊", "🤩"];
-
-const STYLES: StyleType[] = [
-  { key: "casual", label: "フレンドリー", emoji: "😊", prompt: "フレンドリーで話し言葉っぽい、親しみやすい文体で" },
-  { key: "honest", label: "リアル", emoji: "🎯", prompt: "本音っぽく、飾らないリアルな体験談として" },
-  { key: "formal", label: "丁寧", emoji: "✨", prompt: "丁寧で落ち着いた、信頼感のある文体で" },
-];
-
-const LOW_REVIEW_ISSUES = [
-  "スタッフの対応", "待ち時間", "施術の効果", "清潔感", "価格・コスパ",
-  "予約のしにくさ", "設備・環境", "説明不足",
-];
-
-function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function StarRating({
+  value,
+  onChange,
+  ratingLabels,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  ratingLabels: string[];
+}) {
   const [hover, setHover] = useState(0);
+  const RATING_EMOJI = ["", "😞", "😐", "🙂", "😊", "🤩"];
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "12px" }}>
         {[1, 2, 3, 4, 5].map((s) => (
-          <button key={s} onClick={() => onChange(s)}
-            onMouseEnter={() => setHover(s)} onMouseLeave={() => setHover(0)}
-            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: "44px", lineHeight: 1,
+          <button
+            key={s}
+            onClick={() => onChange(s)}
+            onMouseEnter={() => setHover(s)}
+            onMouseLeave={() => setHover(0)}
+            style={{
+              background: "none", border: "none", padding: 0, cursor: "pointer",
+              fontSize: "44px", lineHeight: 1,
               filter: s <= (hover || value) ? "none" : "grayscale(1) opacity(0.25)",
-              transform: s <= (hover || value) ? "scale(1.18)" : "scale(1)", transition: "all 0.15s" }}>⭐</button>
+              transform: s <= (hover || value) ? "scale(1.18)" : "scale(1)",
+              transition: "all 0.15s",
+            }}
+          >⭐</button>
         ))}
       </div>
       {value > 0 && (
         <div style={{ textAlign: "center" }}>
           <span style={{ fontSize: "26px" }}>{RATING_EMOJI[value]}</span>
-          <p style={{ margin: "4px 0 0", fontWeight: "700", color: "#1a2533", fontSize: "16px" }}>{RATING_LABELS[value]}</p>
+          <p style={{ margin: "4px 0 0", fontWeight: "700", color: "#1a2533", fontSize: "16px" }}>
+            {ratingLabels[value]}
+          </p>
         </div>
       )}
     </div>
   );
 }
 
-function ReviewCard({ text, style, selected, onSelect, loading }: {
-  text: string; style: StyleType; selected: boolean; onSelect: () => void; loading: boolean;
+function ReviewCard({
+  text, style, selected, onSelect, loading, generatingLabel,
+}: {
+  text: string; style: StyleType; selected: boolean; onSelect: () => void;
+  loading: boolean; generatingLabel: string;
 }) {
   return (
-    <div onClick={!loading ? onSelect : undefined}
-      style={{ borderRadius: "14px", border: `2px solid ${selected ? "#2C7A4B" : "#E5E7EB"}`,
-        background: selected ? "#F0FAF4" : "#fff", padding: "16px", cursor: loading ? "default" : "pointer",
-        transition: "all 0.2s", boxShadow: selected ? "0 0 0 3px rgba(44,122,75,0.12)" : "none" }}>
+    <div
+      onClick={!loading ? onSelect : undefined}
+      style={{
+        borderRadius: "14px", border: `2px solid ${selected ? "#2C7A4B" : "#E5E7EB"}`,
+        background: selected ? "#F0FAF4" : "#fff", padding: "16px",
+        cursor: loading ? "default" : "pointer", transition: "all 0.2s",
+        boxShadow: selected ? "0 0 0 3px rgba(44,122,75,0.12)" : "none",
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <span style={{ fontSize: "16px" }}>{style.emoji}</span>
-          <span style={{ fontSize: "12px", fontWeight: "700", color: selected ? "#2C7A4B" : "#888" }}>{style.label}</span>
+          <span style={{ fontSize: "12px", fontWeight: "700", color: selected ? "#2C7A4B" : "#888" }}>
+            {style.label}
+          </span>
         </div>
         {selected && (
           <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#2C7A4B", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -89,11 +103,55 @@ function ReviewCard({ text, style, selected, onSelect, loading }: {
       {loading ? (
         <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0" }}>
           <div style={{ width: "18px", height: "18px", borderRadius: "50%", border: "2px solid #E5E7EB", borderTop: "2px solid #2C7A4B", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
-          <span style={{ fontSize: "13px", color: "#aaa" }}>生成中...</span>
+          <span style={{ fontSize: "13px", color: "#aaa" }}>{generatingLabel}</span>
         </div>
       ) : (
         <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.85", color: selected ? "#1a3a2a" : "#555" }}>{text}</p>
       )}
+    </div>
+  );
+}
+
+function LanguageSelector({
+  current, onChange, disabled,
+}: {
+  current: LangCode; onChange: (lang: LangCode) => void; disabled: boolean;
+}) {
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, rgba(44,122,75,0.08), rgba(92,170,130,0.05))",
+      border: "1px solid rgba(44,122,75,0.2)",
+      borderRadius: "14px", padding: "12px 14px", marginBottom: "16px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+        <span style={{
+          background: "linear-gradient(135deg, #1a3a2a, #2C7A4B)",
+          color: "#fff", fontSize: "9px", fontWeight: "800", padding: "2px 7px",
+          borderRadius: "20px", letterSpacing: "0.08em",
+        }}>PREMIUM</span>
+        <span style={{ fontSize: "11px", color: "#2C7A4B", fontWeight: "700" }}>インバウンド対応</span>
+      </div>
+      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+        {LANGUAGE_LIST.map((lang) => (
+          <button
+            key={lang.code}
+            onClick={() => !disabled && onChange(lang.code)}
+            disabled={disabled}
+            style={{
+              padding: "8px 14px", borderRadius: "10px",
+              border: `2px solid ${current === lang.code ? "#2C7A4B" : "#E5E7EB"}`,
+              background: current === lang.code ? "#2C7A4B" : "#fff",
+              color: current === lang.code ? "#fff" : "#555",
+              fontFamily: "inherit", fontSize: "13px", fontWeight: "700",
+              cursor: disabled ? "not-allowed" : "pointer",
+              transition: "all 0.18s",
+              opacity: disabled ? 0.6 : 1,
+            }}
+          >
+            {lang.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -108,7 +166,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [reviews, setReviews] = useState<Reviews>({ casual: "", honest: "", formal: "" });
   const [loadingStates, setLoadingStates] = useState<LoadingStates>({ casual: false, honest: false, formal: false });
-  const [selectedStyle, setSelectedStyle] = useState<StyleType["key"]>("casual");
+  const [selectedStyle, setSelectedStyle] = useState<StyleKey>("casual");
   const [copied, setCopied] = useState(false);
   const [regenCount, setRegenCount] = useState(0);
   const [hasLowReviewPro, setHasLowReviewPro] = useState(false);
@@ -117,6 +175,9 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const [lowReviewSubmitting, setLowReviewSubmitting] = useState(false);
   const [currentRating, setCurrentRating] = useState(0);
   const [sessionId, setSessionId] = useState<string>("");
+  const [lang, setLang] = useState<LangCode>("ja");
+  const [translating, setTranslating] = useState(false);
+  const [baseQuestions, setBaseQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -125,28 +186,31 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
         const storeData = await storeRes.json();
         if (storeData.error) { setNotFound(true); setLoading(false); return; }
         setStore(storeData);
-// ↓ この1行を追加
-const sid = crypto.randomUUID();
-setSessionId(sid);
-fetch("/api/qr-log", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ store_id: params.storeId, session_id: sid }),
-});
 
-        // 低評価対策PROの契約確認（認証不要の公開エンドポイントを使用）
+        const sid = crypto.randomUUID();
+        setSessionId(sid);
+        fetch("/api/qr-log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ store_id: params.storeId, session_id: sid }),
+        });
+
         try {
           const optRes = await fetch(`/api/store-options?store_id=${params.storeId}`);
           if (optRes.ok) {
             const optData = await optRes.json();
-            const hasOpt = (optData.options || []).some((o: any) => o.option_key === "low_review_pro" && o.status === "active");
+            const hasOpt = (optData.options || []).some(
+              (o: any) => o.option_key === "low_review_pro" && o.status === "active"
+            );
             setHasLowReviewPro(hasOpt);
           }
-        } catch { /* オプション取得失敗時は無視 */ }
+        } catch { /* ignore */ }
 
         const qRes = await fetch(`/api/questions?store_id=${params.storeId}`);
         const qData = await qRes.json();
-        setQuestions(qData.questions || []);
+        const qs = qData.questions || [];
+        setBaseQuestions(qs);
+        setQuestions(qs);
       } catch {
         setNotFound(true);
       }
@@ -154,6 +218,34 @@ fetch("/api/qr-log", {
     };
     fetchData();
   }, [params.storeId]);
+
+  const handleLanguageChange = useCallback(async (newLang: LangCode) => {
+    setLang(newLang);
+    if (newLang === "ja") {
+      setQuestions(baseQuestions);
+      return;
+    }
+    setTranslating(true);
+    try {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questions: baseQuestions, targetLang: newLang }),
+      });
+      const data = await res.json();
+      if (data.questions?.length) setQuestions(data.questions);
+    } catch { /* fall back to Japanese */ }
+    setTranslating(false);
+  }, [baseQuestions]);
+
+  const T = getT(lang);
+  const STYLES: StyleType[] = STYLE_KEYS.map(key => ({
+    key,
+    label: T.styles[key].label,
+    emoji: T.styles[key].emoji,
+  }));
+
+  const isMultilingual = store?.plan === "premium" && store?.multilingual_enabled;
 
   const totalQ = questions.length;
   const progress = step === "questions" ? ((currentQ) / totalQ) * 100 : 0;
@@ -170,7 +262,8 @@ fetch("/api/qr-log", {
 
   const buildAnswersForGenerate = () => {
     const result: any = { rating: 0, menu: "", party: "", highlight: [], feel: "", gender: "", age: "" };
-    questions.forEach(q => {
+    baseQuestions.forEach((q, idx) => {
+      const translatedQ = questions[idx];
       const ans = answers[q.id];
       if (q.type === "stars") result.rating = ans || 0;
       else if (q.type === "multi") result.highlight = ans || [];
@@ -191,11 +284,17 @@ fetch("/api/qr-log", {
     setStep("generating");
     const builtAnswers = buildAnswersForGenerate();
     const results = await Promise.all(
-      STYLES.map((s) =>
+      STYLE_KEYS.map((key) =>
         fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ store: { id: store.id, name: store.name, type: store.type, placeId: store.place_id }, answers: builtAnswers, style: s, session_id: sessionId }),
+          body: JSON.stringify({
+            store: { id: store.id, name: store.name, type: store.type, placeId: store.place_id },
+            answers: builtAnswers,
+            style: { key },
+            session_id: sessionId,
+            language: lang,
+          }),
         }).then((r) => r.json()).then((d) => d.text || "").catch(() => "")
       )
     );
@@ -206,7 +305,6 @@ fetch("/api/qr-log", {
   const handleNext = async () => {
     if (step === "welcome") { setStep("questions"); return; }
     if (step === "questions") {
-      // 星評価の後に低評価チェック
       if (currentQuestion?.type === "stars") {
         const rating = answers[currentQuestion.id] || 0;
         setCurrentRating(rating);
@@ -247,8 +345,6 @@ fetch("/api/qr-log", {
 
   const handleRegen = async () => {
     if (!store) return;
-    const style = STYLES.find((s) => s.key === selectedStyle);
-    if (!style) return;
     setLoadingStates((prev) => ({ ...prev, [selectedStyle]: true }));
     setRegenCount((c) => c + 1);
     try {
@@ -256,7 +352,13 @@ fetch("/api/qr-log", {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ store: { id: store.id, name: store.name, type: store.type, placeId: store.place_id }, answers: builtAnswers, style, session_id: sessionId }),
+        body: JSON.stringify({
+          store: { id: store.id, name: store.name, type: store.type, placeId: store.place_id },
+          answers: builtAnswers,
+          style: { key: selectedStyle },
+          session_id: sessionId,
+          language: lang,
+        }),
       });
       const data = await res.json();
       setReviews((prev) => ({ ...prev, [selectedStyle]: data.text || "" }));
@@ -274,11 +376,20 @@ fetch("/api/qr-log", {
     });
   };
 
+  const handleRestart = () => {
+    setStep("welcome");
+    setCurrentQ(0);
+    setAnswers({});
+    setReviews({ casual: "", honest: "", formal: "" });
+    setCopied(false);
+    setRegenCount(0);
+  };
+
   if (loading) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ width: "48px", height: "48px", borderRadius: "50%", border: "4px solid #E8F5ED", borderTop: "4px solid #2C7A4B", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-        <p style={{ color: "#888", fontSize: "14px" }}>読み込み中...</p>
+        <p style={{ color: "#888", fontSize: "14px" }}>{T.loading}</p>
       </div>
     </div>
   );
@@ -287,11 +398,14 @@ fetch("/api/qr-log", {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔍</div>
-        <h2 style={{ color: "#1a2533", margin: "0 0 8px" }}>ページが見つかりません</h2>
-        <p style={{ color: "#888", fontSize: "14px" }}>URLをご確認ください</p>
+        <h2 style={{ color: "#1a2533", margin: "0 0 8px" }}>{T.notFound.title}</h2>
+        <p style={{ color: "#888", fontSize: "14px" }}>{T.notFound.message}</p>
       </div>
     </div>
   );
+
+  const welcomeFeatures = T.welcome.features;
+  const welcomeSubtitle = T.welcome.subtitle.replace("{n}", String(totalQ));
 
   return (
     <>
@@ -311,7 +425,7 @@ fetch("/api/qr-log", {
         <div style={{ background: "linear-gradient(135deg, #0F1923 0%, #1a3a2a 100%)", padding: "20px 20px 22px", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: "-30px", right: "-20px", width: "120px", height: "120px", borderRadius: "50%", background: "rgba(44,122,75,0.15)" }} />
           <div style={{ position: "relative" }}>
-            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", marginBottom: "4px" }}>口コミ投稿フォーム</div>
+            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", marginBottom: "4px" }}>{T.header.label}</div>
             <div style={{ fontSize: "17px", fontWeight: "900", color: "#fff" }}>{store?.name}</div>
           </div>
           {step === "questions" && (
@@ -323,18 +437,35 @@ fetch("/api/qr-log", {
 
         <div style={{ flex: 1, padding: "28px 20px 32px", display: "flex", flexDirection: "column" }}>
 
+          {/* 言語選択（プレミアム・多言語有効時のみ・ウェルカム画面のみ） */}
+          {step === "welcome" && isMultilingual && (
+            <LanguageSelector current={lang} onChange={handleLanguageChange} disabled={translating} />
+          )}
+
+          {/* 翻訳中インジケーター */}
+          {translating && (
+            <div style={{ textAlign: "center", padding: "12px", fontSize: "13px", color: "#2C7A4B" }}>
+              <span style={{ display: "inline-block", marginRight: "8px", animation: "spin 0.7s linear infinite" }}>⟳</span>
+              Translating...
+            </div>
+          )}
+
           {/* ウェルカム */}
           {step === "welcome" && (
             <div style={{ animation: "fadeUp 0.4s ease", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
               <div style={{ fontSize: "60px", marginBottom: "16px" }}>🙏</div>
               <h2 style={{ fontSize: "22px", fontWeight: "900", color: "#1a2533", margin: "0 0 12px", lineHeight: 1.3 }}>
-                ご来店ありがとう<br />ございました！
+                {T.welcome.title.split("\n").map((line, i) => (
+                  <span key={i}>{line}{i < T.welcome.title.split("\n").length - 1 && <br />}</span>
+                ))}
               </h2>
               <p style={{ color: "#888", fontSize: "14px", lineHeight: 1.8, margin: "0 0 32px" }}>
-                {totalQ}つの質問に答えるだけで<br />AIが口コミ文を自動で作ります
+                {welcomeSubtitle.split("\n").map((line, i) => (
+                  <span key={i}>{line}{i < welcomeSubtitle.split("\n").length - 1 && <br />}</span>
+                ))}
               </p>
               <div style={{ width: "100%", maxWidth: "280px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                {["⚡ 約1分で完了", "📱 選ぶだけ・入力不要", "✨ AIが3パターン生成"].map((t, i) => (
+                {welcomeFeatures.map((t, i) => (
                   <div key={i} style={{ background: "#F4F9F6", borderRadius: "10px", padding: "11px 16px", fontSize: "13px", fontWeight: "600", color: "#2C7A4B", textAlign: "left" }}>{t}</div>
                 ))}
               </div>
@@ -346,7 +477,7 @@ fetch("/api/qr-log", {
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
               <button onClick={handleBack}
                 style={{ background: "none", border: "none", color: "#aaa", fontFamily: "inherit", fontSize: "13px", cursor: "pointer", padding: "0 0 8px", display: "flex", alignItems: "center", gap: "4px" }}>
-                ← 前の質問に戻る
+                {T.questions.back}
               </button>
               <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>
                 Q{currentQ + 1} / {totalQ}
@@ -356,12 +487,16 @@ fetch("/api/qr-log", {
               </h2>
 
               {currentQuestion.type === "stars" && (
-                <StarRating value={answers[currentQuestion.id] || 0} onChange={(v) => setAnswers({ ...answers, [currentQuestion.id]: v })} />
+                <StarRating
+                  value={answers[currentQuestion.id] || 0}
+                  onChange={(v) => setAnswers({ ...answers, [currentQuestion.id]: v })}
+                  ratingLabels={T.ratings}
+                />
               )}
 
               {currentQuestion.type === "multi" && currentQuestion.options && (
                 <>
-                  <p style={{ textAlign: "center", color: "#aaa", fontSize: "12px", margin: "-12px 0 20px" }}>複数選択OK</p>
+                  <p style={{ textAlign: "center", color: "#aaa", fontSize: "12px", margin: "-12px 0 20px" }}>{T.questions.multiHint}</p>
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                     {currentQuestion.options.map((opt) => {
                       const sel = (answers[currentQuestion.id] || []).includes(opt);
@@ -406,19 +541,22 @@ fetch("/api/qr-log", {
               <div style={{ textAlign: "center", marginBottom: "24px" }}>
                 <div style={{ fontSize: "48px", marginBottom: "12px" }}>🙏</div>
                 <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 8px" }}>
-                  貴重なご意見をお聞かせください
+                  {T.lowReview.title}
                 </h2>
                 <p style={{ color: "#888", fontSize: "13px", lineHeight: 1.8 }}>
-                  ご不満な点を教えていただくことで<br />サービス改善に活かします
+                  {T.lowReview.subtitle.split("\n").map((line, i) => (
+                    <span key={i}>{line}{i < T.lowReview.subtitle.split("\n").length - 1 && <br />}</span>
+                  ))}
                 </p>
               </div>
 
               <div style={{ marginBottom: "20px" }}>
                 <p style={{ fontSize: "13px", fontWeight: "700", color: "#1a2533", marginBottom: "12px" }}>
-                  改善してほしい点は？（複数選択可）
+                  {T.lowReview.improve}
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                  {LOW_REVIEW_ISSUES.map(issue => {
+                  {JA_ISSUES.map(issue => {
+                    const displayLabel = T.issues[issue] || issue;
                     const sel = lowReviewIssues.includes(issue);
                     return (
                       <button key={issue} onClick={() => setLowReviewIssues(prev => sel ? prev.filter(i => i !== issue) : [...prev, issue])}
@@ -426,7 +564,7 @@ fetch("/api/qr-log", {
                           background: sel ? "#FEF2F2" : "#fff", color: sel ? "#991B1B" : "#555",
                           fontFamily: "inherit", fontSize: "13px", fontWeight: sel ? "700" : "400",
                           cursor: "pointer", transition: "all 0.18s", textAlign: "center" }}>
-                        {issue}
+                        {displayLabel}
                       </button>
                     );
                   })}
@@ -435,10 +573,10 @@ fetch("/api/qr-log", {
 
               <div style={{ marginBottom: "24px" }}>
                 <p style={{ fontSize: "13px", fontWeight: "700", color: "#1a2533", marginBottom: "8px" }}>
-                  詳しく教えてください（任意）
+                  {T.lowReview.comment}
                 </p>
                 <textarea value={lowReviewComment} onChange={e => setLowReviewComment(e.target.value)}
-                  rows={4} placeholder="ご不満な点や改善してほしいことをご自由にお書きください"
+                  rows={4} placeholder={T.lowReview.placeholder}
                   style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
               </div>
 
@@ -446,7 +584,7 @@ fetch("/api/qr-log", {
                 style={{ width: "100%", padding: "16px", borderRadius: "14px", border: "none",
                   background: "linear-gradient(135deg, #2C7A4B, #3DA66A)", color: "#fff",
                   fontFamily: "inherit", fontSize: "16px", fontWeight: "700", cursor: "pointer" }}>
-                {lowReviewSubmitting ? "送信中..." : "ご意見を送る"}
+                {lowReviewSubmitting ? T.lowReview.submitting : T.lowReview.submit}
               </button>
             </div>
           )}
@@ -456,10 +594,12 @@ fetch("/api/qr-log", {
             <div style={{ animation: "fadeUp 0.4s ease", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
               <div style={{ fontSize: "60px", marginBottom: "16px" }}>💚</div>
               <h2 style={{ fontSize: "22px", fontWeight: "900", color: "#1a2533", margin: "0 0 12px" }}>
-                ご意見ありがとうございます
+                {T.lowReviewDone.title}
               </h2>
               <p style={{ color: "#888", fontSize: "14px", lineHeight: 1.8, margin: "0 0 32px" }}>
-                いただいたご意見はサービス改善に<br />活かしてまいります。<br />またのご来店をお待ちしております。
+                {T.lowReviewDone.message.split("\n").map((line, i) => (
+                  <span key={i}>{line}{i < T.lowReviewDone.message.split("\n").length - 1 && <br />}</span>
+                ))}
               </p>
             </div>
           )}
@@ -471,7 +611,7 @@ fetch("/api/qr-log", {
                 <div style={{ width: "72px", height: "72px", borderRadius: "50%", border: "5px solid #E8F5ED", borderTop: "5px solid #2C7A4B", animation: "spin 0.8s linear infinite" }} />
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>✨</div>
               </div>
-              <h3 style={{ color: "#2C7A4B", fontWeight: "700", fontSize: "18px", margin: "0 0 8px" }}>3パターン同時生成中...</h3>
+              <h3 style={{ color: "#2C7A4B", fontWeight: "700", fontSize: "18px", margin: "0 0 8px" }}>{T.generating.title}</h3>
               <div style={{ display: "flex", gap: "8px", justifyContent: "center", marginTop: "12px" }}>
                 {STYLES.map((s) => (
                   <div key={s.key} style={{ background: "#F0FAF4", borderRadius: "8px", padding: "5px 12px", fontSize: "12px", color: "#2C7A4B", fontWeight: "600", animation: "pulse 1.5s ease infinite" }}>
@@ -487,13 +627,15 @@ fetch("/api/qr-log", {
             <div style={{ animation: "fadeUp 0.4s ease" }}>
               <div style={{ textAlign: "center", marginBottom: "20px" }}>
                 <div style={{ fontSize: "44px", animation: "pop 0.5s ease", display: "inline-block" }}>🎉</div>
-                <h2 style={{ fontSize: "18px", fontWeight: "900", color: "#1a2533", margin: "6px 0 4px" }}>3パターン生成完了！</h2>
-                <p style={{ color: "#888", fontSize: "13px", margin: 0 }}>気に入った文章を選んで投稿してください</p>
+                <h2 style={{ fontSize: "18px", fontWeight: "900", color: "#1a2533", margin: "6px 0 4px" }}>{T.done.title}</h2>
+                <p style={{ color: "#888", fontSize: "13px", margin: 0 }}>{T.done.subtitle}</p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
                 {STYLES.map((s) => (
                   <ReviewCard key={s.key} style={s} text={reviews[s.key]} selected={selectedStyle === s.key}
-                    loading={loadingStates[s.key]} onSelect={() => { setSelectedStyle(s.key); setCopied(false); }} />
+                    loading={loadingStates[s.key]}
+                    generatingLabel={T.generating.title}
+                    onSelect={() => { setSelectedStyle(s.key); setCopied(false); }} />
                 ))}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "16px" }}>
@@ -502,14 +644,18 @@ fetch("/api/qr-log", {
                     border: "1.5px solid #E5E7EB", background: "#fff", color: "#555",
                     fontFamily: "inherit", fontSize: "13px", fontWeight: "600", cursor: "pointer" }}>
                   <span style={{ fontSize: "16px", animation: loadingStates[selectedStyle] ? "spin 0.7s linear infinite" : "none", display: "inline-block" }}>🔄</span>
-                  選択中の文章を再生成
+                  {T.done.regen}
                 </button>
-                {regenCount > 0 && <span style={{ fontSize: "11px", color: "#aaa" }}>（{regenCount}回再生成済み）</span>}
+                {regenCount > 0 && (
+                  <span style={{ fontSize: "11px", color: "#aaa" }}>
+                    {T.done.regenCount.replace("{n}", String(regenCount))}
+                  </span>
+                )}
               </div>
               <div style={{ background: "#FFFBF0", border: "1px solid #FADDAA", borderRadius: "12px", padding: "12px 16px", marginBottom: "16px" }}>
-                <p style={{ fontSize: "11px", fontWeight: "700", color: "#8A6500", margin: "0 0 8px" }}>📋 あと1ステップで完了！</p>
+                <p style={{ fontSize: "11px", fontWeight: "700", color: "#8A6500", margin: "0 0 8px" }}>{T.done.hint.title}</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                  {["下のボタンを押す（テキスト自動コピー）", "Googleの投稿画面が自動で開く", "長押しで貼り付け → 送信！"].map((t, i) => (
+                  {T.done.hint.steps.map((t, i) => (
                     <div key={i} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                       <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#F5A623", color: "#fff", fontSize: "11px", fontWeight: "700", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
                       <span style={{ fontSize: "12px", color: "#5A4A00" }}>{t}</span>
@@ -522,7 +668,7 @@ fetch("/api/qr-log", {
                   background: copied ? "#1A5C38" : "linear-gradient(135deg, #2C7A4B, #3DA66A)",
                   color: "#fff", fontFamily: "inherit", fontSize: "16px", fontWeight: "700", cursor: "pointer",
                   boxShadow: "0 6px 24px rgba(44,122,75,0.3)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "all 0.3s" }}>
-                {copied ? "✅ コピー完了！Googleを開いています..." : (
+                {copied ? T.done.copiedButton : (
                   <>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -530,32 +676,38 @@ fetch("/api/qr-log", {
                       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                     </svg>
-                    この文章でGoogleに投稿する
+                    {T.done.postButton}
                   </>
                 )}
               </button>
-              <button onClick={() => { setStep("welcome"); setCurrentQ(0); setAnswers({}); setReviews({ casual: "", honest: "", formal: "" }); setCopied(false); setRegenCount(0); }}
+              <button onClick={handleRestart}
                 style={{ width: "100%", marginTop: "10px", padding: "12px", borderRadius: "12px", border: "1.5px solid #E5E7EB", background: "transparent", color: "#888", fontFamily: "inherit", fontSize: "14px", cursor: "pointer" }}>
-                ← 最初からやり直す
+                {T.done.restart}
               </button>
             </div>
           )}
 
           {/* 次へボタン */}
           {(step === "welcome" || step === "questions") && (
-            <button onClick={handleNext} disabled={!canNext()}
+            <button onClick={handleNext} disabled={!canNext() || translating}
               style={{ width: "100%", padding: "18px", marginTop: "24px", borderRadius: "16px", border: "none",
-                background: canNext() ? "linear-gradient(135deg, #2C7A4B, #3DA66A)" : "#E5E7EB",
-                color: canNext() ? "#fff" : "#aaa", fontFamily: "inherit", fontSize: "16px", fontWeight: "700",
-                cursor: canNext() ? "pointer" : "not-allowed",
-                boxShadow: canNext() ? "0 4px 16px rgba(44,122,75,0.3)" : "none", transition: "all 0.2s" }}>
-              {step === "welcome" ? "はじめる →" : currentQ === totalQ - 1 ? "✨ 口コミ文を3パターン作成する" : "次へ →"}
+                background: canNext() && !translating ? "linear-gradient(135deg, #2C7A4B, #3DA66A)" : "#E5E7EB",
+                color: canNext() && !translating ? "#fff" : "#aaa", fontFamily: "inherit", fontSize: "16px", fontWeight: "700",
+                cursor: canNext() && !translating ? "pointer" : "not-allowed",
+                boxShadow: canNext() && !translating ? "0 4px 16px rgba(44,122,75,0.3)" : "none", transition: "all 0.2s" }}>
+              {translating
+                ? "..."
+                : step === "welcome"
+                  ? T.buttons.start
+                  : currentQ === totalQ - 1
+                    ? T.buttons.create
+                    : T.buttons.next}
             </button>
           )}
         </div>
 
         <div style={{ padding: "12px 20px", textAlign: "center", borderTop: "1px solid #F0F0F0" }}>
-          <p style={{ margin: 0, fontSize: "11px", color: "#ddd" }}>Powered by REVIEW PRO</p>
+          <p style={{ margin: 0, fontSize: "11px", color: "#ddd" }}>{T.footer}</p>
         </div>
       </div>
     </>

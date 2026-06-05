@@ -14,6 +14,7 @@ type Store = {
   pending_billing_cycle: string | null;
   created_at: string;
   monthly_price: number;
+  multilingual_enabled?: boolean;
 };
 
 type Usage = {
@@ -200,6 +201,28 @@ export default function MyPage() {
   const [loading, setLoading] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelMsg, setCancelMsg] = useState("");
+  const [multilingualUpdating, setMultilingualUpdating] = useState(false);
+  const [multilingualMsg, setMultilingualMsg] = useState("");
+
+  const handleMultilingualToggle = async (enabled: boolean) => {
+    if (!store) return;
+    setMultilingualUpdating(true);
+    setMultilingualMsg("");
+    const res = await fetch("/api/mypage/multilingual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store_id: store.id, enabled }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setStore({ ...store, multilingual_enabled: enabled });
+      setMultilingualMsg(enabled ? "✅ 多言語口コミ機能をONにしました" : "✅ 多言語口コミ機能をOFFにしました");
+    } else {
+      setMultilingualMsg("❌ " + (data.error || "エラーが発生しました"));
+    }
+    setMultilingualUpdating(false);
+    setTimeout(() => setMultilingualMsg(""), 3000);
+  };
 
   const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
     if (!store) return;
@@ -464,6 +487,50 @@ export default function MyPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* 多言語口コミ機能（プレミアムのみ） */}
+              {store.plan === "premium" && (
+                <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                        <h2 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>🌐 多言語口コミ機能</h2>
+                        <span style={{ background: "linear-gradient(135deg, #1a3a2a, #2C7A4B)", color: "#fff", fontSize: "9px", fontWeight: "800", padding: "2px 7px", borderRadius: "20px", letterSpacing: "0.08em" }}>PREMIUM</span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: "12px", color: "#888", lineHeight: 1.6 }}>
+                        インバウンド対応・英語/中国語/韓国語で口コミ生成
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleMultilingualToggle(!store.multilingual_enabled)}
+                      disabled={multilingualUpdating}
+                      style={{
+                        width: "52px", height: "28px", borderRadius: "14px", border: "none",
+                        background: store.multilingual_enabled ? "#2C7A4B" : "#D1D5DB",
+                        cursor: multilingualUpdating ? "not-allowed" : "pointer",
+                        position: "relative", transition: "background 0.2s", flexShrink: 0,
+                        opacity: multilingualUpdating ? 0.6 : 1,
+                      }}
+                    >
+                      <span style={{
+                        position: "absolute", top: "3px",
+                        left: store.multilingual_enabled ? "26px" : "4px",
+                        width: "22px", height: "22px", borderRadius: "50%",
+                        background: "#fff", transition: "left 0.2s",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      }} />
+                    </button>
+                  </div>
+                  <div style={{ fontSize: "12px", color: store.multilingual_enabled ? "#2C7A4B" : "#aaa", fontWeight: "600" }}>
+                    {store.multilingual_enabled ? "✅ ON（口コミページに言語選択が表示されます）" : "OFF"}
+                  </div>
+                  {multilingualMsg && (
+                    <p style={{ margin: "8px 0 0", fontSize: "12px", color: multilingualMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontWeight: "600" }}>
+                      {multilingualMsg}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

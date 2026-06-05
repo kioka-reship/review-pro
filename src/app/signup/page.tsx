@@ -252,28 +252,30 @@ export default function SignupPage() {
             <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>⑤ お申し込み内容確認</h2>
             <div style={{ background: "#F4F6F9", borderRadius: "12px", padding: "16px", marginBottom: "16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                <span>契約タイプ</span>
-                <span style={{ fontWeight: "600" }}>{billingCycle === "monthly" ? "月契約" : "年契約（12ヶ月）"}</span>
+                <span style={{ color: "#334155" }}>契約タイプ</span>
+                <span style={{ fontWeight: "600", color: "#475569" }}>{billingCycle === "monthly" ? "月契約" : "年契約（12ヶ月）"}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                <span>プラン（{plan.name}）</span><span>¥{price.toLocaleString()}/月（税別）</span>
+                <span style={{ color: "#334155" }}>プラン（{plan.name}）</span>
+                <span style={{ color: "#0F172A" }}>¥{price.toLocaleString()}/月（税別）</span>
               </div>
               {selectedOptions.map(key => {
                 const opt = OPTIONS.find(o => o.key === key)!;
                 return (
                   <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                    <span>{opt.name}</span><span>¥{opt.price.toLocaleString()}/月（税別）</span>
+                    <span style={{ color: "#334155" }}>{opt.name}</span>
+                    <span style={{ color: "#0F172A" }}>¥{opt.price.toLocaleString()}/月（税別）</span>
                   </div>
                 );
               })}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                <span>導入設定費{referralValid ? "（紹介コード適用）" : ""}</span>
-                <span>{setupFee === 0 ? "無料" : `¥${setupFee.toLocaleString()}（税別）`}</span>
+                <span style={{ color: "#334155" }}>導入設定費{referralValid ? "（紹介コード適用）" : ""}</span>
+                <span style={{ color: "#0F172A" }}>{setupFee === 0 ? "無料" : `¥${setupFee.toLocaleString()}（税別）`}</span>
               </div>
               <div style={{ borderTop: "1px solid #E5E7EB", paddingTop: "12px", display: "flex", justifyContent: "space-between", fontWeight: "700", fontSize: "16px" }}>
-                <span>初回合計</span><span style={{ color: "#2C7A4B" }}>¥{total.toLocaleString()}</span>
+                <span style={{ color: "#334155" }}>初回合計</span><span style={{ color: "#2C7A4B" }}>¥{total.toLocaleString()}</span>
               </div>
-              <div style={{ fontSize: "12px", color: "#888", marginTop: "8px" }}>翌月以降：¥{(price + optionTotal).toLocaleString()}/月（税別）</div>
+              <div style={{ fontSize: "12px", color: "#64748B", marginTop: "8px" }}>翌月以降：¥{(price + optionTotal).toLocaleString()}/月（税別）</div>
               {billingCycle === "yearly" && (
                 <div style={{ fontSize: "12px", color: "#F59E0B", marginTop: "4px", fontWeight: "600" }}>※年契約は12ヶ月継続が条件です</div>
               )}
