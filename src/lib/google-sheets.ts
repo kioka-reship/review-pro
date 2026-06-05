@@ -3,6 +3,7 @@ import { google } from "googleapis";
 const SHEETS_ID = process.env.GOOGLE_SHEETS_ID;
 const CLIENT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+const TAB_NAME = process.env.GOOGLE_SHEETS_TAB_NAME || "Sheet1";
 
 const PLAN_LABELS: Record<string, string> = {
   light:    "ライト ¥4,980/月",
@@ -81,7 +82,7 @@ export async function appendStoreToSheet(store: SheetStoreInput): Promise<void> 
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEETS_ID,
-    range: "Sheet1!A:R",
+    range: `${TAB_NAME}!A:R`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [row] },
   });
