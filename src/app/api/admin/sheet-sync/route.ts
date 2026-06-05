@@ -22,17 +22,21 @@ export async function POST(req: NextRequest) {
   }
 
   let commissionEnabled: boolean | null = null;
+  let commissionRate: number | null = null;
   if (store.referral_id) {
     const { data: rc } = await supabase
       .from("referral_codes")
-      .select("commission_enabled")
+      .select("commission_enabled, commission_rate")
       .eq("id", store.referral_id)
       .single();
-    if (rc) commissionEnabled = rc.commission_enabled;
+    if (rc) {
+      commissionEnabled = rc.commission_enabled;
+      commissionRate = rc.commission_rate ?? null;
+    }
   }
 
   try {
-    await appendStoreToSheet({ ...store, commission_enabled: commissionEnabled });
+    await appendStoreToSheet({ ...store, commission_enabled: commissionEnabled, commission_rate: commissionRate });
     await supabase.from("stores").update({
       sheet_synced_at: new Date().toISOString(),
       sheet_sync_status: "synced",

@@ -30,6 +30,7 @@ export type SheetStoreInput = {
   // extras passed at call time
   square_payment_id?: string | null;
   commission_enabled?: boolean | null;
+  commission_rate?: number | null;
 };
 
 export async function appendStoreToSheet(store: SheetStoreInput): Promise<void> {
@@ -72,7 +73,9 @@ export async function appendStoreToSheet(store: SheetStoreInput): Promise<void> 
     store.referral_code || "",                             // 紹介コード
     store.sales_person_name || "",                         // 営業マン名
     store.sales_channel || "",                             // 販路名
-    store.commission_enabled ? "◯" : "",                  // 報酬対象
+    store.commission_enabled
+      ? (store.commission_rate != null ? `◯ ${store.commission_rate}%` : "◯")
+      : "",                                                 // 報酬対象
     toJST(store.created_at),                               // 作成日
   ];
 

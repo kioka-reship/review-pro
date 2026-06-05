@@ -293,20 +293,25 @@ export async function POST(req: NextRequest) {
 
             // Google Sheets sync (non-blocking)
             try {
-              // Fetch commission_enabled from referral_codes if applicable
+              // Fetch commission fields from referral_codes if applicable
               let commissionEnabled: boolean | null = null;
+              let commissionRate: number | null = null;
               if (store.referral_id) {
                 const { data: rc } = await supabase
                   .from("referral_codes")
-                  .select("commission_enabled")
+                  .select("commission_enabled, commission_rate")
                   .eq("id", store.referral_id)
                   .single();
-                if (rc) commissionEnabled = rc.commission_enabled;
+                if (rc) {
+                  commissionEnabled = rc.commission_enabled;
+                  commissionRate = rc.commission_rate ?? null;
+                }
               }
               await appendStoreToSheet({
                 ...store,
                 square_payment_id: paymentId,
                 commission_enabled: commissionEnabled,
+                commission_rate: commissionRate,
               });
               await supabase.from("stores").update({
                 sheet_synced_at: new Date().toISOString(),

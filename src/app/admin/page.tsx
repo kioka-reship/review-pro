@@ -28,6 +28,7 @@ type ReferralCode = {
   sales_person_name: string | null;
   channel_name: string | null;
   commission_enabled: boolean;
+  commission_rate: number | null;
   is_active: boolean;
   memo: string | null;
   created_at: string;
@@ -430,7 +431,7 @@ export default function AdminPage() {
   // Referral code management
   const [referralCodes, setReferralCodes] = useState<ReferralCode[]>([]);
   const [referralLoading, setReferralLoading] = useState(false);
-  const [referralForm, setReferralForm] = useState({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, is_active: true, memo: "" });
+  const [referralForm, setReferralForm] = useState({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, commission_rate: "", is_active: true, memo: "" });
   const [referralEditId, setReferralEditId] = useState<string | null>(null);
   const [referralMsg, setReferralMsg] = useState("");
   const [sheetSyncLoading, setSheetSyncLoading] = useState<string | null>(null);
@@ -531,13 +532,13 @@ export default function AdminPage() {
     if (!referralForm.code.trim()) { setReferralMsg("コードを入力してください"); return; }
     const url = "/api/admin/referral-codes";
     const method = referralEditId ? "PATCH" : "POST";
-    const body = referralEditId
-      ? { id: referralEditId, ...referralForm }
-      : referralForm;
+    const rateValue = referralForm.commission_rate !== "" ? parseFloat(referralForm.commission_rate) : null;
+    const payload = { ...referralForm, commission_rate: isNaN(rateValue as number) ? null : rateValue };
+    const body = referralEditId ? { id: referralEditId, ...payload } : payload;
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (res.ok) {
       setReferralMsg(referralEditId ? "✅ 更新しました" : "✅ 追加しました");
-      setReferralForm({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, is_active: true, memo: "" });
+      setReferralForm({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, commission_rate: "", is_active: true, memo: "" });
       setReferralEditId(null);
       await fetchReferralCodes();
     } else {
@@ -937,6 +938,16 @@ export default function AdminPage() {
                       style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
                   </div>
                   <div>
+                    <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>報酬率（%）</label>
+                    <input
+                      type="number" min="0" max="100" step="0.1"
+                      value={referralForm.commission_rate}
+                      onChange={e => setReferralForm(f => ({ ...f, commission_rate: e.target.value }))}
+                      placeholder="例: 10"
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div>
                     <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>メモ</label>
                     <input value={referralForm.memo} onChange={e => setReferralForm(f => ({ ...f, memo: e.target.value }))} placeholder="備考など"
                       style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
@@ -959,7 +970,7 @@ export default function AdminPage() {
                     {referralEditId ? "更新する" : "追加する"}
                   </button>
                   {referralEditId && (
-                    <button onClick={() => { setReferralEditId(null); setReferralForm({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, is_active: true, memo: "" }); setReferralMsg(""); }}
+                    <button onClick={() => { setReferralEditId(null); setReferralForm({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, commission_rate: "", is_active: true, memo: "" }); setReferralMsg(""); }}
                       style={{ background: "#F4F6F9", color: "#555", border: "none", borderRadius: "8px", padding: "8px 16px", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
                       キャンセル
                     </button>
@@ -973,7 +984,7 @@ export default function AdminPage() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                     <thead>
                       <tr style={{ borderBottom: "2px solid #F0F0F0" }}>
-                        {["コード", "担当者", "チャンネル", "手数料", "状態", "メモ", "登録日", "操作"].map(h => (
+                        {["コード", "担当者", "チャンネル", "手数料", "報酬率", "状態", "メモ", "登録日", "操作"].map(h => (
                           <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#888", fontWeight: "600", fontSize: "12px" }}>{h}</th>
                         ))}
                       </tr>
@@ -989,6 +1000,9 @@ export default function AdminPage() {
                           <td style={{ padding: "12px", textAlign: "center" }}>
                             <span style={{ color: rc.commission_enabled ? "#2C7A4B" : "#aaa", fontSize: "14px" }}>{rc.commission_enabled ? "✓" : "—"}</span>
                           </td>
+                          <td style={{ padding: "12px", textAlign: "center", color: rc.commission_rate != null ? "#1a2533" : "#aaa", fontWeight: rc.commission_rate != null ? "600" : "400" }}>
+                            {rc.commission_rate != null ? `${rc.commission_rate}%` : "—"}
+                          </td>
                           <td style={{ padding: "12px" }}>
                             <span style={{ background: rc.is_active ? "#ECFDF5" : "#F3F4F6", color: rc.is_active ? "#065F46" : "#6B7280", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "600" }}>
                               {rc.is_active ? "有効" : "無効"}
@@ -998,7 +1012,7 @@ export default function AdminPage() {
                           <td style={{ padding: "12px", color: "#aaa", fontSize: "11px", whiteSpace: "nowrap" }}>{new Date(rc.created_at).toLocaleDateString("ja-JP")}</td>
                           <td style={{ padding: "12px" }}>
                             <div style={{ display: "flex", gap: "6px" }}>
-                              <button onClick={() => { setReferralEditId(rc.id); setReferralForm({ code: rc.code, sales_person_name: rc.sales_person_name || "", channel_name: rc.channel_name || "", commission_enabled: rc.commission_enabled, is_active: rc.is_active, memo: rc.memo || "" }); setReferralMsg(""); }}
+                              <button onClick={() => { setReferralEditId(rc.id); setReferralForm({ code: rc.code, sales_person_name: rc.sales_person_name || "", channel_name: rc.channel_name || "", commission_enabled: rc.commission_enabled, commission_rate: rc.commission_rate != null ? String(rc.commission_rate) : "", is_active: rc.is_active, memo: rc.memo || "" }); setReferralMsg(""); }}
                                 style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>編集</button>
                               <button onClick={() => handleReferralDelete(rc.id)}
                                 style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>削除</button>
