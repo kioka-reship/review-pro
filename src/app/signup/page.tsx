@@ -44,8 +44,6 @@ const OPTIONS = [
   { key: "monthly_report", name: "月次自動レポート", price: 1480, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
 ];
 
-const REFERRAL_CODES = ["BNI-MEMBER", "0CP"];
-
 const INDUSTRY_OPTIONS = [
   "飲食店", "ラーメン店", "寿司・和食", "焼肉・肉料理", "カフェ・喫茶店", "居酒屋・バー", "パン・ベーカリー",
   "美容脱毛", "美容室・ヘアサロン", "エステ・フェイシャル", "ネイルサロン", "マッサージ・整体", "接骨院・鍼灸院", "パーソナルジム・ジム",
@@ -62,12 +60,38 @@ export default function SignupPage() {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [referralCode, setReferralCode] = useState("");
   const [referralValid, setReferralValid] = useState(false);
+  const [referralChecking, setReferralChecking] = useState(false);
+  const [referralId, setReferralId] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setReferralValid(REFERRAL_CODES.includes(referralCode.toUpperCase()));
+    const trimmed = referralCode.trim();
+    if (!trimmed) {
+      setReferralValid(false);
+      setReferralId(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setReferralChecking(true);
+      try {
+        const res = await fetch("/api/referral/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: trimmed }),
+        });
+        const data = await res.json();
+        setReferralValid(!!data.valid);
+        setReferralId(data.valid ? data.id : null);
+      } catch {
+        setReferralValid(false);
+        setReferralId(null);
+      } finally {
+        setReferralChecking(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
   }, [referralCode]);
 
   const plan = PLANS.find(p => p.key === selectedPlan)!;
@@ -243,8 +267,10 @@ export default function SignupPage() {
           <div style={{ background: "#fff", borderRadius: "20px", padding: "28px", marginBottom: "16px" }}>
             <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>④ 紹介コード（任意）</h2>
             <input value={referralCode} onChange={e => setReferralCode(e.target.value)} placeholder="紹介コードをお持ちの方は入力"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: `1.5px solid ${referralValid ? "#2C7A4B" : "#E5E7EB"}`, fontFamily: "inherit", fontSize: "14px", outline: "none" }} />
-            {referralValid && <p style={{ color: "#2C7A4B", fontSize: "13px", marginTop: "8px", fontWeight: "600" }}>✅ 紹介コード適用！初期費用が無料になります</p>}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: `1.5px solid ${referralValid ? "#2C7A4B" : referralCode && !referralChecking && !referralValid ? "#E53E3E" : "#E5E7EB"}`, fontFamily: "inherit", fontSize: "14px", outline: "none" }} />
+            {referralChecking && <p style={{ color: "#888", fontSize: "13px", marginTop: "8px" }}>確認中...</p>}
+            {!referralChecking && referralValid && <p style={{ color: "#2C7A4B", fontSize: "13px", marginTop: "8px", fontWeight: "600" }}>✅ 紹介コード確認済み！初期費用が無料になります</p>}
+            {!referralChecking && referralCode.trim() && !referralValid && <p style={{ color: "#E53E3E", fontSize: "13px", marginTop: "8px" }}>このコードは無効です</p>}
           </div>
 
           {/* 合計・規約 */}

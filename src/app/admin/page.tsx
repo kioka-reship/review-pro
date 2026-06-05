@@ -16,6 +16,21 @@ type Store = {
   square_subscription_id?: string;
   company_name?: string;
   referral_code?: string;
+  sales_person_name?: string;
+  sales_channel?: string;
+  sheet_sync_status?: string;
+  sheet_synced_at?: string;
+};
+
+type ReferralCode = {
+  id: string;
+  code: string;
+  sales_person_name: string | null;
+  channel_name: string | null;
+  commission_enabled: boolean;
+  is_active: boolean;
+  memo: string | null;
+  created_at: string;
 };
 
 type Question = {
@@ -349,7 +364,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState("");
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"stores" | "add" | "questions" | "cancels" | "logs" | "auth-check">("stores");
+  const [activeTab, setActiveTab] = useState<"stores" | "add" | "questions" | "cancels" | "logs" | "auth-check" | "referral">("stores");
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [editStore, setEditStore] = useState<Store | null>(null);
@@ -411,6 +426,14 @@ export default function AdminPage() {
   const [brevoCheckLoading, setBrevoCheckLoading] = useState(false);
   const [directPwForm, setDirectPwForm] = useState({ store_name: "", new_password: "" });
   const [directPwLoading, setDirectPwLoading] = useState(false);
+
+  // Referral code management
+  const [referralCodes, setReferralCodes] = useState<ReferralCode[]>([]);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralForm, setReferralForm] = useState({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, is_active: true, memo: "" });
+  const [referralEditId, setReferralEditId] = useState<string | null>(null);
+  const [referralMsg, setReferralMsg] = useState("");
+  const [sheetSyncLoading, setSheetSyncLoading] = useState<string | null>(null);
 
   const handleDeleteStore = async (store: Store) => {
     setDeleteLoading(true);
@@ -492,6 +515,54 @@ export default function AdminPage() {
       setRepairStoreName(store_name);
     } finally {
       setEmailFixLoading(false);
+    }
+  };
+
+  const fetchReferralCodes = async () => {
+    setReferralLoading(true);
+    const res = await fetch("/api/admin/referral-codes");
+    const data = await res.json();
+    setReferralCodes(data.codes || []);
+    setReferralLoading(false);
+  };
+
+  const handleReferralSave = async () => {
+    setReferralMsg("");
+    if (!referralForm.code.trim()) { setReferralMsg("コードを入力してください"); return; }
+    const url = "/api/admin/referral-codes";
+    const method = referralEditId ? "PATCH" : "POST";
+    const body = referralEditId
+      ? { id: referralEditId, ...referralForm }
+      : referralForm;
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.ok) {
+      setReferralMsg(referralEditId ? "✅ 更新しました" : "✅ 追加しました");
+      setReferralForm({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, is_active: true, memo: "" });
+      setReferralEditId(null);
+      await fetchReferralCodes();
+    } else {
+      const d = await res.json();
+      setReferralMsg("❌ " + (d.error || "エラー"));
+    }
+  };
+
+  const handleReferralDelete = async (id: string) => {
+    if (!window.confirm("このコードを削除しますか？")) return;
+    const res = await fetch("/api/admin/referral-codes", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    if (res.ok) await fetchReferralCodes();
+    else alert("削除に失敗しました");
+  };
+
+  const handleSheetSync = async (storeId: string) => {
+    setSheetSyncLoading(storeId);
+    const res = await fetch("/api/admin/sheet-sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ store_id: storeId }) });
+    setSheetSyncLoading(null);
+    if (res.ok) {
+      alert("✅ Sheetsに書き込みました");
+      await fetchStores();
+    } else {
+      const d = await res.json();
+      alert("❌ 失敗: " + (d.error || "エラー"));
     }
   };
 
@@ -694,11 +765,12 @@ export default function AdminPage() {
             {[
               { key: "stores", label: "🏪 店舗一覧" },
               { key: "add", label: "➕ 店舗追加" },
+              { key: "referral", label: "🎫 紹介コード" },
               { key: "cancels", label: "🚪 解約申請" },
               { key: "logs", label: "📋 監査ログ" },
               { key: "auth-check", label: "🔍 Auth診断" },
             ].map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key as any)}
+              <button key={t.key} onClick={() => { setActiveTab(t.key as any); if (t.key === "referral") fetchReferralCodes(); }}
                 style={{ padding: "10px 20px", borderRadius: "10px", border: "none", background: activeTab === t.key ? "#2C7A4B" : "#fff", color: activeTab === t.key ? "#fff" : "#555", fontFamily: "inherit", fontSize: "14px", fontWeight: "600", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 {t.label}
               </button>
@@ -720,7 +792,7 @@ export default function AdminPage() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                     <thead>
                       <tr style={{ borderBottom: "2px solid #F0F0F0" }}>
-                        {["店舗名", "店舗ID", "業種", "プラン", "契約状態", "QR", "操作"].map(h => (
+                        {["店舗名", "店舗ID", "業種", "プラン", "契約状態", "紹介/SS", "QR", "操作"].map(h => (
                           <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#888", fontWeight: "600", fontSize: "12px" }}>{h}</th>
                         ))}
                       </tr>
@@ -749,6 +821,27 @@ export default function AdminPage() {
                                 style={{ background: sc.bg, color: sc.color, border: "none", borderRadius: "6px", padding: "4px 8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit", outline: "none" }}>
                                 {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                               </select>
+                            </td>
+                            <td style={{ padding: "14px 12px", fontSize: "11px", color: "#888" }}>
+                              {s.referral_code && (
+                                <div style={{ marginBottom: "4px" }}>
+                                  <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: "4px", padding: "2px 6px", fontSize: "11px", fontWeight: "600" }}>{s.referral_code}</span>
+                                </div>
+                              )}
+                              {s.sales_person_name && <div>{s.sales_person_name}</div>}
+                              {s.sheet_sync_status === "synced" && <div style={{ color: "#16a34a" }}>✓ Sheet同期済</div>}
+                              {s.sheet_sync_status === "failed" && (
+                                <button onClick={() => handleSheetSync(s.id)} disabled={sheetSyncLoading === s.id}
+                                  style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "4px", padding: "2px 6px", fontSize: "11px", cursor: "pointer", fontFamily: "inherit" }}>
+                                  {sheetSyncLoading === s.id ? "..." : "⚠️ 再同期"}
+                                </button>
+                              )}
+                              {!s.sheet_sync_status && s.status === "契約中" && (
+                                <button onClick={() => handleSheetSync(s.id)} disabled={sheetSyncLoading === s.id}
+                                  style={{ background: "#F0F9FF", border: "none", color: "#0369A1", borderRadius: "4px", padding: "2px 6px", fontSize: "11px", cursor: "pointer", fontFamily: "inherit" }}>
+                                  {sheetSyncLoading === s.id ? "..." : "📊 Sheet"}
+                                </button>
+                              )}
                             </td>
                             <td style={{ padding: "14px 12px" }}>
                               <button onClick={() => setQrStore(s)} style={{ background: "#F0FAF4", border: "none", color: "#2C7A4B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>QR</button>
@@ -812,6 +905,112 @@ export default function AdminPage() {
                   {addLoading ? "追加中..." : "➕ 店舗を追加する"}
                 </button>
               </div>
+            </div>
+          )}
+
+          {activeTab === "referral" && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+                <h2 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>紹介コード管理</h2>
+                <button onClick={fetchReferralCodes} style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>🔄 更新</button>
+              </div>
+
+              {/* 追加・編集フォーム */}
+              <div style={{ background: "#F4F6F9", borderRadius: "12px", padding: "20px", marginBottom: "24px" }}>
+                <div style={{ fontSize: "13px", fontWeight: "700", color: "#1a2533", marginBottom: "14px" }}>
+                  {referralEditId ? "✏️ コードを編集" : "➕ 新規コードを追加"}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>コード *</label>
+                    <input value={referralForm.code} onChange={e => setReferralForm(f => ({ ...f, code: e.target.value }))} placeholder="例: BNI-MEMBER"
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>担当者名</label>
+                    <input value={referralForm.sales_person_name} onChange={e => setReferralForm(f => ({ ...f, sales_person_name: e.target.value }))} placeholder="例: 田中 太郎"
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>チャンネル</label>
+                    <input value={referralForm.channel_name} onChange={e => setReferralForm(f => ({ ...f, channel_name: e.target.value }))} placeholder="例: BNI / 直販 / WEB"
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>メモ</label>
+                    <input value={referralForm.memo} onChange={e => setReferralForm(f => ({ ...f, memo: e.target.value }))} placeholder="備考など"
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "16px", marginBottom: "12px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px" }}>
+                    <input type="checkbox" checked={referralForm.commission_enabled} onChange={e => setReferralForm(f => ({ ...f, commission_enabled: e.target.checked }))} />
+                    手数料あり
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px" }}>
+                    <input type="checkbox" checked={referralForm.is_active} onChange={e => setReferralForm(f => ({ ...f, is_active: e.target.checked }))} />
+                    有効
+                  </label>
+                </div>
+                {referralMsg && <p style={{ color: referralMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontSize: "13px", marginBottom: "8px" }}>{referralMsg}</p>}
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={handleReferralSave}
+                    style={{ background: "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 20px", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "inherit" }}>
+                    {referralEditId ? "更新する" : "追加する"}
+                  </button>
+                  {referralEditId && (
+                    <button onClick={() => { setReferralEditId(null); setReferralForm({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, is_active: true, memo: "" }); setReferralMsg(""); }}
+                      style={{ background: "#F4F6F9", color: "#555", border: "none", borderRadius: "8px", padding: "8px 16px", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
+                      キャンセル
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* コード一覧テーブル */}
+              {referralLoading ? <p style={{ color: "#888" }}>読み込み中...</p> : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #F0F0F0" }}>
+                        {["コード", "担当者", "チャンネル", "手数料", "状態", "メモ", "登録日", "操作"].map(h => (
+                          <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#888", fontWeight: "600", fontSize: "12px" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {referralCodes.map(rc => (
+                        <tr key={rc.id} style={{ borderBottom: "1px solid #F8F8F8", background: rc.is_active ? "#fff" : "#F9FAFB" }}>
+                          <td style={{ padding: "12px", fontFamily: "monospace", fontWeight: "700", color: "#1a2533", fontSize: "13px" }}>
+                            <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: "6px", padding: "2px 8px" }}>{rc.code}</span>
+                          </td>
+                          <td style={{ padding: "12px", color: "#555" }}>{rc.sales_person_name || "—"}</td>
+                          <td style={{ padding: "12px", color: "#555" }}>{rc.channel_name || "—"}</td>
+                          <td style={{ padding: "12px", textAlign: "center" }}>
+                            <span style={{ color: rc.commission_enabled ? "#2C7A4B" : "#aaa", fontSize: "14px" }}>{rc.commission_enabled ? "✓" : "—"}</span>
+                          </td>
+                          <td style={{ padding: "12px" }}>
+                            <span style={{ background: rc.is_active ? "#ECFDF5" : "#F3F4F6", color: rc.is_active ? "#065F46" : "#6B7280", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "600" }}>
+                              {rc.is_active ? "有効" : "無効"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px", color: "#888", fontSize: "12px", maxWidth: "160px" }}>{rc.memo || "—"}</td>
+                          <td style={{ padding: "12px", color: "#aaa", fontSize: "11px", whiteSpace: "nowrap" }}>{new Date(rc.created_at).toLocaleDateString("ja-JP")}</td>
+                          <td style={{ padding: "12px" }}>
+                            <div style={{ display: "flex", gap: "6px" }}>
+                              <button onClick={() => { setReferralEditId(rc.id); setReferralForm({ code: rc.code, sales_person_name: rc.sales_person_name || "", channel_name: rc.channel_name || "", commission_enabled: rc.commission_enabled, is_active: rc.is_active, memo: rc.memo || "" }); setReferralMsg(""); }}
+                                style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>編集</button>
+                              <button onClick={() => handleReferralDelete(rc.id)}
+                                style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>削除</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {referralCodes.length === 0 && <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>紹介コードがまだありません</p>}
+                </div>
+              )}
             </div>
           )}
 

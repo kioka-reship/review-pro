@@ -3,6 +3,7 @@ import { getAdminClient } from "../../../../lib/supabase-admin";
 import { createHmac } from "crypto";
 import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
 import { sendAdminNotification } from "../../../../lib/sendAdminNotification";
+import { appendStoreToSheet } from "../../../../lib/google-sheets";
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
@@ -289,6 +290,35 @@ export async function POST(req: NextRequest) {
                 <p><strong>申込日時：</strong>${new Date().toLocaleString("ja-JP")}</p>
               `,
             });
+
+            // Google Sheets sync (non-blocking)
+            try {
+              // Fetch commission_enabled from referral_codes if applicable
+              let commissionEnabled: boolean | null = null;
+              if (store.referral_id) {
+                const { data: rc } = await supabase
+                  .from("referral_codes")
+                  .select("commission_enabled")
+                  .eq("id", store.referral_id)
+                  .single();
+                if (rc) commissionEnabled = rc.commission_enabled;
+              }
+              await appendStoreToSheet({
+                ...store,
+                square_payment_id: paymentId,
+                commission_enabled: commissionEnabled,
+              });
+              await supabase.from("stores").update({
+                sheet_synced_at: new Date().toISOString(),
+                sheet_sync_status: "synced",
+              }).eq("id", storeId);
+              console.log("[Webhook] → Sheets sync OK:", storeId);
+            } catch (sheetErr: any) {
+              console.error("[Webhook] Sheets sync failed:", sheetErr?.message);
+              await supabase.from("stores").update({
+                sheet_sync_status: "failed",
+              }).eq("id", storeId);
+            }
 
           } else {
             const { data: pendingOption } = await supabase

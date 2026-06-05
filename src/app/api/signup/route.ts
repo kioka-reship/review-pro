@@ -57,6 +57,23 @@ export async function POST(req: NextRequest) {
 
   const userId = authData.user.id;
 
+  // Resolve referral code to get referral_id and sales info
+  let resolvedReferralId: string | null = null;
+  let resolvedSalesPersonName: string | null = null;
+  let resolvedSalesChannel: string | null = null;
+  if (referral_code) {
+    const { data: rcData } = await supabase
+      .from("referral_codes")
+      .select("id, sales_person_name, channel_name, is_active")
+      .eq("code", referral_code.toUpperCase().trim())
+      .single();
+    if (rcData && rcData.is_active) {
+      resolvedReferralId = rcData.id;
+      resolvedSalesPersonName = rcData.sales_person_name || null;
+      resolvedSalesChannel = rcData.channel_name || null;
+    }
+  }
+
   // stores テーブルに登録
   const { data: store, error: storeError } = await supabase
     .from("stores")
@@ -74,7 +91,10 @@ export async function POST(req: NextRequest) {
       monthly_price,
       setup_fee_paid_amount: setup_fee,
       status: "pending_payment",
-            referral_code: referral_code || null,
+      referral_code: referral_code ? referral_code.toUpperCase().trim() : null,
+      referral_id: resolvedReferralId,
+      sales_person_name: resolvedSalesPersonName,
+      sales_channel: resolvedSalesChannel,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
