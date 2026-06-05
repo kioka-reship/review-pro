@@ -11,6 +11,13 @@ const PLAN_LABELS: Record<string, string> = {
   premium:  "プレミアム ¥19,800/月",
 };
 
+const HEADERS = [
+  "契約日", "店舗ID", "店舗名", "代表者名", "メールアドレス",
+  "電話番号", "プラン", "契約種別", "月額", "初期費用",
+  "決済ステータス", "Square顧客ID", "Square決済ID", "紹介コード",
+  "営業マン名", "販路名", "報酬対象", "作成日",
+];
+
 export type SheetStoreInput = {
   id: string;
   name: string;
@@ -80,6 +87,22 @@ export async function appendStoreToSheet(store: SheetStoreInput): Promise<void> 
     toJST(store.created_at),                               // 作成日
   ];
 
+  // Ensure header exists in row 1
+  const check = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEETS_ID,
+    range: `${TAB_NAME}!A1`,
+  });
+  const firstCell = check.data.values?.[0]?.[0];
+  if (!firstCell) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEETS_ID,
+      range: `${TAB_NAME}!A1:R1`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: [HEADERS] },
+    });
+  }
+
+  // Append data starting from row 2
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEETS_ID,
     range: `${TAB_NAME}!A:R`,
