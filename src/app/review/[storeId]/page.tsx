@@ -178,6 +178,8 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const [lang, setLang] = useState<LangCode>("ja");
   const [translating, setTranslating] = useState(false);
   const [baseQuestions, setBaseQuestions] = useState<Question[]>([]);
+  const [gender, setGender] = useState<string>("");
+  const [age, setAge] = useState<string>("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -209,8 +211,10 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
         const qRes = await fetch(`/api/questions?store_id=${params.storeId}`);
         const qData = await qRes.json();
         const qs = qData.questions || [];
-        setBaseQuestions(qs);
-        setQuestions(qs);
+        // 性別・年代は固定最終ページで表示するためフィルタ除外
+        const filtered = qs.filter((q: Question) => !q.label.includes("性別") && !q.label.includes("年代"));
+        setBaseQuestions(filtered);
+        setQuestions(filtered);
       } catch {
         setNotFound(true);
       }
@@ -247,12 +251,17 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
 
   const isMultilingual = store?.plan === "premium" && store?.multilingual_enabled;
 
-  const totalQ = questions.length;
-  const progress = step === "questions" ? ((currentQ) / totalQ) * 100 : 0;
-  const currentQuestion = questions[currentQ];
+  // questions = 性別・年代除外済み（stars + 中間4問）
+  // TOTAL_PAGES = questions + 固定最終ページ（性別＋年代） = 6
+  const TOTAL_PAGES = questions.length + 1;
+  const isGenderAgePage = currentQ === questions.length;
+  const currentQuestion = isGenderAgePage ? undefined : questions[currentQ];
+  const progress = step === "questions" ? ((currentQ) / TOTAL_PAGES) * 100 : 0;
 
   const canNext = () => {
-    if (step !== "questions" || !currentQuestion) return true;
+    if (step !== "questions") return true;
+    if (isGenderAgePage) return gender !== "" && age !== "";
+    if (!currentQuestion) return true;
     const ans = answers[currentQuestion.id];
     if (currentQuestion.type === "stars") return (ans || 0) > 0;
     if (currentQuestion.type === "multi") return Array.isArray(ans) && ans.length > 0;
@@ -261,9 +270,9 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   };
 
   const buildAnswersForGenerate = () => {
-    const result: any = { rating: 0, menu: "", party: "", highlight: [], feel: "", gender: "", age: "" };
-    baseQuestions.forEach((q, idx) => {
-      const translatedQ = questions[idx];
+    // gender・age は state から直接渡す（固定最終ページで選択済み）
+    const result: any = { rating: 0, menu: "", party: "", highlight: [], feel: "", gender, age };
+    baseQuestions.forEach((q) => {
       const ans = answers[q.id];
       if (q.type === "stars") result.rating = ans || 0;
       else if (q.type === "multi") result.highlight = ans || [];
@@ -271,8 +280,6 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
         if (q.label.includes("メニュー") || q.label.includes("ご注文")) result.menu = ans || "";
         else if (q.label.includes("人数")) result.party = ans || "";
         else if (q.label.includes("一言")) result.feel = ans || "";
-        else if (q.label.includes("性別")) result.gender = ans || "";
-        else if (q.label.includes("年代")) result.age = ans || "";
         else if (!result.feel) result.feel = ans || "";
       }
     });
@@ -305,7 +312,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const handleNext = async () => {
     if (step === "welcome") { setStep("questions"); return; }
     if (step === "questions") {
-      if (currentQuestion?.type === "stars") {
+      if (!isGenderAgePage && currentQuestion?.type === "stars") {
         const rating = answers[currentQuestion.id] || 0;
         setCurrentRating(rating);
         if (rating <= 2 && hasLowReviewPro) {
@@ -313,10 +320,10 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
           return;
         }
       }
-      if (currentQ < totalQ - 1) {
-        setCurrentQ(c => c + 1);
-      } else {
+      if (isGenderAgePage) {
         await generateAll();
+      } else {
+        setCurrentQ(c => c + 1);
       }
     }
   };
@@ -383,6 +390,8 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
     setReviews({ casual: "", honest: "", formal: "" });
     setCopied(false);
     setRegenCount(0);
+    setGender("");
+    setAge("");
   };
 
   if (loading) return (
@@ -405,7 +414,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   );
 
   const welcomeFeatures = T.welcome.features;
-  const welcomeSubtitle = T.welcome.subtitle.replace("{n}", String(totalQ));
+  const welcomeSubtitle = T.welcome.subtitle.replace("{n}", String(TOTAL_PAGES));
 
   return (
     <>
@@ -472,15 +481,15 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
             </div>
           )}
 
-          {/* 質問 */}
-          {step === "questions" && currentQuestion && (
+          {/* 質問（性別・年代ページ以外） */}
+          {step === "questions" && !isGenderAgePage && currentQuestion && (
             <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
               <button onClick={handleBack}
                 style={{ background: "none", border: "none", color: "#aaa", fontFamily: "inherit", fontSize: "13px", cursor: "pointer", padding: "0 0 8px", display: "flex", alignItems: "center", gap: "4px" }}>
                 {T.questions.back}
               </button>
               <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>
-                Q{currentQ + 1} / {totalQ}
+                Q{currentQ + 1} / {TOTAL_PAGES}
               </p>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 24px", textAlign: "center", lineHeight: 1.4 }}>
                 {currentQuestion.label}
@@ -532,6 +541,58 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 固定最終ページ：性別＋年代 */}
+          {step === "questions" && isGenderAgePage && (
+            <div style={{ animation: "fadeUp 0.35s ease", flex: 1 }}>
+              <button onClick={handleBack}
+                style={{ background: "none", border: "none", color: "#aaa", fontFamily: "inherit", fontSize: "13px", cursor: "pointer", padding: "0 0 8px", display: "flex", alignItems: "center", gap: "4px" }}>
+                {T.questions.back}
+              </button>
+              <p style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", letterSpacing: "0.1em", margin: "0 0 8px", textAlign: "center" }}>
+                Q{TOTAL_PAGES} / {TOTAL_PAGES}
+              </p>
+              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#1a2533", margin: "0 0 28px", textAlign: "center", lineHeight: 1.4 }}>
+                あなたについて教えてください
+              </h2>
+
+              {/* 性別 */}
+              <div style={{ marginBottom: "28px" }}>
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#1a2533", margin: "0 0 12px" }}>性別</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                  {["男性", "女性", "回答しない"].map((opt) => {
+                    const sel = gender === opt;
+                    return (
+                      <button key={opt} onClick={() => setGender(opt)}
+                        style={{ padding: "18px 8px", borderRadius: "14px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
+                          background: sel ? "#2C7A4B" : "#fff", color: sel ? "#fff" : "#555",
+                          fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer", transition: "all 0.18s", textAlign: "center" }}>
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 年代 */}
+              <div>
+                <p style={{ fontSize: "13px", fontWeight: "700", color: "#1a2533", margin: "0 0 12px" }}>年代</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  {["10代", "20代", "30代", "40代", "50代以上"].map((opt) => {
+                    const sel = age === opt;
+                    return (
+                      <button key={opt} onClick={() => setAge(opt)}
+                        style={{ padding: "18px 10px", borderRadius: "14px", border: `2px solid ${sel ? "#2C7A4B" : "#E5E7EB"}`,
+                          background: sel ? "#2C7A4B" : "#fff", color: sel ? "#fff" : "#555",
+                          fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer", transition: "all 0.18s", textAlign: "center" }}>
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
@@ -699,7 +760,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
                 ? "..."
                 : step === "welcome"
                   ? T.buttons.start
-                  : currentQ === totalQ - 1
+                  : isGenderAgePage
                     ? T.buttons.create
                     : T.buttons.next}
             </button>

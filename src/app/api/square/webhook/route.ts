@@ -4,6 +4,7 @@ import { createHmac } from "crypto";
 import { sendEmail, emailTemplates } from "../../../../lib/sendEmail";
 import { sendAdminNotification } from "../../../../lib/sendAdminNotification";
 import { appendStoreToSheet } from "../../../../lib/google-sheets";
+import { getDefaultQuestionsForType } from "../../../../lib/defaultQuestions";
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
@@ -278,6 +279,30 @@ export async function POST(req: NextRequest) {
             const tmpl = emailTemplates.welcome(store.name, store.email, PLAN_LABELS[store.plan] || store.plan, storeId);
             await sendEmail({ to: store.email, ...tmpl, storeId });
             console.log("[Webhook] → 契約中（新規）:", storeId);
+
+            // 新規店舗: デフォルト質問を自動挿入（未挿入の場合のみ）
+            try {
+              const { data: existingQs } = await supabase
+                .from("questions")
+                .select("id")
+                .eq("store_id", storeId)
+                .limit(1);
+              if (!existingQs || existingQs.length === 0) {
+                const defaultQs = getDefaultQuestionsForType(store.type || "飲食店");
+                await supabase.from("questions").insert(
+                  defaultQs.map((q, i) => ({
+                    store_id: storeId,
+                    order_num: i + 1,
+                    label: q.label,
+                    type: q.type,
+                    options: q.options,
+                  }))
+                );
+                console.log("[Webhook] → デフォルト質問挿入完了:", storeId, store.type);
+              }
+            } catch (qErr: any) {
+              console.error("[Webhook] デフォルト質問挿入失敗:", qErr?.message);
+            }
 
             await sendAdminNotification({
               subject: "【REVIEW PRO】新規申込がありました",

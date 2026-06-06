@@ -148,7 +148,14 @@ export default function MyPage() {
   const fetchQuestions = async (storeId: string) => {
     const res = await fetch(`/api/admin/questions?store_id=${storeId}`);
     const data = await res.json();
-    setQuestions(data.questions || []);
+    const allQs: Question[] = data.questions || [];
+    // 固定質問（満足度評価・性別・年代）は管理画面から除外
+    const editable = allQs.filter(q =>
+      q.type !== "stars" &&
+      !q.label.includes("性別") &&
+      !q.label.includes("年代")
+    );
+    setQuestions(editable);
   };
 
   const handleSaveQuestions = async () => {
@@ -157,7 +164,7 @@ export default function MyPage() {
     await fetch("/api/admin/questions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store_id: store.id, questions }),
+      body: JSON.stringify({ store_id: store.id, questions, editableOnly: true }),
     });
     setQuestionsLoading(false);
     setQuestionsSaved(true);
@@ -689,9 +696,13 @@ export default function MyPage() {
           {activeTab === "questions" && store && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <h2 style={{ margin: "0 0 8px", fontSize: "16px", color: "#1a2533" }}>質問設定</h2>
-              <p style={{ color: "#888", fontSize: "13px", margin: "0 0 20px" }}>
-                {store.plan === "standard" ? "質問の選択肢を変更できます。" : "質問の文章・選択肢を自由に編集できます。並び替えも可能です。"}
+              <p style={{ color: "#888", fontSize: "13px", margin: "0 0 12px" }}>
+                {store.plan === "standard" ? "質問の選択肢を変更できます。" : "質問の文章・選択肢を自由に編集できます。"}
               </p>
+              <div style={{ background: "#F0FAF4", border: "1px solid #2C7A4B", borderRadius: "10px", padding: "12px 14px", marginBottom: "20px", fontSize: "12px", color: "#1a3a2a", lineHeight: 1.7 }}>
+                💡 <strong>Q1（満足度評価）</strong>と<strong>Q6（性別・年代）</strong>は全店舗共通の固定質問です。変更・削除できません。<br />
+                編集できるのは <strong>Q2〜Q5</strong> の4問のみです。
+              </div>
               {questions.length === 0 ? (
                 <p style={{ color: "#aaa", textAlign: "center", padding: "20px" }}>質問が設定されていません</p>
               ) : (
@@ -699,11 +710,9 @@ export default function MyPage() {
                   {questions.map((q, qi) => (
                     <div key={q.id} style={{ border: "1.5px solid #E5E7EB", borderRadius: "12px", padding: "16px" }}>
                       <div style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", marginBottom: "8px" }}>
-                        Q{qi + 1} {q.type === "stars" ? "⭐ 星評価（固定）" : q.type === "multi" ? "☑️ 複数選択" : "🔘 一択"}
+                        Q{qi + 2} {q.type === "multi" ? "☑️ 複数選択" : "🔘 一択"}
                       </div>
-                      {q.type === "stars" ? (
-                        <p style={{ margin: 0, color: "#aaa", fontSize: "13px" }}>{q.label}（変更不可）</p>
-                      ) : (
+                      {false ? null : (
                         <>
                           {(store.plan === "premium" || store.plan === "standard") ? (
                             <input value={q.label} onChange={e => updateQuestionLabel(qi, e.target.value)} maxLength={50}
