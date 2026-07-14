@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 
 const PLANS = [
   {
@@ -45,6 +45,19 @@ const OPTIONS = [
 ];
 
 const REFERRAL_CODES = ["BNI-MEMBER", "0CP"];
+
+const fieldStyle: CSSProperties = {
+  width: "100%",
+  padding: "10px 14px",
+  borderRadius: "10px",
+  border: "1.5px solid #E5E7EB",
+  fontFamily: "inherit",
+  fontSize: "14px",
+  outline: "none",
+  background: "#fff",
+  color: "#1a2533",
+  colorScheme: "light",
+};
 
 const INDUSTRY_OPTIONS = [
   "飲食店", "ラーメン店", "寿司・和食", "焼肉・肉料理", "カフェ・喫茶店", "居酒屋・バー", "パン・ベーカリー",
@@ -122,7 +135,22 @@ export default function SignupPage() {
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet" />
-      <style>{`* { box-sizing: border-box; } body { margin: 0; }`}</style>
+      <style>{`
+        * { box-sizing: border-box; }
+        body { margin: 0; }
+        .rp-field { color-scheme: light; }
+        .rp-field::placeholder { color: #9CA3AF; opacity: 1; }
+        .rp-field option { color: #1a2533; background: #fff; }
+        .rp-field:-webkit-autofill,
+        .rp-field:-webkit-autofill:hover,
+        .rp-field:-webkit-autofill:focus {
+          -webkit-text-fill-color: #1a2533;
+          -webkit-box-shadow: 0 0 0px 1000px #fff inset;
+          box-shadow: 0 0 0px 1000px #fff inset;
+          caret-color: #1a2533;
+          transition: background-color 9999s ease-in-out 0s;
+        }
+      `}</style>
       <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#0F1923,#1a3a2a)", fontFamily: "'Noto Sans JP',sans-serif", padding: "32px 16px" }}>
         <div style={{ maxWidth: "640px", margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "32px" }}>
@@ -225,14 +253,16 @@ export default function SignupPage() {
                     value={(form as any)[f.key]}
                     onChange={e => setForm({ ...form, [f.key]: e.target.value })}
                     placeholder={f.placeholder}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none" }}
+                    className="rp-field"
+                    style={fieldStyle}
                   />
                 </div>
               ))}
               <div>
                 <label style={{ fontSize: "12px", fontWeight: "600", color: "#555", display: "block", marginBottom: "6px" }}>業種</label>
                 <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none", background: "#fff" }}>
+                  className="rp-field"
+                  style={fieldStyle}>
                   {INDUSTRY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
@@ -243,7 +273,8 @@ export default function SignupPage() {
           <div style={{ background: "#fff", borderRadius: "20px", padding: "28px", marginBottom: "16px" }}>
             <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>④ 紹介コード（任意）</h2>
             <input value={referralCode} onChange={e => setReferralCode(e.target.value)} placeholder="紹介コードをお持ちの方は入力"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: `1.5px solid ${referralValid ? "#2C7A4B" : "#E5E7EB"}`, fontFamily: "inherit", fontSize: "14px", outline: "none" }} />
+              className="rp-field"
+              style={{ ...fieldStyle, border: `1.5px solid ${referralValid ? "#2C7A4B" : "#E5E7EB"}` }} />
             {referralValid && <p style={{ color: "#2C7A4B", fontSize: "13px", marginTop: "8px", fontWeight: "600" }}>✅ 紹介コード適用！初期費用が無料になります</p>}
           </div>
 
