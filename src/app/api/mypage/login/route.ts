@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   // storesテーブルからstore情報を取得（emailで検索することで管理画面追加店舗にも対応）
   const { data: store, error: storeError } = await supabase
     .from("stores")
-    .select("id, name, plan, billing_cycle, status, next_billing_date, email, setup_fee_paid_amount, pending_plan, pending_billing_cycle, created_at, monthly_price")
+    .select("id, name, plan, billing_cycle, status, next_billing_date, email, setup_fee_paid_amount, pending_plan, pending_billing_cycle, created_at, monthly_price, multilingual_enabled")
     .eq("email", authData.user.email!)
     .single();
 

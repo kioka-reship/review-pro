@@ -14,6 +14,7 @@ type Store = {
   pending_billing_cycle: string | null;
   created_at: string;
   monthly_price: number;
+  multilingual_enabled?: boolean;
 };
 
 type Usage = {
@@ -90,13 +91,17 @@ const PLAN_LIST = [
 
 const OPTION_LIST = [
   { key: "low_review_pro", name: "低評価対策PRO", price: 3980, description: "★2以下の低評価が付いた際に、Googleへの投稿前に店舗へ直接フィードバックを誘導。悪い口コミを未然に防ぎます。" },
-  // { key: "ai_reply", name: "AI口コミ自動返信", price: 2980, description: "Googleに届いた口コミにAIが自動で返信。オーナー返信率を高め、Googleの評価アップにつながります。" },
   { key: "qr_analytics", name: "QRアクセス分析PRO", price: 2980, description: "QRコードの読取数を日別・月別で可視化。アクセス推移をグラフで確認できます。" },
   { key: "feedback_list", name: "フィードバック一覧", price: 1980, description: "低評価ユーザーからのフィードバックをマイページで一覧表示。改善ポイントの把握に役立ちます。" },
   { key: "monthly_report", name: "月次自動レポート", price: 1480, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
 ];
 
-function calcCancellationFee(createdAt: string, monthlyPrice: number): { remainingMonths: number; fee: number } {
+function calcCancellationFee(createdAt: string, monthlyPrice: number): {
+  remainingMonths: number;
+  remainingMonthsFee: number;
+  earlyTerminationPenalty: number;
+  fee: number;
+} {
   const now = new Date();
   const created = new Date(createdAt);
   const contractEndDate = new Date(created.getFullYear(), created.getMonth() + 12, 0);
@@ -105,7 +110,9 @@ function calcCancellationFee(createdAt: string, monthlyPrice: number): { remaini
     (contractEndDate.getFullYear() - effectiveDate.getFullYear()) * 12 +
     (contractEndDate.getMonth() - effectiveDate.getMonth())
   );
-  return { remainingMonths, fee: remainingMonths * monthlyPrice };
+  const remainingMonthsFee = remainingMonths * monthlyPrice;
+  const earlyTerminationPenalty = Math.floor(remainingMonthsFee * 0.5);
+  return { remainingMonths, remainingMonthsFee, earlyTerminationPenalty, fee: remainingMonthsFee + earlyTerminationPenalty };
 }
 
 export default function MyPage() {
@@ -141,7 +148,14 @@ export default function MyPage() {
   const fetchQuestions = async (storeId: string) => {
     const res = await fetch(`/api/admin/questions?store_id=${storeId}`);
     const data = await res.json();
-    setQuestions(data.questions || []);
+    const allQs: Question[] = data.questions || [];
+    // 固定質問（満足度評価・性別・年代）は管理画面から除外
+    const editable = allQs.filter(q =>
+      q.type !== "stars" &&
+      !q.label.includes("性別") &&
+      !q.label.includes("年代")
+    );
+    setQuestions(editable);
   };
 
   const handleSaveQuestions = async () => {
@@ -150,7 +164,7 @@ export default function MyPage() {
     await fetch("/api/admin/questions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store_id: store.id, questions }),
+      body: JSON.stringify({ store_id: store.id, questions, editableOnly: true }),
     });
     setQuestionsLoading(false);
     setQuestionsSaved(true);
@@ -193,6 +207,28 @@ export default function MyPage() {
   const [loading, setLoading] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelMsg, setCancelMsg] = useState("");
+  const [multilingualUpdating, setMultilingualUpdating] = useState(false);
+  const [multilingualMsg, setMultilingualMsg] = useState("");
+
+  const handleMultilingualToggle = async (enabled: boolean) => {
+    if (!store) return;
+    setMultilingualUpdating(true);
+    setMultilingualMsg("");
+    const res = await fetch("/api/mypage/multilingual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store_id: store.id, enabled }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setStore({ ...store, multilingual_enabled: enabled });
+      setMultilingualMsg(enabled ? "✅ 多言語口コミ機能をONにしました" : "✅ 多言語口コミ機能をOFFにしました");
+    } else {
+      setMultilingualMsg("❌ " + (data.error || "エラーが発生しました"));
+    }
+    setMultilingualUpdating(false);
+    setTimeout(() => setMultilingualMsg(""), 3000);
+  };
 
   const handlePlanChange = async (newPlan: string, newBillingCycle: string) => {
     if (!store) return;
@@ -281,10 +317,10 @@ export default function MyPage() {
 
     // 年契約の場合、解約金を計算して確認ダイアログを表示
     if (store.billing_cycle === "yearly") {
-      const { fee, remainingMonths } = calcCancellationFee(store.created_at, store.monthly_price);
+      const { fee, remainingMonths, remainingMonthsFee, earlyTerminationPenalty } = calcCancellationFee(store.created_at, store.monthly_price);
       if (fee > 0) {
         const confirmed = window.confirm(
-          `年契約の解約金 ¥${fee.toLocaleString()}（残${remainingMonths}ヶ月分）がSquareで請求されます。\n\n解約申請を続行しますか？`
+          `年契約解約金の内訳\n\n残月数分の料金：¥${remainingMonthsFee.toLocaleString()}（残${remainingMonths}ヶ月 × ¥${store.monthly_price.toLocaleString()}）\n途中解約違約金（50%）：¥${earlyTerminationPenalty.toLocaleString()}\n━━━━━━━━━━━━━━\n解約金合計：¥${fee.toLocaleString()}\n\nSquareで自動請求されます。解約申請を続行しますか？`
         );
         if (!confirmed) return;
       }
@@ -375,7 +411,7 @@ export default function MyPage() {
               { key: "plan", label: "📋 プラン変更" },
               ...(store?.plan === "standard" || store?.plan === "premium" ? [{ key: "options", label: "➕ オプション" }] : []),
               ...(store?.plan !== "light" ? [{ key: "questions", label: "❓ 質問設定" }] : []),
-              ...(store?.plan === "premium" ? [{ key: "feedback", label: "⭐ 低評価FB" }] : []),
+              ...(options.some(o => o.option_key === "feedback_list" && o.status === "active") ? [{ key: "feedback", label: "⭐ 低評価FB" }] : []),
               { key: "billing", label: "💳 請求履歴" },
               ...(options.some(o => o.option_key === "qr_analytics" && o.status !== "canceled") || store?.plan === "premium" ? [{ key: "qr_analytics", label: "📊 QR分析" }] : []),
               { key: "qr", label: "📱 QRコード" },
@@ -459,6 +495,50 @@ export default function MyPage() {
                   </div>
                 </div>
               )}
+
+              {/* 多言語口コミ機能（プレミアムのみ） */}
+              {store.plan === "premium" && (
+                <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                        <h2 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>🌐 多言語口コミ機能</h2>
+                        <span style={{ background: "linear-gradient(135deg, #1a3a2a, #2C7A4B)", color: "#fff", fontSize: "9px", fontWeight: "800", padding: "2px 7px", borderRadius: "20px", letterSpacing: "0.08em" }}>PREMIUM</span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: "12px", color: "#888", lineHeight: 1.6 }}>
+                        インバウンド対応・英語/中国語/韓国語で口コミ生成
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleMultilingualToggle(!store.multilingual_enabled)}
+                      disabled={multilingualUpdating}
+                      style={{
+                        width: "52px", height: "28px", borderRadius: "14px", border: "none",
+                        background: store.multilingual_enabled ? "#2C7A4B" : "#D1D5DB",
+                        cursor: multilingualUpdating ? "not-allowed" : "pointer",
+                        position: "relative", transition: "background 0.2s", flexShrink: 0,
+                        opacity: multilingualUpdating ? 0.6 : 1,
+                      }}
+                    >
+                      <span style={{
+                        position: "absolute", top: "3px",
+                        left: store.multilingual_enabled ? "26px" : "4px",
+                        width: "22px", height: "22px", borderRadius: "50%",
+                        background: "#fff", transition: "left 0.2s",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      }} />
+                    </button>
+                  </div>
+                  <div style={{ fontSize: "12px", color: store.multilingual_enabled ? "#2C7A4B" : "#aaa", fontWeight: "600" }}>
+                    {store.multilingual_enabled ? "✅ ON（口コミページに言語選択が表示されます）" : "OFF"}
+                  </div>
+                  {multilingualMsg && (
+                    <p style={{ margin: "8px 0 0", fontSize: "12px", color: multilingualMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontWeight: "600" }}>
+                      {multilingualMsg}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -527,6 +607,10 @@ export default function MyPage() {
                       </div>
                       {isCurrentPlan ? (
                         <div style={{ textAlign: "center", padding: "8px", background: "#ECFDF5", borderRadius: "8px", color: "#065F46", fontSize: "13px", fontWeight: "600" }}>現在のプラン</div>
+                      ) : store.billing_cycle === "yearly" && isDowngrade ? (
+                        <div style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "#F3F4F6", color: "#9CA3AF", fontFamily: "inherit", fontSize: "12px", fontWeight: "600", textAlign: "center", cursor: "not-allowed", boxSizing: "border-box" }}>
+                          年契約中は変更不可
+                        </div>
                       ) : (
                         <button onClick={() => handlePlanChange(p.key, selectedBillingCycle)}
                           style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", fontFamily: "inherit", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>
@@ -612,9 +696,13 @@ export default function MyPage() {
           {activeTab === "questions" && store && (
             <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <h2 style={{ margin: "0 0 8px", fontSize: "16px", color: "#1a2533" }}>質問設定</h2>
-              <p style={{ color: "#888", fontSize: "13px", margin: "0 0 20px" }}>
-                {store.plan === "standard" ? "質問の選択肢を変更できます。" : "質問の文章・選択肢を自由に編集できます。並び替えも可能です。"}
+              <p style={{ color: "#888", fontSize: "13px", margin: "0 0 12px" }}>
+                {store.plan === "standard" ? "質問の選択肢を変更できます。" : "質問の文章・選択肢を自由に編集できます。"}
               </p>
+              <div style={{ background: "#F0FAF4", border: "1px solid #2C7A4B", borderRadius: "10px", padding: "12px 14px", marginBottom: "20px", fontSize: "12px", color: "#1a3a2a", lineHeight: 1.7 }}>
+                💡 <strong>Q1（満足度評価）</strong>と<strong>Q6（性別・年代）</strong>は全店舗共通の固定質問です。変更・削除できません。<br />
+                編集できるのは <strong>Q2〜Q5</strong> の4問のみです。
+              </div>
               {questions.length === 0 ? (
                 <p style={{ color: "#aaa", textAlign: "center", padding: "20px" }}>質問が設定されていません</p>
               ) : (
@@ -622,11 +710,9 @@ export default function MyPage() {
                   {questions.map((q, qi) => (
                     <div key={q.id} style={{ border: "1.5px solid #E5E7EB", borderRadius: "12px", padding: "16px" }}>
                       <div style={{ fontSize: "11px", fontWeight: "700", color: "#2C7A4B", marginBottom: "8px" }}>
-                        Q{qi + 1} {q.type === "stars" ? "⭐ 星評価（固定）" : q.type === "multi" ? "☑️ 複数選択" : "🔘 一択"}
+                        Q{qi + 2} {q.type === "multi" ? "☑️ 複数選択" : "🔘 一択"}
                       </div>
-                      {q.type === "stars" ? (
-                        <p style={{ margin: 0, color: "#aaa", fontSize: "13px" }}>{q.label}（変更不可）</p>
-                      ) : (
+                      {false ? null : (
                         <>
                           {(store.plan === "premium" || store.plan === "standard") ? (
                             <input value={q.label} onChange={e => updateQuestionLabel(qi, e.target.value)} maxLength={50}
@@ -810,19 +896,25 @@ export default function MyPage() {
           {/* 解約申請 */}
           {activeTab === "cancel" && store && (() => {
             const isYearly = store.billing_cycle === "yearly";
-            const { remainingMonths, fee } = isYearly
+            const { remainingMonths, remainingMonthsFee, earlyTerminationPenalty, fee } = isYearly
               ? calcCancellationFee(store.created_at, store.monthly_price)
-              : { remainingMonths: 0, fee: 0 };
+              : { remainingMonths: 0, remainingMonthsFee: 0, earlyTerminationPenalty: 0, fee: 0 };
             return (
               <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>解約申請</h2>
                 {isYearly ? (
                   <div style={{ background: "#FEF2F2", border: "1px solid #E53E3E", borderRadius: "10px", padding: "16px", marginBottom: "20px", fontSize: "13px", color: "#991B1B" }}>
                     ⚠️ 年契約中です。解約申請の翌月末をもってサービスを停止します。<br />
-                    {fee > 0
-                      ? <><strong>解約金：¥{fee.toLocaleString()}（残{remainingMonths}ヶ月分）</strong>がSquareで自動請求されます。<br /></>
-                      : <>解約金：なし（年契約期間は終了しています）<br /></>
-                    }
+                    {fee > 0 ? (
+                      <div style={{ marginTop: "8px" }}>
+                        <div>残月数分の料金：<strong>¥{remainingMonthsFee.toLocaleString()}</strong>（残{remainingMonths}ヶ月 × ¥{store.monthly_price.toLocaleString()}）</div>
+                        <div style={{ marginTop: "4px" }}>途中解約違約金（50%）：<strong>¥{earlyTerminationPenalty.toLocaleString()}</strong></div>
+                        <div style={{ borderTop: "1px solid #FCA5A5", margin: "8px 0" }} />
+                        <div>解約金合計：<strong>¥{fee.toLocaleString()}</strong>　がSquareで自動請求されます。</div>
+                      </div>
+                    ) : (
+                      <>解約金：なし（年契約期間は終了しています）<br /></>
+                    )}
                     申請月の料金は返金されません。データは解約後90日間保持されます。
                   </div>
                 ) : (

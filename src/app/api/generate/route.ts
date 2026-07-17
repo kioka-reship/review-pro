@@ -41,10 +41,63 @@ async function getSessionGenerationCount(supabase: ReturnType<typeof getAdminCli
   return count || 0;
 }
 
+type LangCode = "ja" | "en" | "zh" | "ko";
+
+interface LangConfig {
+  systemPrompt: string;
+  stylePrompts: Record<string, string>;
+  charRange: string;
+  outputInstruction: string;
+}
+
+const LANG_CONFIGS: Record<LangCode, LangConfig> = {
+  ja: {
+    systemPrompt: "あなたは年代・性別・状況に応じて自然な口コミを書く一般人です。広告や宣伝文は絶対に書きません。",
+    stylePrompts: {
+      casual: "フレンドリーで話し言葉っぽい、親しみやすい文体で",
+      honest: "本音っぽく、飾らないリアルな体験談として",
+      formal: "丁寧で落ち着いた、信頼感のある文体で",
+    },
+    charRange: "",
+    outputInstruction: "口コミ文のみ出力。前置き・説明・かぎかっこは不要",
+  },
+  en: {
+    systemPrompt: "You are a genuine customer writing a natural Google review. Never write advertising or promotional text.",
+    stylePrompts: {
+      casual: "friendly and conversational, like talking to a friend",
+      honest: "genuine and straightforward, authentic real experience",
+      formal: "polite and professional, trustworthy tone",
+    },
+    charRange: "50–130 words",
+    outputInstruction: "Output the review text only. No preamble, explanation, or quotation marks.",
+  },
+  zh: {
+    systemPrompt: "你是一位普通顾客，正在撰写真实的Google评价。绝对不写广告或宣传文字。",
+    stylePrompts: {
+      casual: "亲切友好，口语化表达，像和朋友聊天一样",
+      honest: "真实直白，分享真实体验，不加修饰",
+      formal: "礼貌正式，措辞得体，值得信赖的语气",
+    },
+    charRange: "80～200字",
+    outputInstruction: "只输出评价正文，不需要前言、解释或引号。",
+  },
+  ko: {
+    systemPrompt: "당신은 진솔한 Google 리뷰를 작성하는 일반 고객입니다. 광고나 홍보 문구는 절대 쓰지 마세요.",
+    stylePrompts: {
+      casual: "친근하고 대화체로, 친구에게 말하듯 자연스럽게",
+      honest: "솔직하고 담담하게, 실제 경험담처럼",
+      formal: "정중하고 차분하게, 신뢰감 있는 문체로",
+    },
+    charRange: "80～200자",
+    outputInstruction: "리뷰 본문만 출력하세요. 서문, 설명, 따옴표 불필요.",
+  },
+};
+
 export async function POST(req: Request) {
   const supabase = getAdminClient();
   try {
-    const { store, answers, style, session_id } = await req.json();
+    const { store, answers, style, session_id, language } = await req.json();
+    const lang: LangCode = (language as LangCode) || "ja";
     const storeId = store?.id;
 
     if (storeId) {
@@ -116,17 +169,22 @@ export async function POST(req: Request) {
       "カップル": ["パートナーと2人で", "デートで利用しました", "彼女と一緒に"],
     };
 
-    const ageStyle = ageStyleMap[answers?.age] || "自然な日常会話的な文体で";
-    const partyOptions = partyStyleMap[answers?.party] || [""];
-    const partyIntro = partyOptions[Math.floor(Math.random() * partyOptions.length)];
+    const langCfg = LANG_CONFIGS[lang] ?? LANG_CONFIGS.ja;
+    const styleKey = (style?.key as string) || "casual";
+    const stylePrompt = langCfg.stylePrompts[styleKey] || langCfg.stylePrompts.casual;
 
-    const minChars = Math.floor(Math.random() * 3) === 0 ? 80 : Math.floor(Math.random() * 2) === 0 ? 120 : 180;
-    const maxChars = minChars + 60;
+    let prompt: string;
 
-    const menuText = answers?.menu ? `注文したメニュー: ${answers.menu}` : "";
-    const genderText = answers?.gender && answers.gender !== "回答しない" ? `性別: ${answers.gender}` : "";
+    if (lang === "ja") {
+      const ageStyle = ageStyleMap[answers?.age] || "自然な日常会話的な文体で";
+      const partyOptions = partyStyleMap[answers?.party] || [""];
+      const partyIntro = partyOptions[Math.floor(Math.random() * partyOptions.length)];
+      const minChars = Math.floor(Math.random() * 3) === 0 ? 80 : Math.floor(Math.random() * 2) === 0 ? 120 : 180;
+      const maxChars = minChars + 60;
+      const menuText = answers?.menu ? `注文したメニュー: ${answers.menu}` : "";
+      const genderText = answers?.gender && answers.gender !== "回答しない" ? `性別: ${answers.gender}` : "";
 
-    const prompt = `あなたはGoogleの口コミを書く一般のお客さんです。以下の条件で口コミ文を書いてください。
+      prompt = `あなたはGoogleの口コミを書く一般のお客さんです。以下の条件で口コミ文を書いてください。
 
 【お店の情報】
 店舗: ${store?.name || ""}
@@ -143,7 +201,7 @@ ${genderText}
 
 【文体の指示】
 ${ageStyle}
-文体スタイル: ${style?.prompt || "自然な文体で"}
+文体スタイル: ${stylePrompt}
 
 【必須ルール】
 ・文字数は${minChars}〜${maxChars}文字程度
@@ -153,7 +211,27 @@ ${ageStyle}
 ・実際に体験した人が書いたようなリアルな文章にする
 ・「${partyIntro}」という状況を自然に織り込む（無理に入れなくてもよい）
 ・感嘆符（！）や疑問符（？）の使用は年代に合わせて自然に
-・口コミ文のみ出力。前置き・説明・かぎかっこは不要`;
+・${langCfg.outputInstruction}`;
+    } else {
+      const menuText = answers?.menu ? `Menu ordered: ${answers.menu}` : "";
+      prompt = `Write a Google review for the following store. Output ONLY in ${lang === "en" ? "English" : lang === "zh" ? "Simplified Chinese" : "Korean"}.
+
+Store: ${store?.name || ""}
+Type: ${store?.type || ""}
+Rating: ${answers?.rating || 0}/5 stars
+${menuText}
+Highlights: ${highlight || "general experience"}
+Comment: ${answers?.feel || ""}
+
+Writing style: ${stylePrompt}
+Length: approximately ${langCfg.charRange}
+
+Rules:
+- Do not start the review with the store name
+- Never use advertising or promotional language
+- Write as a genuine visitor who actually experienced this place
+- ${langCfg.outputInstruction}`;
+    }
 
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -164,7 +242,7 @@ ${ageStyle}
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: "あなたは年代・性別・状況に応じて自然な口コミを書く一般人です。広告や宣伝文は絶対に書きません。" },
+          { role: "system", content: langCfg.systemPrompt },
           { role: "user", content: prompt },
         ],
         temperature: 0.95,
@@ -179,12 +257,14 @@ ${ageStyle}
 
     let text = data?.choices?.[0]?.message?.content || "";
 
-    if (containsNgWord(text)) {
+    if (lang === "ja" && containsNgWord(text)) {
       text = "申し訳ありません。生成された文章に不適切な表現が含まれていたため、再生成してください。";
     }
 
-    if (text.length < 20 || text.length > 500) {
-      text = "文章の生成に問題が発生しました。もう一度お試しください。";
+    if (text.length < 10 || text.length > 800) {
+      text = lang === "ja"
+        ? "文章の生成に問題が発生しました。もう一度お試しください。"
+        : "Failed to generate review text. Please try again.";
     }
 
     return Response.json({ text });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { STORE_STATUSES } from "../../lib/storeStatus";
+import { DEFAULT_QUESTIONS_MAP, getDefaultQuestionsForType } from "../../lib/defaultQuestions";
 
 type Store = {
   id: string;
@@ -17,6 +18,22 @@ type Store = {
   square_subscription_id?: string;
   company_name?: string;
   referral_code?: string;
+  sales_person_name?: string;
+  sales_channel?: string;
+  sheet_sync_status?: string;
+  sheet_synced_at?: string;
+};
+
+type ReferralCode = {
+  id: string;
+  code: string;
+  sales_person_name: string | null;
+  channel_name: string | null;
+  commission_enabled: boolean;
+  commission_rate: number | null;
+  is_active: boolean;
+  memo: string | null;
+  created_at: string;
 };
 
 type Question = {
@@ -62,283 +79,6 @@ const INDUSTRY_OPTIONS = [
 
 const APP_URL = "https://review-pro-ay7x.vercel.app";
 
-const DEFAULT_QUESTIONS_MAP: Record<string, { label: string; type: string; options: string[] | null }[]> = {
-  "飲食店": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご注文のメニューは？", type: "select", options: ["ランチ", "ディナー", "コース料理", "単品", "ドリンクのみ", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["料理・味", "スタッフの接客", "お店の雰囲気", "価格・コスパ", "立地・アクセス"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "友人に勧めたい", "期待以上だった", "コスパ最高！"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "ラーメン店": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご注文のメニューは？", type: "select", options: ["醤油ラーメン", "塩ラーメン", "味噌ラーメン", "豚骨ラーメン", "つけ麺", "餃子・サイド", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["スープの味", "麺の食感", "チャーシュー", "コスパ", "接客・対応"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "スープが絶品", "ボリューム満点", "クセになる味"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "寿司・和食": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のスタイルは？", type: "select", options: ["カウンター", "テーブル席", "個室", "テイクアウト", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["ネタの新鮮さ", "職人の技術", "お店の雰囲気", "価格・コスパ", "接客対応"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "ネタが最高", "特別な日に最適", "職人技に感動"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "焼肉・肉料理": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご注文のメインは？", type: "select", options: ["焼肉食べ放題", "単品注文", "コース料理", "ランチセット", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["肉の質・味", "コスパ", "お店の雰囲気", "サービス", "メニューの豊富さ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "肉が絶品", "コスパ最高", "記念日に最適"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "カフェ・喫茶店": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご注文のメニューは？", type: "select", options: ["コーヒー", "紅茶・ハーブティー", "スイーツ・ケーキ", "フード", "ドリンク各種", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["コーヒー・ドリンクの味", "スイーツの美味しさ", "居心地・雰囲気", "スタッフの対応", "価格・コスパ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "居心地最高", "コーヒーが絶品", "ゆっくりできた"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "居酒屋・バー": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のスタイルは？", type: "select", options: ["飲み放題コース", "単品注文", "食事メイン", "ちょい飲み", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "グループ"] },
-    { label: "特に良かった点は？", type: "multi", options: ["料理の美味しさ", "お酒の種類", "コスパ", "スタッフの対応", "お店の雰囲気"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "お酒が充実", "料理が美味しい", "雰囲気最高"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "パン・ベーカリー": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご購入されたのは？", type: "select", options: ["食パン・ロールパン", "惣菜パン", "菓子パン・スイーツ", "バゲット・ハード系", "ケーキ・洋菓子", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族"] },
-    { label: "特に良かった点は？", type: "multi", options: ["パンの美味しさ", "品揃えの豊富さ", "焼きたての香り", "価格・コスパ", "スタッフの対応"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "焼きたてが最高", "種類が豊富", "毎日通いたい"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "美容脱毛": [
-    { label: "今日の施術はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のメニューは？", type: "select", options: ["全身脱毛", "顔脱毛", "VIO脱毛", "脚脱毛", "ワキ脱毛", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["施術の効果", "スタッフの対応", "サロンの清潔感", "価格・コスパ", "予約のしやすさ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "友人に勧めたい", "期待以上だった", "安心して通える"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "美容室・ヘアサロン": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のメニューは？", type: "select", options: ["カット", "カラー", "パーマ", "縮毛矯正", "トリートメント", "ヘッドスパ", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["仕上がり・技術", "スタイリストの提案力", "お店の清潔感", "価格・コスパ", "予約のしやすさ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "指名したい！", "イメージ通り！", "リラックスできた"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "エステ・フェイシャル": [
-    { label: "今日の施術はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のメニューは？", type: "select", options: ["フェイシャルエステ", "ボディエステ", "痩身コース", "アロマトリートメント", "小顔矯正", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "家族"] },
-    { label: "特に良かった点は？", type: "multi", options: ["施術の効果", "セラピストの技術", "サロンの雰囲気", "価格・コスパ", "リラックス感"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "効果を実感できた", "癒されました", "友人に勧めたい"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "ネイルサロン": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のメニューは？", type: "select", options: ["ジェルネイル", "スカルプ", "ネイルケア", "フットネイル", "アート・デザイン", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人"] },
-    { label: "特に良かった点は？", type: "multi", options: ["デザインの仕上がり", "ネイリストの技術", "デザインの提案力", "サロンの清潔感", "価格・コスパ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "デザインが最高", "丁寧な仕上がり", "リラックスできた"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "マッサージ・整体": [
-    { label: "今日の施術はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のメニューは？", type: "select", options: ["全身マッサージ", "肩・首集中", "腰・背中集中", "足裏・リフレクソロジー", "整体・骨盤矯正", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "家族"] },
-    { label: "特に良かった点は？", type: "multi", options: ["施術の効果", "セラピストの技術", "院内の清潔感", "予約のしやすさ", "価格・コスパ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "体が楽になった", "丁寧に施術してもらえた", "リラックスできた"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "接骨院・鍼灸院": [
-    { label: "今日の施術はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のメニューは？", type: "select", options: ["整体・矯正", "鍼灸", "マッサージ", "骨盤矯正", "スポーツ障害", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "家族"] },
-    { label: "特に良かった点は？", type: "multi", options: ["施術の効果", "先生の説明のわかりやすさ", "院内の清潔感", "予約のしやすさ", "アクセスの良さ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "症状が改善した", "丁寧に診てもらえた", "友人に勧めたい"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "パーソナルジム・ジム": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のメニューは？", type: "select", options: ["パーソナルトレーニング", "マシントレーニング", "グループレッスン", "ヨガ・ピラティス", "水泳・プール", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "家族"] },
-    { label: "特に良かった点は？", type: "multi", options: ["トレーナーの指導力", "設備の充実度", "清潔感", "プログラムの内容", "価格・コスパ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "効果を実感できた", "モチベーションが上がった", "継続できそう"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "小売・物販": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご購入された商品は？", type: "select", options: ["衣類・ファッション", "食品・飲料", "日用品・雑貨", "電化製品", "コスメ・美容品", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["商品のクオリティ", "スタッフの接客", "品揃えの豊富さ", "価格・コスパ", "店内の雰囲気"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "良い買い物ができた", "品揃えが最高", "スタッフが親切"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "アパレル・ファッション": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご購入されたアイテムは？", type: "select", options: ["トップス", "ボトムス", "アウター", "シューズ", "バッグ・小物", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["デザイン・センス", "スタッフの提案力", "品揃えの豊富さ", "価格・コスパ", "試着しやすさ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "センスが好み", "スタッフが親切", "掘り出し物が見つかった"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "家電・電気店": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご購入された商品は？", type: "select", options: ["スマートフォン・タブレット", "パソコン・周辺機器", "家電製品", "カメラ・AV機器", "ゲーム", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "家族"] },
-    { label: "特に良かった点は？", type: "multi", options: ["スタッフの知識・説明", "品揃えの豊富さ", "価格・コスパ", "アフターサービス", "店内の見やすさ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "スタッフが詳しい", "価格が安い", "良い商品が見つかった"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "ドラッグストア・薬局": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご購入された商品は？", type: "select", options: ["医薬品", "サプリメント・健康食品", "コスメ・スキンケア", "日用品・雑貨", "食品・飲料", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "家族"] },
-    { label: "特に良かった点は？", type: "multi", options: ["スタッフの対応・説明", "品揃えの豊富さ", "価格・コスパ", "立地・アクセス", "営業時間の長さ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "薬剤師が親切", "品揃えが充実", "便利でよく使う"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "書店・文具店": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご購入されたのは？", type: "select", options: ["小説・文芸", "ビジネス書", "実用書・参考書", "マンガ・雑誌", "文具・画材", "その他"] },
-    { label: "何人でご来店でしたか？", type: "select", options: ["1人", "2人", "家族"] },
-    { label: "特に良かった点は？", type: "multi", options: ["品揃えの豊富さ", "探しやすい陳列", "スタッフの対応", "価格・コスパ", "居心地の良さ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "品揃えが充実", "ゆっくり選べた", "スタッフが丁寧"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "クリーニング店": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご依頼された内容は？", type: "select", options: ["衣類クリーニング", "スーツ・礼服", "毛布・布団", "カーテン", "特殊品・シミ抜き", "その他"] },
-    { label: "ご利用の頻度は？", type: "select", options: ["初めて", "たまに使う", "定期的に使う"] },
-    { label: "特に良かった点は？", type: "multi", options: ["仕上がりの品質", "スタッフの対応", "価格・コスパ", "スピード・納期", "立地・アクセス"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "仕上がりが綺麗", "対応が丁寧", "リーズナブル"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "リフォーム・工務店": [
-    { label: "今回のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご依頼の工事は？", type: "select", options: ["キッチン・浴室リフォーム", "外壁・屋根", "内装工事", "増改築", "修繕・修理", "その他"] },
-    { label: "ご利用のきっかけは？", type: "select", options: ["紹介", "ネット検索", "チラシ", "過去に利用", "その他"] },
-    { label: "特に良かった点は？", type: "multi", options: ["担当者の対応・説明", "施工のクオリティ", "工期・スピード", "価格・コスパ", "アフターサービス"] },
-    { label: "一言でいうと？", type: "select", options: ["また依頼したい！", "仕上がりに大満足", "対応が丁寧", "友人に勧めたい"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["20代", "30代", "40代", "50代", "60代以上"] },
-  ],
-  "不動産・賃貸": [
-    { label: "今回のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用の目的は？", type: "select", options: ["賃貸物件探し", "売買・購入", "売却相談", "投資物件", "その他"] },
-    { label: "担当者の対応はいかがでしたか？", type: "select", options: ["とても良かった", "良かった", "普通", "もう少し"] },
-    { label: "特に良かった点は？", type: "multi", options: ["物件の提案力", "担当者の知識", "説明のわかりやすさ", "スピード対応", "アフターフォロー"] },
-    { label: "一言でいうと？", type: "select", options: ["また利用したい！", "理想の物件が見つかった", "担当者が親切", "安心して任せられた"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["20代", "30代", "40代", "50代", "60代以上"] },
-  ],
-  "自動車販売・整備": [
-    { label: "今回のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用の内容は？", type: "select", options: ["新車購入", "中古車購入", "車検・整備", "点検・修理", "パーツ取付", "その他"] },
-    { label: "ご来店人数は？", type: "select", options: ["1人", "2人", "家族"] },
-    { label: "特に良かった点は？", type: "multi", options: ["スタッフの知識・説明", "価格・コスパ", "対応のスピード", "アフターサービス", "店内の雰囲気"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "親切に対応してもらえた", "良い車が見つかった", "安心して任せられた"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["20代", "30代", "40代", "50代", "60代以上"] },
-  ],
-  "旅行・観光": [
-    { label: "今回のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のサービスは？", type: "select", options: ["国内旅行手配", "海外旅行手配", "ツアー参加", "ホテル・宿泊手配", "交通手配", "その他"] },
-    { label: "何名でご利用でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["プランの提案力", "価格・コスパ", "手続きのスムーズさ", "スタッフの対応", "旅行中のサポート"] },
-    { label: "一言でいうと？", type: "select", options: ["また利用したい！", "最高の旅になった", "コスパが良かった", "丁寧に相談に乗ってもらえた"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["20代", "30代", "40代", "50代", "60代以上"] },
-  ],
-  "塾・学習教室": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のコースは？", type: "select", options: ["個別指導", "集団授業", "映像授業", "オンライン", "英会話", "その他"] },
-    { label: "どなたがご利用ですか？", type: "select", options: ["小学生", "中学生", "高校生", "大学生・社会人"] },
-    { label: "特に良かった点は？", type: "multi", options: ["講師の指導力", "カリキュラムの内容", "成績の向上", "通いやすさ", "価格・コスパ"] },
-    { label: "一言でいうと？", type: "select", options: ["また通いたい！", "成績が上がった", "子供がやる気になった", "先生が親切"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "スポーツスクール・教室": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のクラスは？", type: "select", options: ["水泳・スイミング", "サッカー・フットサル", "野球・ソフト", "テニス", "ゴルフ", "バスケ・バレー", "格闘技・武道", "ダンス", "その他"] },
-    { label: "どなたがご利用ですか？", type: "select", options: ["子供（小学生以下）", "中学・高校生", "大人"] },
-    { label: "特に良かった点は？", type: "multi", options: ["コーチの指導力", "施設・設備の充実度", "子供の成長を感じられる", "価格・コスパ", "スタッフの対応"] },
-    { label: "一言でいうと？", type: "select", options: ["また通いたい！", "子供が楽しんでいる", "上達を感じられる", "友人に勧めたい"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代以下", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "音楽・楽器教室": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご受講のコースは？", type: "select", options: ["ピアノ", "ギター", "ボーカル・歌", "ドラム", "バイオリン", "管楽器", "DTM・作曲", "その他"] },
-    { label: "どなたがご利用ですか？", type: "select", options: ["子供（小学生以下）", "中学・高校生", "大人・社会人"] },
-    { label: "特に良かった点は？", type: "multi", options: ["講師の指導力", "レッスン内容", "上達スピード", "スタジオ・設備", "価格・コスパ"] },
-    { label: "一言でいうと？", type: "select", options: ["また通いたい！", "上達を実感できた", "楽しく続けられる", "先生が親切"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["10代以下", "20代", "30代", "40代", "50代以上"] },
-  ],
-  "ホテル・旅館": [
-    { label: "今回のご滞在はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用のプランは？", type: "select", options: ["素泊まり", "朝食付き", "2食付き", "記念日プラン", "温泉プラン", "その他"] },
-    { label: "何名でご宿泊でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族", "カップル"] },
-    { label: "特に良かった点は？", type: "multi", options: ["部屋の快適さ", "料理の美味しさ", "スタッフの対応", "施設・温泉", "価格・コスパ"] },
-    { label: "一言でいうと？", type: "select", options: ["また泊まりたい！", "料理が絶品だった", "スタッフが最高", "リフレッシュできた"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["20代", "30代", "40代", "50代", "60代以上"] },
-  ],
-  "動物病院・ペットサロン": [
-    { label: "今日のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用の内容は？", type: "select", options: ["診察・治療", "ワクチン接種", "トリミング", "ペットホテル", "歯科・健診", "その他"] },
-    { label: "ペットの種類は？", type: "select", options: ["犬", "猫", "小動物", "鳥", "爬虫類", "その他"] },
-    { label: "特に良かった点は？", type: "multi", options: ["獣医・スタッフの対応", "ペットへの接し方", "説明のわかりやすさ", "清潔感", "価格・コスパ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "ペットを安心して任せられた", "丁寧に診てもらえた", "友人に勧めたい"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["20代", "30代", "40代", "50代", "60代以上"] },
-  ],
-  "写真館・フォトスタジオ": [
-    { label: "今回のご体験はいかがでしたか？", type: "stars", options: null },
-    { label: "ご利用の撮影は？", type: "select", options: ["七五三・お宮参り", "成人式", "結婚式・前撮り", "家族写真", "証明写真", "その他"] },
-    { label: "何名でご来店でしたか？", type: "select", options: ["1人", "2人", "家族（3人以上）", "グループ"] },
-    { label: "特に良かった点は？", type: "multi", options: ["写真の仕上がり", "カメラマンの技術・演出", "衣装・小道具の充実", "スタッフの対応", "価格・コスパ"] },
-    { label: "一言でいうと？", type: "select", options: ["また来たい！", "素敵な写真が撮れた", "スタッフが親切", "思い出になった"] },
-    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
-    { label: "年代を教えてください", type: "select", options: ["20代", "30代", "40代", "50代", "60代以上"] },
-  ],
-};
-
-const getDefaultQuestionsForType = (type: string) => {
-  return DEFAULT_QUESTIONS_MAP[type] || DEFAULT_QUESTIONS_MAP["飲食店"];
-};
-
 async function updateStoreStatus(storeId: string, nextStatus: string): Promise<boolean> {
   if (!storeId) return false;
   const res = await fetch("/api/admin/stores", {
@@ -356,7 +96,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState("");
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"stores" | "add" | "questions" | "cancels" | "logs" | "auth-check">("stores");
+  const [activeTab, setActiveTab] = useState<"stores" | "add" | "questions" | "cancels" | "logs" | "auth-check" | "referral">("stores");
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [editStore, setEditStore] = useState<Store | null>(null);
@@ -418,6 +158,14 @@ export default function AdminPage() {
   const [brevoCheckLoading, setBrevoCheckLoading] = useState(false);
   const [directPwForm, setDirectPwForm] = useState({ store_name: "", new_password: "" });
   const [directPwLoading, setDirectPwLoading] = useState(false);
+
+  // Referral code management
+  const [referralCodes, setReferralCodes] = useState<ReferralCode[]>([]);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralForm, setReferralForm] = useState({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, commission_rate: "", is_active: true, memo: "" });
+  const [referralEditId, setReferralEditId] = useState<string | null>(null);
+  const [referralMsg, setReferralMsg] = useState("");
+  const [sheetSyncLoading, setSheetSyncLoading] = useState<string | null>(null);
 
   const handleDeleteStore = async (store: Store) => {
     setDeleteLoading(true);
@@ -499,6 +247,54 @@ export default function AdminPage() {
       setRepairStoreName(store_name);
     } finally {
       setEmailFixLoading(false);
+    }
+  };
+
+  const fetchReferralCodes = async () => {
+    setReferralLoading(true);
+    const res = await fetch("/api/admin/referral-codes");
+    const data = await res.json();
+    setReferralCodes(data.codes || []);
+    setReferralLoading(false);
+  };
+
+  const handleReferralSave = async () => {
+    setReferralMsg("");
+    if (!referralForm.code.trim()) { setReferralMsg("コードを入力してください"); return; }
+    const url = "/api/admin/referral-codes";
+    const method = referralEditId ? "PATCH" : "POST";
+    const rateValue = referralForm.commission_rate !== "" ? parseFloat(referralForm.commission_rate) : null;
+    const payload = { ...referralForm, commission_rate: isNaN(rateValue as number) ? null : rateValue };
+    const body = referralEditId ? { id: referralEditId, ...payload } : payload;
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.ok) {
+      setReferralMsg(referralEditId ? "✅ 更新しました" : "✅ 追加しました");
+      setReferralForm({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, commission_rate: "", is_active: true, memo: "" });
+      setReferralEditId(null);
+      await fetchReferralCodes();
+    } else {
+      const d = await res.json();
+      setReferralMsg("❌ " + (d.error || "エラー"));
+    }
+  };
+
+  const handleReferralDelete = async (id: string) => {
+    if (!window.confirm("このコードを削除しますか？")) return;
+    const res = await fetch("/api/admin/referral-codes", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    if (res.ok) await fetchReferralCodes();
+    else alert("削除に失敗しました");
+  };
+
+  const handleSheetSync = async (storeId: string) => {
+    setSheetSyncLoading(storeId);
+    const res = await fetch("/api/admin/sheet-sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ store_id: storeId }) });
+    setSheetSyncLoading(null);
+    if (res.ok) {
+      alert("✅ Sheetsに書き込みました");
+      await fetchStores();
+    } else {
+      const d = await res.json();
+      alert("❌ 失敗: " + (d.error || "エラー"));
     }
   };
 
@@ -701,11 +497,12 @@ export default function AdminPage() {
             {[
               { key: "stores", label: "🏪 店舗一覧" },
               { key: "add", label: "➕ 店舗追加" },
+              { key: "referral", label: "🎫 紹介コード" },
               { key: "cancels", label: "🚪 解約申請" },
               { key: "logs", label: "📋 監査ログ" },
               { key: "auth-check", label: "🔍 Auth診断" },
             ].map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key as any)}
+              <button key={t.key} onClick={() => { setActiveTab(t.key as any); if (t.key === "referral") fetchReferralCodes(); }}
                 style={{ padding: "10px 20px", borderRadius: "10px", border: "none", background: activeTab === t.key ? "#2C7A4B" : "#fff", color: activeTab === t.key ? "#fff" : "#555", fontFamily: "inherit", fontSize: "14px", fontWeight: "600", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 {t.label}
               </button>
@@ -727,7 +524,7 @@ export default function AdminPage() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                     <thead>
                       <tr style={{ borderBottom: "2px solid #F0F0F0" }}>
-                        {["店舗名", "店舗ID", "業種", "プラン", "契約状態", "QR", "操作"].map(h => (
+                        {["店舗名", "店舗ID", "業種", "プラン", "契約状態", "紹介/SS", "QR", "操作"].map(h => (
                           <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#888", fontWeight: "600", fontSize: "12px" }}>{h}</th>
                         ))}
                       </tr>
@@ -758,6 +555,27 @@ export default function AdminPage() {
                                   <option key={opt} value={opt}>{STATUS_OPTIONS.includes(opt) ? opt : `⚠ ${opt}（未知の値）`}</option>
                                 ))}
                               </select>
+                            </td>
+                            <td style={{ padding: "14px 12px", fontSize: "11px", color: "#888" }}>
+                              {s.referral_code && (
+                                <div style={{ marginBottom: "4px" }}>
+                                  <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: "4px", padding: "2px 6px", fontSize: "11px", fontWeight: "600" }}>{s.referral_code}</span>
+                                </div>
+                              )}
+                              {s.sales_person_name && <div>{s.sales_person_name}</div>}
+                              {s.sheet_sync_status === "synced" && <div style={{ color: "#16a34a" }}>✓ Sheet同期済</div>}
+                              {s.sheet_sync_status === "failed" && (
+                                <button onClick={() => handleSheetSync(s.id)} disabled={sheetSyncLoading === s.id}
+                                  style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "4px", padding: "2px 6px", fontSize: "11px", cursor: "pointer", fontFamily: "inherit" }}>
+                                  {sheetSyncLoading === s.id ? "..." : "⚠️ 再同期"}
+                                </button>
+                              )}
+                              {!s.sheet_sync_status && s.status === "契約中" && (
+                                <button onClick={() => handleSheetSync(s.id)} disabled={sheetSyncLoading === s.id}
+                                  style={{ background: "#F0F9FF", border: "none", color: "#0369A1", borderRadius: "4px", padding: "2px 6px", fontSize: "11px", cursor: "pointer", fontFamily: "inherit" }}>
+                                  {sheetSyncLoading === s.id ? "..." : "📊 Sheet"}
+                                </button>
+                              )}
                             </td>
                             <td style={{ padding: "14px 12px" }}>
                               <button onClick={() => setQrStore(s)} style={{ background: "#F0FAF4", border: "none", color: "#2C7A4B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", fontWeight: "600" }}>QR</button>
@@ -821,6 +639,125 @@ export default function AdminPage() {
                   {addLoading ? "追加中..." : "➕ 店舗を追加する"}
                 </button>
               </div>
+            </div>
+          )}
+
+          {activeTab === "referral" && (
+            <div style={{ background: "#fff", borderRadius: "16px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+                <h2 style={{ margin: 0, fontSize: "16px", color: "#1a2533" }}>紹介コード管理</h2>
+                <button onClick={fetchReferralCodes} style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>🔄 更新</button>
+              </div>
+
+              {/* 追加・編集フォーム */}
+              <div style={{ background: "#F4F6F9", borderRadius: "12px", padding: "20px", marginBottom: "24px" }}>
+                <div style={{ fontSize: "13px", fontWeight: "700", color: "#1a2533", marginBottom: "14px" }}>
+                  {referralEditId ? "✏️ コードを編集" : "➕ 新規コードを追加"}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>コード *</label>
+                    <input value={referralForm.code} onChange={e => setReferralForm(f => ({ ...f, code: e.target.value }))} placeholder="例: BNI-MEMBER"
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>担当者名</label>
+                    <input value={referralForm.sales_person_name} onChange={e => setReferralForm(f => ({ ...f, sales_person_name: e.target.value }))} placeholder="例: 田中 太郎"
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>チャンネル</label>
+                    <input value={referralForm.channel_name} onChange={e => setReferralForm(f => ({ ...f, channel_name: e.target.value }))} placeholder="例: BNI / 直販 / WEB"
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>報酬率（%）</label>
+                    <input
+                      type="number" min="0" max="100" step="0.1"
+                      value={referralForm.commission_rate}
+                      onChange={e => setReferralForm(f => ({ ...f, commission_rate: e.target.value }))}
+                      placeholder="例: 10"
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "600", color: "#555", display: "block", marginBottom: "4px" }}>メモ</label>
+                    <input value={referralForm.memo} onChange={e => setReferralForm(f => ({ ...f, memo: e.target.value }))} placeholder="備考など"
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "16px", marginBottom: "12px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px" }}>
+                    <input type="checkbox" checked={referralForm.commission_enabled} onChange={e => setReferralForm(f => ({ ...f, commission_enabled: e.target.checked }))} />
+                    手数料あり
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px" }}>
+                    <input type="checkbox" checked={referralForm.is_active} onChange={e => setReferralForm(f => ({ ...f, is_active: e.target.checked }))} />
+                    有効
+                  </label>
+                </div>
+                {referralMsg && <p style={{ color: referralMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontSize: "13px", marginBottom: "8px" }}>{referralMsg}</p>}
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={handleReferralSave}
+                    style={{ background: "linear-gradient(135deg,#2C7A4B,#3DA66A)", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 20px", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "inherit" }}>
+                    {referralEditId ? "更新する" : "追加する"}
+                  </button>
+                  {referralEditId && (
+                    <button onClick={() => { setReferralEditId(null); setReferralForm({ code: "", sales_person_name: "", channel_name: "", commission_enabled: false, commission_rate: "", is_active: true, memo: "" }); setReferralMsg(""); }}
+                      style={{ background: "#F4F6F9", color: "#555", border: "none", borderRadius: "8px", padding: "8px 16px", fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
+                      キャンセル
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* コード一覧テーブル */}
+              {referralLoading ? <p style={{ color: "#888" }}>読み込み中...</p> : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #F0F0F0" }}>
+                        {["コード", "担当者", "チャンネル", "手数料", "報酬率", "状態", "メモ", "登録日", "操作"].map(h => (
+                          <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#888", fontWeight: "600", fontSize: "12px" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {referralCodes.map(rc => (
+                        <tr key={rc.id} style={{ borderBottom: "1px solid #F8F8F8", background: rc.is_active ? "#fff" : "#F9FAFB" }}>
+                          <td style={{ padding: "12px", fontFamily: "monospace", fontWeight: "700", color: "#1a2533", fontSize: "13px" }}>
+                            <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: "6px", padding: "2px 8px" }}>{rc.code}</span>
+                          </td>
+                          <td style={{ padding: "12px", color: "#555" }}>{rc.sales_person_name || "—"}</td>
+                          <td style={{ padding: "12px", color: "#555" }}>{rc.channel_name || "—"}</td>
+                          <td style={{ padding: "12px", textAlign: "center" }}>
+                            <span style={{ color: rc.commission_enabled ? "#2C7A4B" : "#aaa", fontSize: "14px" }}>{rc.commission_enabled ? "✓" : "—"}</span>
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "center", color: rc.commission_rate != null ? "#1a2533" : "#aaa", fontWeight: rc.commission_rate != null ? "600" : "400" }}>
+                            {rc.commission_rate != null ? `${rc.commission_rate}%` : "—"}
+                          </td>
+                          <td style={{ padding: "12px" }}>
+                            <span style={{ background: rc.is_active ? "#ECFDF5" : "#F3F4F6", color: rc.is_active ? "#065F46" : "#6B7280", borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "600" }}>
+                              {rc.is_active ? "有効" : "無効"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px", color: "#888", fontSize: "12px", maxWidth: "160px" }}>{rc.memo || "—"}</td>
+                          <td style={{ padding: "12px", color: "#aaa", fontSize: "11px", whiteSpace: "nowrap" }}>{new Date(rc.created_at).toLocaleDateString("ja-JP")}</td>
+                          <td style={{ padding: "12px" }}>
+                            <div style={{ display: "flex", gap: "6px" }}>
+                              <button onClick={() => { setReferralEditId(rc.id); setReferralForm({ code: rc.code, sales_person_name: rc.sales_person_name || "", channel_name: rc.channel_name || "", commission_enabled: rc.commission_enabled, commission_rate: rc.commission_rate != null ? String(rc.commission_rate) : "", is_active: rc.is_active, memo: rc.memo || "" }); setReferralMsg(""); }}
+                                style={{ background: "#F4F6F9", border: "none", color: "#555", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>編集</button>
+                              <button onClick={() => handleReferralDelete(rc.id)}
+                                style={{ background: "#FEF2F2", border: "none", color: "#991B1B", borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit" }}>削除</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {referralCodes.length === 0 && <p style={{ color: "#aaa", textAlign: "center", padding: "32px" }}>紹介コードがまだありません</p>}
+                </div>
+              )}
             </div>
           )}
 

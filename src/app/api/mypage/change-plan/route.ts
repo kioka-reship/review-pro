@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   const { data: store } = await supabase
     .from("stores")
-    .select("id, name, email, setup_fee_paid")
+    .select("id, name, email, setup_fee_paid, billing_cycle")
     .eq("id", store_id)
     .single();
 
@@ -50,6 +50,14 @@ export async function POST(req: NextRequest) {
   const newPrice = billing_cycle === "yearly" ? newPlanInfo.yearly_price : newPlanInfo.monthly_price;
   const currentPrice = billing_cycle === "yearly" ? currentPlanInfo.yearly_price : currentPlanInfo.monthly_price;
   const newSetupFee = billing_cycle === "yearly" ? newPlanInfo.setupFee_yearly : newPlanInfo.setupFee_monthly;
+
+  // 年契約中はダウングレード禁止
+  if (!isUpgrade && store.billing_cycle === "yearly") {
+    return NextResponse.json(
+      { error: "年契約中はダウングレードできません。解約をご希望の場合は解約申請をお願いします。" },
+      { status: 403 }
+    );
+  }
 
   if (isUpgrade) {
     const priceDiff = newPrice - currentPrice;

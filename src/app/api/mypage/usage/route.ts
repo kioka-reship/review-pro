@@ -24,8 +24,6 @@ const { data: store, error: storeError } = await supabase
   .eq("id", storeId)
   .single();
 
-console.log("[usage] storeId:", storeId, "plan:", store?.plan, "error:", storeError);
-
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();

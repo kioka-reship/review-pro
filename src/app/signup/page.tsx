@@ -32,7 +32,7 @@ const PLANS = [
     setupFeeMonthly: 19800,
     setupFeeYearly: 15800,
     limit: "無制限",
-    features: ["口コミ生成 無制限", "QR口コミ導線", "管理画面", "低評価対策PRO", "AI口コミ自動返信", "フィードバック一覧", "成果ダッシュボード", "月次自動レポート", "優先サポート", "質問自由編集"],
+    features: ["口コミ生成 無制限", "QR口コミ導線", "管理画面", "低評価対策PRO", "🌐 多言語口コミ生成（英・中・韓）", "フィードバック一覧", "成果ダッシュボード", "月次自動レポート", "優先サポート", "質問自由編集"],
     recommended: true,
   },
 ];
@@ -43,8 +43,6 @@ const OPTIONS = [
   { key: "feedback_list", name: "フィードバック一覧", price: 1980, description: "低評価ユーザーからのフィードバックをマイページで一覧表示。改善ポイントの把握に役立ちます。" },
   { key: "monthly_report", name: "月次自動レポート", price: 1480, description: "口コミ数・評価推移などを毎月自動でレポートメール送信。データで改善サイクルを回せます。" },
 ];
-
-const REFERRAL_CODES = ["BNI-MEMBER", "0CP"];
 
 const fieldStyle: CSSProperties = {
   width: "100%",
@@ -75,12 +73,38 @@ export default function SignupPage() {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [referralCode, setReferralCode] = useState("");
   const [referralValid, setReferralValid] = useState(false);
+  const [referralChecking, setReferralChecking] = useState(false);
+  const [referralId, setReferralId] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setReferralValid(REFERRAL_CODES.includes(referralCode.toUpperCase()));
+    const trimmed = referralCode.trim();
+    if (!trimmed) {
+      setReferralValid(false);
+      setReferralId(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setReferralChecking(true);
+      try {
+        const res = await fetch("/api/referral/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: trimmed }),
+        });
+        const data = await res.json();
+        setReferralValid(!!data.valid);
+        setReferralId(data.valid ? data.id : null);
+      } catch {
+        setReferralValid(false);
+        setReferralId(null);
+      } finally {
+        setReferralChecking(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
   }, [referralCode]);
 
   const plan = PLANS.find(p => p.key === selectedPlan)!;
@@ -274,8 +298,10 @@ export default function SignupPage() {
             <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>④ 紹介コード（任意）</h2>
             <input value={referralCode} onChange={e => setReferralCode(e.target.value)} placeholder="紹介コードをお持ちの方は入力"
               className="rp-field"
-              style={{ ...fieldStyle, border: `1.5px solid ${referralValid ? "#2C7A4B" : "#E5E7EB"}` }} />
-            {referralValid && <p style={{ color: "#2C7A4B", fontSize: "13px", marginTop: "8px", fontWeight: "600" }}>✅ 紹介コード適用！初期費用が無料になります</p>}
+              style={{ ...fieldStyle, border: `1.5px solid ${referralValid ? "#2C7A4B" : referralCode && !referralChecking && !referralValid ? "#E53E3E" : "#E5E7EB"}` }} />
+            {referralChecking && <p style={{ color: "#888", fontSize: "13px", marginTop: "8px" }}>確認中...</p>}
+            {!referralChecking && referralValid && <p style={{ color: "#2C7A4B", fontSize: "13px", marginTop: "8px", fontWeight: "600" }}>✅ 紹介コード確認済み！初期費用が無料になります</p>}
+            {!referralChecking && referralCode.trim() && !referralValid && <p style={{ color: "#E53E3E", fontSize: "13px", marginTop: "8px" }}>このコードは無効です</p>}
           </div>
 
           {/* 合計・規約 */}
@@ -283,28 +309,30 @@ export default function SignupPage() {
             <h2 style={{ margin: "0 0 16px", fontSize: "16px", color: "#1a2533" }}>⑤ お申し込み内容確認</h2>
             <div style={{ background: "#F4F6F9", borderRadius: "12px", padding: "16px", marginBottom: "16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                <span>契約タイプ</span>
-                <span style={{ fontWeight: "600" }}>{billingCycle === "monthly" ? "月契約" : "年契約（12ヶ月）"}</span>
+                <span style={{ color: "#334155" }}>契約タイプ</span>
+                <span style={{ fontWeight: "600", color: "#475569" }}>{billingCycle === "monthly" ? "月契約" : "年契約（12ヶ月）"}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                <span>プラン（{plan.name}）</span><span>¥{price.toLocaleString()}/月（税別）</span>
+                <span style={{ color: "#334155" }}>プラン（{plan.name}）</span>
+                <span style={{ color: "#0F172A" }}>¥{price.toLocaleString()}/月（税別）</span>
               </div>
               {selectedOptions.map(key => {
                 const opt = OPTIONS.find(o => o.key === key)!;
                 return (
                   <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                    <span>{opt.name}</span><span>¥{opt.price.toLocaleString()}/月（税別）</span>
+                    <span style={{ color: "#334155" }}>{opt.name}</span>
+                    <span style={{ color: "#0F172A" }}>¥{opt.price.toLocaleString()}/月（税別）</span>
                   </div>
                 );
               })}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                <span>導入設定費{referralValid ? "（紹介コード適用）" : ""}</span>
-                <span>{setupFee === 0 ? "無料" : `¥${setupFee.toLocaleString()}（税別）`}</span>
+                <span style={{ color: "#334155" }}>導入設定費{referralValid ? "（紹介コード適用）" : ""}</span>
+                <span style={{ color: "#0F172A" }}>{setupFee === 0 ? "無料" : `¥${setupFee.toLocaleString()}（税別）`}</span>
               </div>
               <div style={{ borderTop: "1px solid #E5E7EB", paddingTop: "12px", display: "flex", justifyContent: "space-between", fontWeight: "700", fontSize: "16px" }}>
-                <span>初回合計</span><span style={{ color: "#2C7A4B" }}>¥{total.toLocaleString()}</span>
+                <span style={{ color: "#334155" }}>初回合計</span><span style={{ color: "#2C7A4B" }}>¥{total.toLocaleString()}</span>
               </div>
-              <div style={{ fontSize: "12px", color: "#888", marginTop: "8px" }}>翌月以降：¥{(price + optionTotal).toLocaleString()}/月（税別）</div>
+              <div style={{ fontSize: "12px", color: "#64748B", marginTop: "8px" }}>翌月以降：¥{(price + optionTotal).toLocaleString()}/月（税別）</div>
               {billingCycle === "yearly" && (
                 <div style={{ fontSize: "12px", color: "#F59E0B", marginTop: "4px", fontWeight: "600" }}>※年契約は12ヶ月継続が条件です</div>
               )}
