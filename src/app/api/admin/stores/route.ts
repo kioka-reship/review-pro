@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
 import { requireAdmin } from "../../../../lib/auth";
+import { STORE_STATUSES } from "../../../../lib/storeStatus";
 
 // 全店舗取得
 export async function GET(req: NextRequest) {
@@ -46,6 +47,10 @@ export async function PATCH(req: NextRequest) {
   if (guard) return guard;
   const supabase = getAdminClient();
   const { id, ...updates } = await req.json();
+
+  if (updates.status !== undefined && !STORE_STATUSES.includes(updates.status)) {
+    return NextResponse.json({ error: `不正なstatus値です: ${updates.status}` }, { status: 400 });
+  }
 
   const { error } = await supabase
     .from("stores")
