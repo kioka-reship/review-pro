@@ -84,7 +84,7 @@ async function findPendingStoreByEmail(supabase: SupabaseClient, email: string):
     .from("stores")
     .select("id")
     .eq("email", email)
-    .eq("status", "pending_payment")
+    .eq("status", "入金待ち")
     .order("created_at", { ascending: false })
     .limit(1);
   if (!data || data.length === 0) return null;
@@ -259,7 +259,7 @@ export async function POST(req: NextRequest) {
             await sendEmail({ to: store.email, ...tmpl, storeId });
             console.log("[Webhook] → アップグレード完了:", storeId);
 
-          } else if (store.status === "pending_payment") {
+          } else if (store.status === "入金待ち") {
             const now = new Date().toISOString();
 
             await supabase.from("stores").update({

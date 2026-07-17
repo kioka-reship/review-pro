@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("stores")
-    .insert({ id, name, type, owner_name, email, password, plan, place_id, status: "active" })
+    .insert({ id, name, type, owner_name, email, password, plan, place_id, status: "契約中" })
     .select()
     .single();
 

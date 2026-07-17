@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Store not found" }, { status: 404 });
   }
 
-  if (data.status !== "active") {
+  if (data.status !== "契約中") {
     return NextResponse.json({ error: "Store is inactive" }, { status: 403 });
   }
 

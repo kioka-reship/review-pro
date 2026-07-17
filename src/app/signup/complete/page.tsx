@@ -12,9 +12,9 @@ function CompleteContent() {
     const check = async () => {
       const res = await fetch(`/api/signup/complete?store_id=${storeId}`);
       const data = await res.json();
-      if (data.status === "active" || data.status === "契約中") {
+      if (data.status === "契約中") {
         setStatus("success");
-      } else if (data.status === "pending_payment") {
+      } else if (data.status === "入金待ち") {
         setStatus("pending");
       } else {
         setStatus("error");

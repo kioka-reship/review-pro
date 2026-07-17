@@ -43,11 +43,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "店舗情報が見つかりません" }, { status: 404 });
   }
 
-  if (store.status === "pending_payment") {
+  if (store.status === "入金待ち") {
     return NextResponse.json({ error: "決済が完了していません。お支払いをお願いします。" }, { status: 403 });
   }
 
-  if (store.status === "停止中" || store.status === "canceled") {
+  if (store.status === "停止中" || store.status === "解約済") {
     return NextResponse.json({ error: "このアカウントは停止されています。" }, { status: 403 });
   }
 
