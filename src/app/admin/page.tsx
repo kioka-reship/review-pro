@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { STORE_STATUSES } from "../../lib/storeStatus";
 
 type Store = {
   id: string;
@@ -33,7 +34,7 @@ const PLAN_LABELS: Record<string, string> = {
   premium: "プレミアム ¥19,800",
 };
 
-const STATUS_OPTIONS = ["契約中", "入金待ち", "停止中", "仮申込", "解約予約", "解約済"];
+const STATUS_OPTIONS: string[] = [...STORE_STATUSES];
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   "契約中":  { bg: "#ECFDF5", color: "#065F46" },
@@ -43,6 +44,12 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   "解約予約": { bg: "#FFF7ED", color: "#9A3412" },
   "解約済":  { bg: "#F3F4F6", color: "#6B7280" },
 };
+
+const UNKNOWN_STATUS_COLOR = { bg: "#FEF3C7", color: "#92400E" };
+
+/** 現在値がSTATUS_OPTIONSに無い場合、その生の値を選択肢に追加して返す（未知の値を隠さず表示するため） */
+const getStatusOptionsFor = (currentStatus: string): string[] =>
+  STATUS_OPTIONS.includes(currentStatus) ? STATUS_OPTIONS : [...STATUS_OPTIONS, currentStatus];
 
 const INDUSTRY_OPTIONS = [
   "飲食店", "ラーメン店", "寿司・和食", "焼肉・肉料理", "カフェ・喫茶店", "居酒屋・バー", "パン・ベーカリー",
@@ -727,7 +734,7 @@ export default function AdminPage() {
                     </thead>
                     <tbody>
                       {filteredStores.map(s => {
-                        const sc = STATUS_COLORS[s.status] || STATUS_COLORS["停止中"];
+                        const sc = STATUS_COLORS[s.status] || UNKNOWN_STATUS_COLOR;
                         return (
                           <tr key={s.id} style={{ borderBottom: "1px solid #F8F8F8" }}>
                             <td style={{ padding: "14px 12px", fontWeight: "600", color: "#1a2533" }}>
@@ -747,7 +754,9 @@ export default function AdminPage() {
                             <td style={{ padding: "14px 12px" }}>
                               <select value={s.status} onChange={e => handleStatusChange(s, e.target.value)}
                                 style={{ background: sc.bg, color: sc.color, border: "none", borderRadius: "6px", padding: "4px 8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit", outline: "none" }}>
-                                {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                {getStatusOptionsFor(s.status).map(opt => (
+                                  <option key={opt} value={opt}>{STATUS_OPTIONS.includes(opt) ? opt : `⚠ ${opt}（未知の値）`}</option>
+                                ))}
                               </select>
                             </td>
                             <td style={{ padding: "14px 12px" }}>
@@ -1210,7 +1219,9 @@ export default function AdminPage() {
                 <label style={{ fontSize: "12px", fontWeight: "600", color: "#555", display: "block", marginBottom: "6px" }}>契約状態</label>
                 <select value={editStore.status} onChange={e => setEditStore({ ...editStore, status: e.target.value })}
                   style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none", background: "#fff" }}>
-                  {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {getStatusOptionsFor(editStore.status).map(o => (
+                    <option key={o} value={o}>{STATUS_OPTIONS.includes(o) ? o : `⚠ ${o}（未知の値）`}</option>
+                  ))}
                 </select>
               </div>
               {editMsg && <p style={{ color: editMsg.startsWith("✅") ? "#2C7A4B" : "#E53E3E", fontSize: "13px", fontWeight: "600", margin: 0 }}>{editMsg}</p>}
