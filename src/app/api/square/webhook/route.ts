@@ -21,15 +21,24 @@ const PLAN_MONTHLY: Record<string, number> = {
 };
 
 function verifySquareSignature(req: NextRequest, body: string): boolean {
-  const signatureKey = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY;
+  const signatureKey = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY?.trim();
   if (!signatureKey) return false;
-  const signature = req.headers.get("x-square-hmacsha256-signature");
+  const signature = req.headers.get("x-square-hmacsha256-signature")?.trim();
   if (!signature) return false;
-  const url = `https://review-pro-ay7x.vercel.app/api/square/webhook`;
+  const url = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL?.trim()
+    || "https://review-pro-ay7x.vercel.app/api/square/webhook";
   const hmac = createHmac("sha256", signatureKey);
   hmac.update(url + body);
   const expected = hmac.digest("base64");
-  return signature === expected;
+  const isValid = signature === expected;
+  if (!isValid) {
+    console.error("[Webhook] Signature mismatch", {
+      url,
+      receivedLength: signature.length,
+      expectedLength: expected.length,
+    });
+  }
+  return isValid;
 }
 
 type SupabaseClient = ReturnType<typeof getAdminClient>;
