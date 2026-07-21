@@ -40,6 +40,7 @@ export interface Translations {
     postButton: string;
     copiedButton: string;
     restart: string;
+    googleUrlMissing: string;
   };
   lowReview: {
     title: string;
@@ -103,6 +104,7 @@ const translations: Record<LangCode, Translations> = {
       postButton: "この文章でGoogleに投稿する",
       copiedButton: "✅ コピー完了！Googleを開いています...",
       restart: "← 最初からやり直す",
+      googleUrlMissing: "Google口コミURLが設定されていません",
     },
     lowReview: {
       title: "貴重なご意見をお聞かせください",
@@ -157,6 +159,7 @@ const translations: Record<LangCode, Translations> = {
       postButton: "Post this review to Google",
       copiedButton: "✅ Copied! Opening Google...",
       restart: "← Start over",
+      googleUrlMissing: "Google review URL is not set",
     },
     lowReview: {
       title: "Please share your feedback",
@@ -220,6 +223,7 @@ const translations: Record<LangCode, Translations> = {
       postButton: "在Google上发布此评价",
       copiedButton: "✅ 已复制！正在打开Google...",
       restart: "← 重新开始",
+      googleUrlMissing: "尚未设置Google评价URL",
     },
     lowReview: {
       title: "请分享您的宝贵意见",
@@ -283,6 +287,7 @@ const translations: Record<LangCode, Translations> = {
       postButton: "이 문장으로 Google에 리뷰 올리기",
       copiedButton: "✅ 복사 완료! Google을 열고 있습니다...",
       restart: "← 처음부터 다시 시작",
+      googleUrlMissing: "Google 리뷰 URL이 설정되어 있지 않습니다",
     },
     lowReview: {
       title: "소중한 의견을 들려주세요",

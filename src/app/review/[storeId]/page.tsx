@@ -7,6 +7,7 @@ type Store = {
   name: string;
   type: string;
   place_id: string;
+  google_review_url?: string | null;
   plan: string;
   status: string;
   low_review_pro?: boolean;
@@ -274,6 +275,9 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
 
   const isMultilingual = store?.plan === "premium" && store?.multilingual_enabled;
 
+  // Google投稿先の優先順位: 1) 店舗のgoogle_review_url 2) 店舗のplace_id（旧仕様、実体はURL） 3) 両方なければ投稿不可
+  const googleReviewTargetUrl = store?.google_review_url || store?.place_id || "";
+
   // questions = 性別・年代除外済み（stars + 中間4問）
   // TOTAL_PAGES = questions + 固定最終ページ（性別＋年代） = 6
   const TOTAL_PAGES = questions.length + 1;
@@ -398,11 +402,11 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   };
 
   const handlePost = () => {
-    if (!store) return;
+    if (!store || !googleReviewTargetUrl) return;
     const text = reviews[selectedStyle];
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
-      setTimeout(() => { window.location.href = store.place_id; }, 500);
+      setTimeout(() => { window.location.href = googleReviewTargetUrl; }, 500);
     });
   };
 
@@ -771,11 +775,17 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
                   ))}
                 </div>
               </div>
-              <button onClick={handlePost} disabled={Object.values(loadingStates).some(Boolean)}
+              {!googleReviewTargetUrl && (
+                <p style={{ textAlign: "center", color: "#E53E3E", fontSize: "12px", fontWeight: "600", margin: "0 0 10px" }}>
+                  {T.done.googleUrlMissing}
+                </p>
+              )}
+              <button onClick={handlePost} disabled={Object.values(loadingStates).some(Boolean) || !googleReviewTargetUrl}
                 style={{ width: "100%", padding: "18px", borderRadius: "16px", border: "none",
-                  background: copied ? "#1A5C38" : "linear-gradient(135deg, #2C7A4B, #3DA66A)",
-                  color: "#fff", fontFamily: "inherit", fontSize: "16px", fontWeight: "700", cursor: "pointer",
-                  boxShadow: "0 6px 24px rgba(44,122,75,0.3)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "all 0.3s" }}>
+                  background: !googleReviewTargetUrl ? "#E5E7EB" : copied ? "#1A5C38" : "linear-gradient(135deg, #2C7A4B, #3DA66A)",
+                  color: !googleReviewTargetUrl ? "#aaa" : "#fff", fontFamily: "inherit", fontSize: "16px", fontWeight: "700",
+                  cursor: !googleReviewTargetUrl ? "not-allowed" : "pointer",
+                  boxShadow: !googleReviewTargetUrl ? "none" : "0 6px 24px rgba(44,122,75,0.3)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "all 0.3s" }}>
                 {copied ? T.done.copiedButton : (
                   <>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">

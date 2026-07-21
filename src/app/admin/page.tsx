@@ -12,6 +12,7 @@ type Store = {
   email: string;
   plan: string;
   place_id: string;
+  google_review_url?: string;
   status: string;
   created_at: string;
   square_customer_id?: string;
@@ -386,7 +387,7 @@ export default function AdminPage() {
     const res = await fetch("/api/admin/stores", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editStore.id, name: editStore.name, type: editStore.type, owner_name: editStore.owner_name, email: editStore.email, plan: editStore.plan, status: editStore.status }),
+      body: JSON.stringify({ id: editStore.id, name: editStore.name, type: editStore.type, owner_name: editStore.owner_name, email: editStore.email, plan: editStore.plan, status: editStore.status, google_review_url: editStore.google_review_url }),
     });
     if (res.ok) {
       setEditMsg("✅ 保存しました");
@@ -1129,10 +1130,16 @@ export default function AdminPage() {
               <button onClick={() => setEditStore(null)} style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "#888" }}>✕</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              {[{ label: "店舗名", key: "name" }, { label: "オーナー名", key: "owner_name" }, { label: "メールアドレス", key: "email" }].map(f => (
+              {[
+                { label: "店舗名", key: "name" },
+                { label: "オーナー名", key: "owner_name" },
+                { label: "メールアドレス", key: "email" },
+                { label: "Google口コミURL", key: "google_review_url", placeholder: "https://g.page/r/xxxx/review" },
+              ].map(f => (
                 <div key={f.key}>
                   <label style={{ fontSize: "12px", fontWeight: "600", color: "#555", display: "block", marginBottom: "6px" }}>{f.label}</label>
                   <input value={(editStore as any)[f.key] || ""} onChange={e => setEditStore({ ...editStore, [f.key]: e.target.value })}
+                    placeholder={f.placeholder}
                     style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #E5E7EB", fontFamily: "inherit", fontSize: "14px", outline: "none" }} />
                 </div>
               ))}
