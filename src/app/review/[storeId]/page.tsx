@@ -160,7 +160,8 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const [store, setStore] = useState<Store | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [pageError, setPageError] = useState<"not_found" | "inactive" | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [currentQ, setCurrentQ] = useState(0);
   const [step, setStep] = useState<"welcome" | "questions" | "generating" | "done" | "low_review" | "low_review_done">("welcome");
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -181,47 +182,69 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const [gender, setGender] = useState<string>("");
   const [age, setAge] = useState<string>("");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const storeRes = await fetch(`/api/store?id=${params.storeId}`);
-        const storeData = await storeRes.json();
-        if (storeData.error) { setNotFound(true); setLoading(false); return; }
-        setStore(storeData);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setPageError(null);
+    setLoadError(false);
 
-        const sid = crypto.randomUUID();
-        setSessionId(sid);
-        fetch("/api/qr-log", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ store_id: params.storeId, session_id: sid }),
-        });
-
-        try {
-          const optRes = await fetch(`/api/store-options?store_id=${params.storeId}`);
-          if (optRes.ok) {
-            const optData = await optRes.json();
-            const hasOpt = (optData.options || []).some(
-              (o: any) => o.option_key === "low_review_pro" && o.status === "active"
-            );
-            setHasLowReviewPro(hasOpt);
-          }
-        } catch { /* ignore */ }
-
-        const qRes = await fetch(`/api/questions?store_id=${params.storeId}`);
-        const qData = await qRes.json();
-        const qs = qData.questions || [];
-        // 性別・年代は固定最終ページで表示するためフィルタ除外
-        const filtered = qs.filter((q: Question) => !q.label.includes("性別") && !q.label.includes("年代"));
-        setBaseQuestions(filtered);
-        setQuestions(filtered);
-      } catch {
-        setNotFound(true);
+    // 店舗取得（失敗時のみ notFound/inactive 画面を出す）
+    try {
+      const storeRes = await fetch(`/api/store?id=${params.storeId}`);
+      const storeData = await storeRes.json();
+      if (storeData.error) {
+        setPageError(storeData.reason === "inactive" ? "inactive" : "not_found");
+        setLoading(false);
+        return;
       }
+      setStore(storeData);
+    } catch {
+      setPageError("not_found");
       setLoading(false);
-    };
-    fetchData();
+      return;
+    }
+
+    // 店舗取得成功後の付随データ。失敗しても notFound にはしない
+    const sid = crypto.randomUUID();
+    setSessionId(sid);
+    fetch("/api/qr-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store_id: params.storeId, session_id: sid }),
+    });
+
+    try {
+      const optRes = await fetch(`/api/store-options?store_id=${params.storeId}`);
+      if (optRes.ok) {
+        const optData = await optRes.json();
+        const hasOpt = (optData.options || []).some(
+          (o: any) => o.option_key === "low_review_pro" && o.status === "active"
+        );
+        setHasLowReviewPro(hasOpt);
+      }
+    } catch { /* ignore */ }
+
+    try {
+      const qRes = await fetch(`/api/questions?store_id=${params.storeId}`);
+      if (!qRes.ok) throw new Error("questions fetch failed");
+      const qData = await qRes.json();
+      if (qData.error) throw new Error(qData.error);
+      const qs = qData.questions || [];
+      // 性別・年代は固定最終ページで表示するためフィルタ除外
+      const filtered = qs.filter((q: Question) => !q.label.includes("性別") && !q.label.includes("年代"));
+      setBaseQuestions(filtered);
+      setQuestions(filtered);
+    } catch {
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
   }, [params.storeId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleLanguageChange = useCallback(async (newLang: LangCode) => {
     setLang(newLang);
@@ -403,12 +426,36 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
     </div>
   );
 
-  if (notFound) return (
+  if (pageError) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔍</div>
-        <h2 style={{ color: "#1a2533", margin: "0 0 8px" }}>{T.notFound.title}</h2>
-        <p style={{ color: "#888", fontSize: "14px" }}>{T.notFound.message}</p>
+        <div style={{ fontSize: "48px", marginBottom: "16px" }}>{pageError === "inactive" ? "🚫" : "🔍"}</div>
+        <h2 style={{ color: "#1a2533", margin: "0 0 8px" }}>
+          {pageError === "inactive" ? T.inactive.title : T.notFound.title}
+        </h2>
+        <p style={{ color: "#888", fontSize: "14px" }}>
+          {pageError === "inactive" ? T.inactive.message : T.notFound.message}
+        </p>
+      </div>
+    </div>
+  );
+
+  if (loadError) return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: "48px", marginBottom: "16px" }}>⚠️</div>
+        <h2 style={{ color: "#1a2533", margin: "0 0 8px" }}>{T.loadError.title}</h2>
+        <p style={{ color: "#888", fontSize: "14px", margin: "0 0 20px" }}>{T.loadError.message}</p>
+        <button
+          onClick={fetchData}
+          style={{
+            padding: "12px 24px", borderRadius: "10px", border: "none",
+            background: "linear-gradient(135deg, #2C7A4B, #3DA66A)", color: "#fff",
+            fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer",
+          }}
+        >
+          {T.loadError.retry}
+        </button>
       </div>
     </div>
   );

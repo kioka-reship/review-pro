@@ -20,11 +20,11 @@ export async function GET(req: NextRequest) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: "Store not found" }, { status: 404 });
+    return NextResponse.json({ error: "Store not found", reason: "not_found" }, { status: 404 });
   }
 
   if (data.status !== "契約中") {
-    return NextResponse.json({ error: "Store is inactive" }, { status: 403 });
+    return NextResponse.json({ error: "Store is inactive", reason: "inactive" }, { status: 403 });
   }
 
   return new NextResponse(JSON.stringify(data), {
