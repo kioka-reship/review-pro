@@ -271,8 +271,28 @@ export const DEFAULT_QUESTIONS_MAP: Record<string, DefaultQuestion[]> = {
     { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
     { label: "年代を教えてください", type: "select", options: ["20代", "30代", "40代", "50代", "60代以上"] },
   ],
+  "通信サービス": [
+    { label: "総合評価", type: "stars", options: null },
+    { label: "店内・事務所の雰囲気はどうでしたか", type: "select", options: ["とても良かった", "良かった", "普通", "もう少し"] },
+    { label: "スタッフの対応はどうでしたか", type: "select", options: ["とても良かった", "良かった", "普通", "もう少し"] },
+    { label: "特に良かった点はどこですか", type: "multi", options: ["スタッフの対応", "説明のわかりやすさ", "店内・事務所の雰囲気", "価格・コスパ", "対応のスピード"] },
+    { label: "一言でいうとどうでしたか", type: "select", options: ["また利用したい！", "スタッフが親切", "説明が丁寧", "安心できた"] },
+    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
+    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
+  ],
+  // 業種不明・未分類店舗向けの汎用質問セット。特定業種（飲食・美容等）を前提にした
+  // 文言（料理・メニュー・施術など）は含めない。
+  "その他": [
+    { label: "今回のご利用はいかがでしたか？", type: "stars", options: null },
+    { label: "ご利用の目的は？", type: "select", options: ["初めての利用", "リピート利用", "相談・お問い合わせ", "その他"] },
+    { label: "何名でのご利用でしたか？", type: "select", options: ["1人", "2人", "3〜4人", "5人以上", "家族"] },
+    { label: "特に良かった点は？", type: "multi", options: ["スタッフの対応", "説明のわかりやすさ", "雰囲気", "価格・コスパ", "立地・アクセス"] },
+    { label: "一言でいうと？", type: "select", options: ["また利用したい！", "スタッフが親切", "期待以上だった", "安心できた"] },
+    { label: "性別を教えてください", type: "select", options: ["男性", "女性", "回答しない"] },
+    { label: "年代を教えてください", type: "select", options: ["10代", "20代", "30代", "40代", "50代以上"] },
+  ],
 };
 
 export function getDefaultQuestionsForType(type: string): DefaultQuestion[] {
-  return DEFAULT_QUESTIONS_MAP[type] ?? DEFAULT_QUESTIONS_MAP["飲食店"];
+  return DEFAULT_QUESTIONS_MAP[type] ?? DEFAULT_QUESTIONS_MAP["その他"];
 }

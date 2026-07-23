@@ -160,28 +160,43 @@ export async function POST(req: Request) {
       "50代以上": "50代以上らしい丁寧で落ち着いた文体。「〜でございました」は使わず自然に。",
     };
 
+    // 人数のみの回答（2人・3〜4人・5人以上）では「友人」「知人」等の具体的な関係性を創作しない。
+    // 「家族」「カップル」は回答自体に関係性が含まれるためそのまま使用する。
     const partyStyleMap: Record<string, string[]> = {
-      "1人": ["一人でふらっと立ち寄りました", "仕事帰りに一人で", "一人で訪問しました"],
-      "2人": ["友人と2人で", "2人で利用しました", "知人と一緒に"],
-      "3〜4人": ["3人で訪れました", "友人グループで", "数人で利用しました"],
+      "1人": ["一人で利用しました", "一人で訪問しました"],
+      "2人": ["2人で利用しました", "2人で訪問しました"],
+      "3〜4人": ["数人で利用しました", "数人で訪問しました"],
       "5人以上": ["大人数で利用しました", "グループで訪問しました"],
-      "家族": ["家族で訪問しました", "子供を連れて家族で", "家族みんなで"],
-      "カップル": ["パートナーと2人で", "デートで利用しました", "彼女と一緒に"],
+      "家族": ["家族で訪問しました", "家族と一緒に利用しました"],
+      "カップル": ["パートナーと利用しました", "カップルで訪問しました"],
     };
 
     const langCfg = LANG_CONFIGS[lang] ?? LANG_CONFIGS.ja;
     const styleKey = (style?.key as string) || "casual";
     const stylePrompt = langCfg.stylePrompts[styleKey] || langCfg.stylePrompts.casual;
 
+    const details: { label: string; answer: string }[] = Array.isArray(answers?.details) ? answers.details : [];
+
+    // F: 最終的にAIへ渡す回答内容をログ出力（選択式のみのため個人情報は含まれない。gender/ageは念のため除外）
+    console.log("[generate] answers_debug", {
+      store_id: storeId,
+      store_type: store?.type,
+      rating: answers?.rating,
+      highlight: answers?.highlight,
+      partySize: answers?.partySize,
+      summary: answers?.summary,
+      details,
+    });
+
     let prompt: string;
 
     if (lang === "ja") {
       const ageStyle = ageStyleMap[answers?.age] || "自然な日常会話的な文体で";
-      const partyOptions = partyStyleMap[answers?.party] || [""];
+      const partyOptions = partyStyleMap[answers?.partySize] || [""];
       const partyIntro = partyOptions[Math.floor(Math.random() * partyOptions.length)];
       const minChars = Math.floor(Math.random() * 3) === 0 ? 80 : Math.floor(Math.random() * 2) === 0 ? 120 : 180;
       const maxChars = minChars + 60;
-      const menuText = answers?.menu ? `注文したメニュー: ${answers.menu}` : "";
+      const detailsText = details.map((d) => `${d.label}: ${d.answer}`).join("\n");
       const genderText = answers?.gender && answers.gender !== "回答しない" ? `性別: ${answers.gender}` : "";
 
       prompt = `あなたはGoogleの口コミを書く一般のお客さんです。以下の条件で口コミ文を書いてください。
@@ -190,9 +205,9 @@ export async function POST(req: Request) {
 店舗: ${store?.name || ""}
 業種: ${store?.type || ""}
 評価: ${answers?.rating || 0}点/5点
-${menuText}
+${detailsText}
 良かった点: ${highlight}
-一言: ${answers?.feel || ""}
+一言: ${answers?.summary || ""}
 
 【書き手の情報】
 ${genderText}
@@ -211,17 +226,23 @@ ${ageStyle}
 ・実際に体験した人が書いたようなリアルな文章にする
 ・「${partyIntro}」という状況を自然に織り込む（無理に入れなくてもよい）
 ・感嘆符（！）や疑問符（？）の使用は年代に合わせて自然に
+・回答にない同行者（友人・家族・カップルなど）を創作しない
+・回答にない料理・味・メニュー・注文内容・施術内容を創作しない
+・店舗情報や回答に含まれていない内容は一切書かない
+・ユーザーの回答に含まれる事実のみを使用する
+・店舗の業種（${store?.type || ""}）に合わない表現は使わない
+・来店人数が「1人」の場合、「友人と」「家族と」等へ勝手に変換しない
 ・${langCfg.outputInstruction}`;
     } else {
-      const menuText = answers?.menu ? `Menu ordered: ${answers.menu}` : "";
+      const detailsText = details.map((d) => `${d.label}: ${d.answer}`).join("\n");
       prompt = `Write a Google review for the following store. Output ONLY in ${lang === "en" ? "English" : lang === "zh" ? "Simplified Chinese" : "Korean"}.
 
 Store: ${store?.name || ""}
 Type: ${store?.type || ""}
 Rating: ${answers?.rating || 0}/5 stars
-${menuText}
+${detailsText}
 Highlights: ${highlight || "general experience"}
-Comment: ${answers?.feel || ""}
+Comment: ${answers?.summary || ""}
 
 Writing style: ${stylePrompt}
 Length: approximately ${langCfg.charRange}
@@ -230,6 +251,12 @@ Rules:
 - Do not start the review with the store name
 - Never use advertising or promotional language
 - Write as a genuine visitor who actually experienced this place
+- Do not invent companions (friends, family, partner, etc.) that are not stated in the answers
+- Do not invent food, taste, menu items, orders, or treatment details that are not stated in the answers
+- Do not write about anything not present in the store info or answers
+- Use only facts contained in the user's answers
+- Do not use wording that doesn't fit the store's business type (${store?.type || ""})
+- If the party size answer is "alone" (1 person), do not turn it into "with a friend" / "with family"
 - ${langCfg.outputInstruction}`;
     }
 

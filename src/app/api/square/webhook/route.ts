@@ -297,7 +297,7 @@ export async function POST(req: NextRequest) {
                 .eq("store_id", storeId)
                 .limit(1);
               if (!existingQs || existingQs.length === 0) {
-                const defaultQs = getDefaultQuestionsForType(store.type || "飲食店");
+                const defaultQs = getDefaultQuestionsForType(store.type || "その他");
                 await supabase.from("questions").insert(
                   defaultQs.map((q, i) => ({
                     store_id: storeId,

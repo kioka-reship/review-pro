@@ -23,6 +23,20 @@ type Question = {
   options: string[] | null;
 };
 
+type AnswerDetail = { label: string; answer: string };
+type BuiltAnswers = {
+  rating: number;
+  highlight: string[];
+  partySize: string;
+  summary: string;
+  details: AnswerDetail[];
+  gender: string;
+  age: string;
+};
+
+// 人数系の質問ラベルを補助的に判定するためのキーワード（label判定は最終手段としてのみ使用）
+const PARTY_KEYWORDS = ["人数", "何人", "お一人", "一人", "名様", "何名"];
+
 type StyleKey = "casual" | "honest" | "formal";
 type StyleType = { key: StyleKey; label: string; emoji: string };
 type LoadingStates = { casual: boolean; honest: boolean; formal: boolean };
@@ -296,21 +310,35 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
     return true;
   };
 
-  const buildAnswersForGenerate = () => {
-    // gender・age は state から直接渡す（固定最終ページで選択済み）
-    const result: any = { rating: 0, menu: "", party: "", highlight: [], feel: "", gender, age };
-    baseQuestions.forEach((q) => {
-      const ans = answers[q.id];
-      if (q.type === "stars") result.rating = ans || 0;
-      else if (q.type === "multi") result.highlight = ans || [];
-      else {
-        if (q.label.includes("メニュー") || q.label.includes("ご注文")) result.menu = ans || "";
-        else if (q.label.includes("人数")) result.party = ans || "";
-        else if (q.label.includes("一言")) result.feel = ans || "";
-        else if (!result.feel) result.feel = ans || "";
-      }
-    });
-    return result;
+  // 優先順位: 1) question.type 2) order_num（末尾のselect=要約） 3) labelは人数判定の補助にのみ使用
+  const buildAnswersForGenerate = (): BuiltAnswers => {
+    const sorted = [...baseQuestions].sort((a, b) => a.order_num - b.order_num);
+
+    const ratingQ = sorted.find((q) => q.type === "stars");
+    const highlightQ = sorted.find((q) => q.type === "multi");
+    const selectQs = sorted.filter((q) => q.type === "select");
+
+    // label補助判定: 人数系の質問はどの位置にあっても partySize として扱う
+    const partyQ = selectQs.find((q) => PARTY_KEYWORDS.some((k) => q.label.includes(k)));
+
+    // 残りのselectのうち、order_numが最後のものを「一言（要約）」とみなす
+    const remaining = selectQs.filter((q) => q.id !== partyQ?.id);
+    const summaryQ = remaining.length > 0 ? remaining[remaining.length - 1] : undefined;
+
+    // それ以外のselectは detail としてラベル付きでそのまま保持（上書き・欠落させない）
+    const detailQs = remaining.filter((q) => q.id !== summaryQ?.id);
+
+    return {
+      rating: ratingQ ? answers[ratingQ.id] || 0 : 0,
+      highlight: highlightQ ? answers[highlightQ.id] || [] : [],
+      partySize: partyQ ? answers[partyQ.id] || "" : "",
+      summary: summaryQ ? answers[summaryQ.id] || "" : "",
+      details: detailQs
+        .filter((q) => answers[q.id])
+        .map((q) => ({ label: q.label, answer: String(answers[q.id]) })),
+      gender,
+      age,
+    };
   };
 
   const generateAll = async () => {
