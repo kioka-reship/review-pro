@@ -102,15 +102,17 @@ const LANG_CONFIGS: Record<LangCode, LangConfig> = {
   },
 };
 
+// 年代による違いは文体・語彙・落ち着き方のみに限定する。年代から同行者・利用目的・
+// 「仕事帰り」「家族」「友人」「同僚」「外食」等の状況を推測・創作する指示は入れない。
 const ageStyleMap: Record<string, string> = {
   "10代": "10代らしいカジュアルで短めの文体。絵文字は使わない。「〜だった」「〜よかった」など。",
-  "20代": "20代らしいフレンドリーな文体。テンション高め。「めっちゃ」「すごく」など口語的に。",
-  "30代": "30代らしい落ち着いた文体。仕事帰りや友人との外食感を出す。",
-  "40代": "40代らしい丁寧だが親しみやすい文体。家族や同僚との利用感を出す。",
-  "50代以上": "50代以上らしい丁寧で落ち着いた文体。「〜でございました」は使わず自然に。",
+  "20代": "親しみやすく自然な文体。明るく軽やかだが、砕けすぎない。",
+  "30代": "自然で落ち着いた文体。具体的で読みやすく、過度に若者言葉を使わない。",
+  "40代": "丁寧で親しみやすい文体。落ち着きと信頼感のある表現にする。",
+  "50代以上": "簡潔で丁寧な文体。誇張を避け、分かりやすく自然にまとめる。",
 };
 
-// 人数のみの回答（2人・3〜4人・5人以上）では「友人」「知人」等の具体的な関係性を創作しない。
+// 人数のみの回答（1人・2人・3〜4人・5人以上）では「友人」「知人」等の具体的な関係性を創作しない。
 // 「家族」「カップル」は回答自体に関係性が含まれるためそのまま使用する。
 const partyStyleMap: Record<string, string[]> = {
   "1人": ["一人で利用しました", "一人で訪問しました"],
@@ -120,6 +122,16 @@ const partyStyleMap: Record<string, string[]> = {
   "家族": ["家族で訪問しました", "家族と一緒に利用しました"],
   "カップル": ["パートナーと利用しました", "カップルで訪問しました"],
 };
+
+// partySizeの回答区分: 数値系（人数のみ・関係性情報を含まない）か、関係性系（家族・カップル）か。
+const COUNT_ONLY_PARTY_VALUES = new Set(["1人", "2人", "3〜4人", "5人以上"]);
+type PartyCategory = "count" | "relationship" | "none";
+function getPartyCategory(partySize: string | undefined): PartyCategory {
+  if (!partySize) return "none";
+  if (COUNT_ONLY_PARTY_VALUES.has(partySize)) return "count";
+  if (partyStyleMap[partySize]) return "relationship";
+  return "none";
+}
 
 // MEO: 3パターンの書き出し・構成を変え、コピペ調（似た構造の使い回し）を防ぐ。
 // 事実の根拠（回答内容）は3パターンとも同じものを使う。
@@ -155,6 +167,7 @@ interface PromptContext {
   hasSpecificType: boolean;
   hasPartyInfo: boolean;
   partyIntro: string;
+  partyCategory: PartyCategory;
   genderText: string;
   ageStyle: string;
 }
@@ -166,15 +179,32 @@ function buildContext(lang: LangCode, store: any, answers: any): PromptContext {
   const hasPartyInfo = !!answers?.partySize && !!partyStyleMap[answers.partySize];
   const partyOptions = partyStyleMap[answers?.partySize] || [""];
   const partyIntro = partyOptions[Math.floor(Math.random() * partyOptions.length)];
+  const partyCategory = getPartyCategory(answers?.partySize);
   const genderText = answers?.gender && answers.gender !== "回答しない" ? `性別: ${answers.gender}` : "";
   const ageStyle = ageStyleMap[answers?.age] || "自然な日常会話的な文体で";
 
-  return { lang, store, answers, details, highlight, hasSpecificType, hasPartyInfo, partyIntro, genderText, ageStyle };
+  return { lang, store, answers, details, highlight, hasSpecificType, hasPartyInfo, partyIntro, partyCategory, genderText, ageStyle };
 }
 
 function buildSharedJaBlock(ctx: PromptContext): string {
-  const { store, answers, details, highlight, hasSpecificType, hasPartyInfo, genderText, ageStyle } = ctx;
+  const { store, answers, details, highlight, hasSpecificType, hasPartyInfo, genderText, ageStyle, partyCategory } = ctx;
   const detailsText = details.map((d) => `${d.label}: ${d.answer}`).join("\n");
+
+  // 「2人」「3〜4人」「5人以上」は人数情報のみで関係性情報を含まない。「家族」「カップル」は
+  // 回答自体に関係性が含まれる場合のみ、その語を使ってよい。未回答時は人数・同行者に一切触れない。
+  const partyRuleStrong =
+    partyCategory === "count"
+      ? `・人数の回答（${ctx.partyIntro}）は人数情報のみであり、関係性情報ではない。「友人」「家族」「同僚」「恋人」「パートナー」「カップル」等の関係性を表す語や、「一緒に」「連れと」等の曖昧な同行者表現を一切使わない。使ってよいのは「${ctx.partyIntro}」のような人数の言い方までで、それ以上の関係性を推測して補わない`
+      : partyCategory === "relationship"
+      ? `・「${ctx.partyIntro}」という、回答に明記された関係性を自然に織り込んでよい（無理に入れなくてもよい）`
+      : "・来店人数の回答がないため、「友人と」「家族と」「パートナーと」「一人で」等、同行者や人数を示す表現を一切使わない（未来の予定「また友人と来たい」等も含めて使わない）";
+
+  const partyRuleReminder =
+    partyCategory === "count"
+      ? `・「${ctx.partyIntro}」という人数の表現までは使ってよいが、無理に入れなくてもよく、不自然な場合は省略する。人数から関係性（友人・家族・同僚等）を絶対に創作しない`
+      : partyCategory === "relationship"
+      ? `「${ctx.partyIntro}」という状況を自然に織り込む（無理に入れなくてもよい）`
+      : "来店人数の回答がないため、同行者や人数（一人・友人と・家族となど）について一切言及しない";
 
   return `【お店の情報】
 店舗: ${store?.name || ""}
@@ -195,14 +225,15 @@ ${ageStyle}
 【最重要ルール（最優先で守ること）】
 ・体験の具体的な感想（料理の味、施術の効果、商品の質、接客対応の詳細、清潔感、価格、待ち時間など）は、上の【お店の情報】に明記されている項目についてのみ書いてよい
 ・明記されていない体験カテゴリについては、業種（${store?.type || ""}）から連想される一般的な内容（例：飲食店だから「料理が美味しかった」、美容系だから「効果を感じた」等）を絶対に補って書かない。書けるのは「雰囲気が良かった」「また利用したい」等の一般的な感想のみにとどめる
-${hasPartyInfo ? "" : "・来店人数の回答がないため、「友人と」「家族と」「パートナーと」「一人で」等、同行者や人数を示す表現を一切使わない（未来の予定「また友人と来たい」等も含めて使わない）\n"}・上記に反する場合、その口コミは無効とみなす
+${partyRuleStrong}
+・上記に反する場合、その口コミは無効とみなす
 
 【必須ルール】
 ・店名を文章の最初に入れない（不自然なため）
 ・宣伝文・広告っぽい表現は絶対に使わない
 ・「〜させていただきます」などの過剰敬語は使わない
 ・実際に体験した人が書いたようなリアルな文章にする
-・${hasPartyInfo ? `「${ctx.partyIntro}」という状況を自然に織り込む（無理に入れなくてもよい）` : "来店人数の回答がないため、同行者や人数（一人・友人と・家族となど）について一切言及しない"}
+・${partyRuleReminder}
 ・感嘆符（！）や疑問符（？）の使用は年代に合わせて自然に
 ${hasSpecificType ? `・業種（${store.type}）を連想させる自然な言葉を文中に1回程度含めてよい（無理に入れなくてもよく、同じ語を繰り返さない）` : "・業種が「その他」または未設定のため、特定業種を連想させる表現（料理・施術・接客スタイル等の業種固有ワード）は使わない"}
 ・地域名・サービス名・スタッフ名・商品名・価格・駐車場・駅近・予約の取りやすさ・待ち時間・利用目的など、回答や店舗情報に明記されていない情報は一切創作しない
@@ -212,9 +243,10 @@ ${hasSpecificType ? `・業種（${store.type}）を連想させる自然な言�
 ・店舗情報や回答に含まれていない内容は一切書かない
 ・ユーザーの回答に含まれる事実のみを使用する
 ・店舗の業種（${store?.type || ""}）に合わない表現は使わない
-・来店人数が「1人」の場合、「友人と」「家族と」等へ勝手に変換しない
+・来店人数が「1人」「2人」「3〜4人」「5人以上」等の数値のみの場合、「友人と」「家族と」「同僚と」「恋人と」「パートナーと」「カップルで」等へ勝手に変換しない。関係性を表す語は、回答が「家族」「カップル」など明示的な関係性そのものである場合にのみ使ってよい
 ・回答に含まれていない体験の具体的内容（特に料理・味・施術効果など）を書いていないか、出力前にもう一度確認すること
-・「〜には触れません」「〜は不明です」等の言い訳・説明文は書かない。不明な情報は単純に触れずに省略する`;
+・「〜には触れません」「〜は不明です」等の言い訳・説明文は書かない。不明な情報は単純に触れずに省略する
+・文章を出力する前に「友人」「家族」「同僚」「恋人」「パートナー」「カップル」という語を使っていないか再確認し、使っている場合は回答の人数・関係性の区分（上記参照）に本当に合致するかを必ず確認すること`;
 }
 
 function buildSharedOtherLangBlock(ctx: PromptContext): string {
