@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "../../../lib/supabase-admin";
 
+// キャッシュされた古い成功結果を返し続けないよう、必ず毎回ライブでSupabaseへ問い合わせる。
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   const result: Record<string, string> = { status: "ok" };
 
@@ -23,5 +27,13 @@ export async function GET() {
   }
 
   const statusCode = result.status === "ok" ? 200 : 503;
-  return NextResponse.json(result, { status: statusCode });
+  return new NextResponse(JSON.stringify(result), {
+    status: statusCode,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+    },
+  });
 }

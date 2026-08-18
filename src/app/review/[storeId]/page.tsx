@@ -175,7 +175,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const [store, setStore] = useState<Store | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pageError, setPageError] = useState<"not_found" | "inactive" | null>(null);
+  const [pageError, setPageError] = useState<"not_found" | "inactive" | "database_error" | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [currentQ, setCurrentQ] = useState(0);
   const [step, setStep] = useState<"welcome" | "questions" | "generating" | "done" | "low_review" | "low_review_done">("welcome");
@@ -202,18 +202,20 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
     setPageError(null);
     setLoadError(false);
 
-    // 店舗取得（失敗時のみ notFound/inactive 画面を出す）
+    // 店舗取得（失敗時のみ notFound/inactive/database_error 画面を出す）
     try {
       const storeRes = await fetch(`/api/store?id=${params.storeId}`);
       const storeData = await storeRes.json();
       if (storeData.error) {
-        setPageError(storeData.reason === "inactive" ? "inactive" : "not_found");
+        const reason = storeData.reason === "inactive" ? "inactive" : storeData.reason === "database_error" ? "database_error" : "not_found";
+        setPageError(reason);
         setLoading(false);
         return;
       }
       setStore(storeData);
     } catch {
-      setPageError("not_found");
+      // /api/store自体に到達できない（通信断・サーバー障害等）。店舗が存在しないと断定しない。
+      setPageError("database_error");
       setLoading(false);
       return;
     }
@@ -454,6 +456,26 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
       <div style={{ textAlign: "center" }}>
         <div style={{ width: "48px", height: "48px", borderRadius: "50%", border: "4px solid #E8F5ED", borderTop: "4px solid #2C7A4B", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
         <p style={{ color: "#888", fontSize: "14px" }}>{T.loading}</p>
+      </div>
+    </div>
+  );
+
+  if (pageError === "database_error") return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: "48px", marginBottom: "16px" }}>⚠️</div>
+        <h2 style={{ color: "#1a2533", margin: "0 0 8px" }}>{T.databaseError.title}</h2>
+        <p style={{ color: "#888", fontSize: "14px", margin: "0 0 20px" }}>{T.databaseError.message}</p>
+        <button
+          onClick={fetchData}
+          style={{
+            padding: "12px 24px", borderRadius: "10px", border: "none",
+            background: "linear-gradient(135deg, #2C7A4B, #3DA66A)", color: "#fff",
+            fontFamily: "inherit", fontSize: "14px", fontWeight: "700", cursor: "pointer",
+          }}
+        >
+          {T.databaseError.retry}
+        </button>
       </div>
     </div>
   );

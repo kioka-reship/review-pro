@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/monthly",
       "schedule": "0 1 5 * *"
+    },
+    {
+      "path": "/api/cron/supabase-keepalive",
+      "schedule": "0 0 * * *"
     }
   ]
 }

@@ -21,6 +21,7 @@ export interface Translations {
   loading: string;
   notFound: { title: string; message: string };
   inactive: { title: string; message: string };
+  databaseError: { title: string; message: string; retry: string };
   loadError: { title: string; message: string; retry: string };
   header: { label: string };
   welcome: { title: string; subtitle: string; features: [string, string, string] };
@@ -74,6 +75,7 @@ const translations: Record<LangCode, Translations> = {
     loading: "読み込み中...",
     notFound: { title: "ページが見つかりません", message: "URLをご確認ください" },
     inactive: { title: "現在ご利用いただけません", message: "現在この店舗のレビュー受付はご利用いただけません。" },
+    databaseError: { title: "接続エラー", message: "現在システムに接続できません。しばらくしてから再度お試しください。", retry: "再読み込み" },
     loadError: { title: "読み込みに失敗しました", message: "通信状況をご確認のうえ、もう一度お試しください", retry: "再読み込み" },
     header: { label: "口コミ投稿フォーム" },
     welcome: {
@@ -129,6 +131,7 @@ const translations: Record<LangCode, Translations> = {
     loading: "Loading...",
     notFound: { title: "Page not found", message: "Please check the URL" },
     inactive: { title: "Currently unavailable", message: "Review submission for this store is currently unavailable." },
+    databaseError: { title: "Connection error", message: "Unable to connect to the system right now. Please try again later.", retry: "Retry" },
     loadError: { title: "Failed to load", message: "Please check your connection and try again", retry: "Retry" },
     header: { label: "Review Submission Form" },
     welcome: {
@@ -193,6 +196,7 @@ const translations: Record<LangCode, Translations> = {
     loading: "加载中...",
     notFound: { title: "页面未找到", message: "请检查URL" },
     inactive: { title: "暂不可用", message: "该店铺当前暂不接受评价。" },
+    databaseError: { title: "连接错误", message: "当前无法连接系统，请稍后再试。", retry: "重新加载" },
     loadError: { title: "加载失败", message: "请检查网络连接后重试", retry: "重新加载" },
     header: { label: "评价提交表单" },
     welcome: {
@@ -257,6 +261,7 @@ const translations: Record<LangCode, Translations> = {
     loading: "로딩 중...",
     notFound: { title: "페이지를 찾을 수 없습니다", message: "URL을 확인해 주세요" },
     inactive: { title: "현재 이용할 수 없습니다", message: "이 매장은 현재 리뷰 접수를 이용할 수 없습니다." },
+    databaseError: { title: "연결 오류", message: "현재 시스템에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.", retry: "다시 시도" },
     loadError: { title: "로딩에 실패했습니다", message: "네트워크 상태를 확인한 후 다시 시도해 주세요", retry: "다시 시도" },
     header: { label: "리뷰 작성 폼" },
     welcome: {
