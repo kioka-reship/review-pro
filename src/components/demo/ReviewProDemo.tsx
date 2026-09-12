@@ -261,7 +261,11 @@ export function DemoGeneratePage() {
   };
 
   const goGoogle = async () => {
-    if (selectedReview) await navigator.clipboard.writeText(selectedReview);
+    try {
+      if (selectedReview) await navigator.clipboard.writeText(selectedReview);
+    } catch {
+      // Clipboard access can be blocked in preview browsers; the demo flow should still continue.
+    }
     setState((current) => ({ ...current, copied: true }));
     router.push("/demo/google");
   };
@@ -420,7 +424,7 @@ export function DemoGooglePage({ googleReviewUrl }: { googleReviewUrl: string | 
   const { state, resetDemo, hydrated } = useDemoState();
   const selectedReview = state.reviews[state.selectedStyle];
   const [reviewText, setReviewText] = useState("");
-  const [demoNotice, setDemoNotice] = useState(false);
+  const [completedReview, setCompletedReview] = useState<{ rating: number; reviewText: string; storeName: string } | null>(null);
 
   useEffect(() => {
     setReviewText(selectedReview);
@@ -431,7 +435,11 @@ export function DemoGooglePage({ googleReviewUrl }: { googleReviewUrl: string | 
       window.location.href = googleReviewUrl;
       return;
     }
-    setDemoNotice(true);
+    setCompletedReview({
+      rating: state.rating,
+      reviewText,
+      storeName: STORE.name,
+    });
   };
 
   if (!hydrated) return <DemoShell><LoadingCard /></DemoShell>;
@@ -442,60 +450,108 @@ export function DemoGooglePage({ googleReviewUrl }: { googleReviewUrl: string | 
       </DemoShell>
     );
   }
+  if (completedReview) {
+    return (
+      <DemoShell>
+        <section style={googleCompleteCardStyle}>
+          <div style={celebrationAreaStyle}>
+            <span style={{ ...sparkleStyle, left: "14%", top: "16%", color: "#25A55F" }}>✦</span>
+            <span style={{ ...sparkleStyle, left: "30%", top: "8%", color: "#1A73E8" }}>▰</span>
+            <span style={{ ...sparkleStyle, left: "52%", top: "18%", color: "#FABB05" }}>✦</span>
+            <span style={{ ...sparkleStyle, right: "18%", top: "9%", color: "#EA4335" }}>▰</span>
+            <span style={{ ...sparkleStyle, right: "8%", top: "24%", color: "#1A73E8" }}>✦</span>
+            <div style={completeProfileIconStyle}>山</div>
+          </div>
+          <div style={completeContentStyle}>
+            <div style={profileLinkMockStyle}>公開プロフィールでの投稿を表示 ＞</div>
+            <div style={pointsHeroStyle}>+39 ポイント</div>
+            <p style={pointsLeadStyle}>投稿によってポイントを獲得しました。</p>
+            <div style={pointsBreakdownStyle}>
+              {[
+                { label: "評価", value: "+1", color: "#FABB05" },
+                { label: "クチコミ", value: "+10", color: "#EA4335" },
+                { label: "回答", value: "+3", color: "#1A73E8" },
+                { label: "写真", value: "+25", color: "#25A55F" },
+              ].map((item) => (
+                <div key={item.label} style={pointRowStyle}>
+                  <span style={{ ...pointIconStyle, background: item.color }} />
+                  <span style={pointLabelStyle}>{item.label}</span>
+                  <span style={pointValueStyle}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={resetDemo} style={subtleResetStyle}>
+              最初からやり直す
+            </button>
+            <div style={completeFooterStyle}>
+              <div>Google口コミ投稿のデモです</div>
+              <div>Powered by <strong>REVIEW PRO</strong></div>
+              <div>※これはデモ環境です</div>
+            </div>
+          </div>
+        </section>
+      </DemoShell>
+    );
+  }
 
   return (
     <DemoShell>
-      <section style={googleDemoCardStyle}>
-        <div style={googleTopBarStyle}>
-          <div style={googleHandleStyle}>G</div>
-          <div>
-            <div style={googleDemoLabelStyle}>Google口コミ投稿デモ</div>
+      <section style={googleDemoFrameStyle}>
+        <div style={reviewProDemoHeaderStyle}>
+          <div style={reviewProDemoBadgeStyle}>REVIEW PRO デモ</div>
+          <div style={reviewProDemoTitleStyle}>Google口コミ投稿体験</div>
+        </div>
+        <div style={googleMockIntroStyle}>
+          <span style={googleMockLineStyle} />
+          <span>ここからGoogle投稿画面モック</span>
+          <span style={googleMockLineStyle} />
+        </div>
+        <div style={googleMockCardStyle}>
+          <div style={googleTopBarStyle}>
+            <div style={googleHandleStyle}>G</div>
             <div style={googleTopTitleStyle}>口コミを投稿</div>
           </div>
+          <div style={googleContentStyle}>
+            <div style={googleStoreBlockStyle}>
+              <div style={googleStoreAvatarStyle}>R</div>
+              <div>
+                <h1 style={googleStoreNameStyle}>{STORE.name}</h1>
+                <p style={googleStoreMetaStyle}>美容脱毛サロン</p>
+              </div>
+            </div>
+            <div style={googleAccountRowStyle}>
+              <div style={googleAccountAvatarStyle}>山</div>
+              <div>
+                <div style={googleAccountNameStyle}>山田 花子</div>
+                <div style={googlePublicNoteStyle}>Google全体で投稿を公開します</div>
+              </div>
+            </div>
+            <GoogleReviewStars rating={state.rating} />
+            <label style={googleTextareaLabelStyle} htmlFor="demo-google-review">
+              口コミ本文
+            </label>
+            <textarea
+              id="demo-google-review"
+              value={reviewText}
+              onChange={(event) => setReviewText(event.target.value)}
+              rows={8}
+              style={googleReviewTextareaStyle}
+            />
+            {state.copied && (
+              <p style={googleCopiedNoteStyle}>口コミ文をコピーしました</p>
+            )}
+            <button type="button" onClick={submitReview} style={googlePostButtonStyle}>
+              投稿
+            </button>
+            <button type="button" onClick={resetDemo} style={subtleResetStyle}>
+              最初からやり直す
+            </button>
+          </div>
         </div>
-        <div style={googleContentStyle}>
-          <div style={googleStoreBlockStyle}>
-            <div style={googleStoreAvatarStyle}>R</div>
-            <div>
-              <h1 style={googleStoreNameStyle}>{STORE.name}</h1>
-              <p style={googleStoreMetaStyle}>美容脱毛サロン</p>
-            </div>
-          </div>
-          <div style={googleAccountRowStyle}>
-            <div style={googleAccountAvatarStyle}>山</div>
-            <div>
-              <div style={googleAccountNameStyle}>山田 花子</div>
-              <div style={googlePublicNoteStyle}>公開投稿として表示されます</div>
-            </div>
-          </div>
-          <GoogleReviewStars rating={state.rating} />
-          <label style={googleTextareaLabelStyle} htmlFor="demo-google-review">
-            口コミ本文
-          </label>
-          <textarea
-            id="demo-google-review"
-            value={reviewText}
-            onChange={(event) => {
-              setReviewText(event.target.value);
-              setDemoNotice(false);
-            }}
-            rows={8}
-            style={googleReviewTextareaStyle}
-          />
-          {state.copied && (
-            <p style={googleCopiedNoteStyle}>口コミ文をコピーしました</p>
-          )}
-          <button type="button" onClick={submitReview} style={googlePostButtonStyle}>
-            投稿
-          </button>
-          {demoNotice && (
-            <p style={googleDemoNoticeStyle}>デモ環境のため、実際のGoogle口コミは投稿されません</p>
-          )}
-          <button type="button" onClick={resetDemo} style={subtleResetStyle}>
-            最初からやり直す
-          </button>
-          <PoweredBy />
-          <p style={googleDisclaimerStyle}>Google口コミ投稿のデモです</p>
+        <div style={googleFrameFooterStyle}>
+          <div>Google口コミ投稿のデモです</div>
+          <div>Powered by <strong>REVIEW PRO</strong></div>
+          <div>※これはデモ環境です</div>
         </div>
       </section>
     </DemoShell>
@@ -785,10 +841,15 @@ const pillStyle: React.CSSProperties = { background: "#F0FAF4", color: "#2C7A4B"
 const languageButtonStyle: React.CSSProperties = { border: "1px solid #E5E7EB", borderRadius: "10px", background: "#fff", color: "#555", padding: "8px 4px", fontFamily: "inherit", fontSize: "11px", fontWeight: 700 };
 const poweredByStyle: React.CSSProperties = { marginTop: "auto", paddingTop: "18px", textAlign: "center", color: "#B0B7C0", fontSize: "11px", lineHeight: 1.8 };
 const demoFootnoteStyle: React.CSSProperties = { color: "#C2C7CF", fontSize: "10px", fontWeight: 400 };
-const googleDemoCardStyle: React.CSSProperties = { minHeight: "calc(100vh - 24px)", background: "#fff", borderRadius: "18px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column" };
+const googleDemoFrameStyle: React.CSSProperties = { minHeight: "calc(100vh - 24px)", background: "#EEF2F6", borderRadius: "18px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column" };
+const reviewProDemoHeaderStyle: React.CSSProperties = { padding: "18px 18px 14px", background: "#123225", color: "#fff", borderBottom: "1px solid rgba(255,255,255,0.08)" };
+const reviewProDemoBadgeStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", minHeight: "22px", padding: "3px 9px", borderRadius: "999px", background: "rgba(255,255,255,0.13)", color: "#DDF5E8", fontSize: "10px", fontWeight: 800, letterSpacing: "0.06em" };
+const reviewProDemoTitleStyle: React.CSSProperties = { marginTop: "8px", fontSize: "20px", fontWeight: 900, lineHeight: 1.3, letterSpacing: 0 };
+const googleMockIntroStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "10px", padding: "12px 18px", color: "#7A8088", fontSize: "11px", fontWeight: 700 };
+const googleMockLineStyle: React.CSSProperties = { height: "1px", background: "#D9DEE5", flex: 1 };
+const googleMockCardStyle: React.CSSProperties = { margin: "0 12px", background: "#fff", borderRadius: "16px", overflow: "hidden", border: "1px solid #E3E7ED", boxShadow: "0 1px 6px rgba(15,23,42,0.05)" };
 const googleTopBarStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "12px", padding: "18px 18px 14px", borderBottom: "1px solid #EEF0F3", background: "#fff" };
 const googleHandleStyle: React.CSSProperties = { width: "34px", height: "34px", borderRadius: "50%", background: "#F1F3F4", color: "#3C4043", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Outfit, sans-serif", fontSize: "18px", fontWeight: 800 };
-const googleDemoLabelStyle: React.CSSProperties = { fontSize: "11px", color: "#8A9099", fontWeight: 700, letterSpacing: "0.03em" };
 const googleTopTitleStyle: React.CSSProperties = { marginTop: "2px", fontSize: "18px", color: "#202124", fontWeight: 800 };
 const googleContentStyle: React.CSSProperties = { padding: "20px 18px 26px", display: "flex", flexDirection: "column", flex: 1 };
 const googleStoreBlockStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px" };
@@ -806,5 +867,18 @@ const googleTextareaLabelStyle: React.CSSProperties = { color: "#3C4043", fontSi
 const googleReviewTextareaStyle: React.CSSProperties = { width: "100%", minHeight: "190px", padding: "14px", border: "1.5px solid #DADCE0", borderRadius: "12px", color: "#202124", fontFamily: "inherit", fontSize: "15px", lineHeight: 1.75, outline: "none", resize: "vertical", marginBottom: "10px" };
 const googleCopiedNoteStyle: React.CSSProperties = { margin: "0 0 10px", color: "#7A8088", fontSize: "11px", textAlign: "right" };
 const googlePostButtonStyle: React.CSSProperties = { ...primaryButtonStyle, marginTop: "4px", background: "#1A73E8", boxShadow: "0 4px 14px rgba(26,115,232,0.24)", borderRadius: "999px", padding: "15px" };
-const googleDemoNoticeStyle: React.CSSProperties = { margin: "10px 0 0", color: "#5F6368", fontSize: "12px", lineHeight: 1.6, textAlign: "center" };
-const googleDisclaimerStyle: React.CSSProperties = { margin: "4px 0 0", color: "#C2C7CF", fontSize: "10px", textAlign: "center" };
+const googleFrameFooterStyle: React.CSSProperties = { marginTop: "auto", padding: "14px 18px 18px", color: "#AAB1BB", fontSize: "10px", lineHeight: 1.8, textAlign: "center" };
+const googleCompleteCardStyle: React.CSSProperties = { minHeight: "calc(100vh - 24px)", background: "#fff", borderRadius: "18px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column" };
+const celebrationAreaStyle: React.CSSProperties = { position: "relative", minHeight: "142px", display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "8px", background: "linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%)" };
+const sparkleStyle: React.CSSProperties = { position: "absolute", fontSize: "20px", fontWeight: 900, transform: "rotate(-12deg)" };
+const completeProfileIconStyle: React.CSSProperties = { width: "70px", height: "70px", borderRadius: "50%", background: "linear-gradient(135deg, #DDE8FF, #F2F6FF)", color: "#2B4A7F", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", fontWeight: 900, boxShadow: "0 8px 20px rgba(43,74,127,0.12)" };
+const completeContentStyle: React.CSSProperties = { padding: "4px 34px 26px", textAlign: "center", display: "flex", flexDirection: "column", flex: 1 };
+const profileLinkMockStyle: React.CSSProperties = { color: "#1A73E8", fontSize: "12px", fontWeight: 800, marginBottom: "18px" };
+const pointsHeroStyle: React.CSSProperties = { color: "#F2994A", fontSize: "30px", fontWeight: 500, lineHeight: 1.25, marginBottom: "10px" };
+const pointsLeadStyle: React.CSSProperties = { margin: "0 auto 22px", color: "#3C4043", fontSize: "15px", lineHeight: 1.55, maxWidth: "230px" };
+const pointsBreakdownStyle: React.CSSProperties = { display: "grid", gap: "15px", margin: "0 auto 20px", width: "100%", maxWidth: "260px", textAlign: "left" };
+const pointRowStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "22px 1fr auto", alignItems: "center", gap: "10px", color: "#6B7280", fontSize: "13px", fontWeight: 800 };
+const pointIconStyle: React.CSSProperties = { width: "18px", height: "18px", borderRadius: "50%", display: "inline-block", boxShadow: "inset 0 0 0 4px rgba(255,255,255,0.35)" };
+const pointLabelStyle: React.CSSProperties = { color: "#6B7280" };
+const pointValueStyle: React.CSSProperties = { color: "#F2994A", fontWeight: 900 };
+const completeFooterStyle: React.CSSProperties = { marginTop: "auto", paddingTop: "14px", color: "#B5BBC4", fontSize: "10px", lineHeight: 1.9, textAlign: "center" };
