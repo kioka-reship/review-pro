@@ -419,42 +419,99 @@ export function DemoFeedbackPage() {
 export function DemoGooglePage({ googleReviewUrl }: { googleReviewUrl: string | null }) {
   const { state, resetDemo, hydrated } = useDemoState();
   const selectedReview = state.reviews[state.selectedStyle];
+  const [reviewText, setReviewText] = useState("");
+  const [demoNotice, setDemoNotice] = useState(false);
+
+  useEffect(() => {
+    setReviewText(selectedReview);
+  }, [selectedReview]);
+
+  const submitReview = () => {
+    if (googleReviewUrl) {
+      window.location.href = googleReviewUrl;
+      return;
+    }
+    setDemoNotice(true);
+  };
 
   if (!hydrated) return <DemoShell><LoadingCard /></DemoShell>;
+  if (!selectedReview) {
+    return (
+      <DemoShell>
+        <EmptyCard title="アンケート回答から始めてください" href="/demo/review" label="フォームへ進む" />
+      </DemoShell>
+    );
+  }
 
   return (
     <DemoShell>
-      <section style={phoneCardStyle}>
-        <DemoHeader />
-        <div style={{ padding: "28px 20px 32px" }}>
-          <h1 style={{ fontSize: "22px", color: "#1a2533", fontWeight: 900, lineHeight: 1.45, margin: "0 0 12px" }}>
-            実際の導入時には、このままGoogle口コミ投稿画面が開きます
-          </h1>
-          <p style={{ color: "#888", fontSize: "14px", lineHeight: 1.8, margin: "0 0 18px" }}>
-            公開デモでは本番店舗のGoogle口コミ画面へは遷移しません。デモ専用URLが設定されている場合だけ外部ページへ進めます。
-          </p>
-          <div style={reviewPreviewStyle}>
-            <p style={{ margin: "0 0 8px", color: "#2C7A4B", fontWeight: 800, fontSize: "12px" }}>
-              コピー済みの口コミ文
-            </p>
-            <p style={{ margin: 0, color: "#555", lineHeight: 1.8, fontSize: "14px" }}>{selectedReview}</p>
+      <section style={googleDemoCardStyle}>
+        <div style={googleTopBarStyle}>
+          <div style={googleHandleStyle}>G</div>
+          <div>
+            <div style={googleDemoLabelStyle}>Google口コミ投稿デモ</div>
+            <div style={googleTopTitleStyle}>口コミを投稿</div>
           </div>
-          {googleReviewUrl ? (
-            <a href={googleReviewUrl} target="_blank" rel="noreferrer" style={primaryButtonStyle}>
-              デモ専用Google口コミ画面へ進む
-            </a>
-          ) : (
-            <button type="button" style={disabledButtonStyle}>
-              デモ専用Google口コミURLは未設定です
-            </button>
+        </div>
+        <div style={googleContentStyle}>
+          <div style={googleStoreBlockStyle}>
+            <div style={googleStoreAvatarStyle}>R</div>
+            <div>
+              <h1 style={googleStoreNameStyle}>{STORE.name}</h1>
+              <p style={googleStoreMetaStyle}>美容脱毛サロン</p>
+            </div>
+          </div>
+          <div style={googleAccountRowStyle}>
+            <div style={googleAccountAvatarStyle}>山</div>
+            <div>
+              <div style={googleAccountNameStyle}>山田 花子</div>
+              <div style={googlePublicNoteStyle}>公開投稿として表示されます</div>
+            </div>
+          </div>
+          <GoogleReviewStars rating={state.rating} />
+          <label style={googleTextareaLabelStyle} htmlFor="demo-google-review">
+            口コミ本文
+          </label>
+          <textarea
+            id="demo-google-review"
+            value={reviewText}
+            onChange={(event) => {
+              setReviewText(event.target.value);
+              setDemoNotice(false);
+            }}
+            rows={8}
+            style={googleReviewTextareaStyle}
+          />
+          {state.copied && (
+            <p style={googleCopiedNoteStyle}>口コミ文をコピーしました</p>
+          )}
+          <button type="button" onClick={submitReview} style={googlePostButtonStyle}>
+            投稿
+          </button>
+          {demoNotice && (
+            <p style={googleDemoNoticeStyle}>デモ環境のため、実際のGoogle口コミは投稿されません</p>
           )}
           <button type="button" onClick={resetDemo} style={subtleResetStyle}>
             最初からやり直す
           </button>
           <PoweredBy />
+          <p style={googleDisclaimerStyle}>Google口コミ投稿のデモです</p>
         </div>
       </section>
     </DemoShell>
+  );
+}
+
+function GoogleReviewStars({ rating }: { rating: number }) {
+  const safeRating = Math.max(0, Math.min(5, Number(rating || 0)));
+  return (
+    <div style={googleStarsWrapStyle} aria-label={`星${safeRating}の評価`}>
+      {[1, 2, 3, 4, 5].map((score) => (
+        <span key={score} style={score <= safeRating ? googleStarActiveStyle : googleStarMutedStyle}>
+          ★
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -728,3 +785,26 @@ const pillStyle: React.CSSProperties = { background: "#F0FAF4", color: "#2C7A4B"
 const languageButtonStyle: React.CSSProperties = { border: "1px solid #E5E7EB", borderRadius: "10px", background: "#fff", color: "#555", padding: "8px 4px", fontFamily: "inherit", fontSize: "11px", fontWeight: 700 };
 const poweredByStyle: React.CSSProperties = { marginTop: "auto", paddingTop: "18px", textAlign: "center", color: "#B0B7C0", fontSize: "11px", lineHeight: 1.8 };
 const demoFootnoteStyle: React.CSSProperties = { color: "#C2C7CF", fontSize: "10px", fontWeight: 400 };
+const googleDemoCardStyle: React.CSSProperties = { minHeight: "calc(100vh - 24px)", background: "#fff", borderRadius: "18px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column" };
+const googleTopBarStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "12px", padding: "18px 18px 14px", borderBottom: "1px solid #EEF0F3", background: "#fff" };
+const googleHandleStyle: React.CSSProperties = { width: "34px", height: "34px", borderRadius: "50%", background: "#F1F3F4", color: "#3C4043", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Outfit, sans-serif", fontSize: "18px", fontWeight: 800 };
+const googleDemoLabelStyle: React.CSSProperties = { fontSize: "11px", color: "#8A9099", fontWeight: 700, letterSpacing: "0.03em" };
+const googleTopTitleStyle: React.CSSProperties = { marginTop: "2px", fontSize: "18px", color: "#202124", fontWeight: 800 };
+const googleContentStyle: React.CSSProperties = { padding: "20px 18px 26px", display: "flex", flexDirection: "column", flex: 1 };
+const googleStoreBlockStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px" };
+const googleStoreAvatarStyle: React.CSSProperties = { width: "44px", height: "44px", borderRadius: "10px", background: "#EAF4EF", color: "#2C7A4B", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Outfit, sans-serif", fontSize: "20px", fontWeight: 900, flexShrink: 0 };
+const googleStoreNameStyle: React.CSSProperties = { margin: 0, color: "#202124", fontSize: "19px", fontWeight: 800, lineHeight: 1.35 };
+const googleStoreMetaStyle: React.CSSProperties = { margin: "3px 0 0", color: "#7A8088", fontSize: "12px" };
+const googleAccountRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "10px", padding: "12px", border: "1px solid #EEF0F3", borderRadius: "12px", background: "#FAFBFC", marginBottom: "20px" };
+const googleAccountAvatarStyle: React.CSSProperties = { width: "34px", height: "34px", borderRadius: "50%", background: "#DDE8FF", color: "#2B4A7F", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 800, flexShrink: 0 };
+const googleAccountNameStyle: React.CSSProperties = { color: "#202124", fontSize: "13px", fontWeight: 800 };
+const googlePublicNoteStyle: React.CSSProperties = { marginTop: "2px", color: "#7A8088", fontSize: "11px" };
+const googleStarsWrapStyle: React.CSSProperties = { display: "flex", justifyContent: "center", gap: "7px", margin: "4px 0 18px", lineHeight: 1 };
+const googleStarActiveStyle: React.CSSProperties = { color: "#FABB05", fontSize: "38px", textShadow: "0 1px 0 rgba(0,0,0,0.04)" };
+const googleStarMutedStyle: React.CSSProperties = { color: "#DADCE0", fontSize: "38px" };
+const googleTextareaLabelStyle: React.CSSProperties = { color: "#3C4043", fontSize: "12px", fontWeight: 800, marginBottom: "8px" };
+const googleReviewTextareaStyle: React.CSSProperties = { width: "100%", minHeight: "190px", padding: "14px", border: "1.5px solid #DADCE0", borderRadius: "12px", color: "#202124", fontFamily: "inherit", fontSize: "15px", lineHeight: 1.75, outline: "none", resize: "vertical", marginBottom: "10px" };
+const googleCopiedNoteStyle: React.CSSProperties = { margin: "0 0 10px", color: "#7A8088", fontSize: "11px", textAlign: "right" };
+const googlePostButtonStyle: React.CSSProperties = { ...primaryButtonStyle, marginTop: "4px", background: "#1A73E8", boxShadow: "0 4px 14px rgba(26,115,232,0.24)", borderRadius: "999px", padding: "15px" };
+const googleDemoNoticeStyle: React.CSSProperties = { margin: "10px 0 0", color: "#5F6368", fontSize: "12px", lineHeight: 1.6, textAlign: "center" };
+const googleDisclaimerStyle: React.CSSProperties = { margin: "4px 0 0", color: "#C2C7CF", fontSize: "10px", textAlign: "center" };
