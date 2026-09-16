@@ -33,6 +33,13 @@ type BuiltAnswers = {
   gender: string;
   age: string;
 };
+type SurveyAnswerSnapshot = {
+  question_id: number | null;
+  question_order: number;
+  question_label: string;
+  question_type: string;
+  answer_value: unknown;
+};
 
 // 人数系の質問ラベルを補助的に判定するためのキーワード（label判定は最終手段としてのみ使用）
 const PARTY_KEYWORDS = ["人数", "何人", "お一人", "一人", "名様", "何名"];
@@ -43,6 +50,99 @@ type LoadingStates = { casual: boolean; honest: boolean; formal: boolean };
 type Reviews = { casual: string; honest: string; formal: string };
 
 const STYLE_KEYS: StyleKey[] = ["casual", "honest", "formal"];
+const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const IN_PROGRESS_SESSION_TTL_MS = 4 * 60 * 60 * 1000;
+const COMPLETED_SESSION_BACK_TTL_MS = 30 * 60 * 1000;
+
+type StoredSurveySession = {
+  session_id: string;
+  store_id: string;
+  created_at: number;
+  completed: boolean;
+  completed_at?: number;
+};
+
+function getSessionStorageKey(storeId: string) {
+  return `review-pro:survey-session:${storeId}`;
+}
+
+function createStoredSession(storeId: string): StoredSurveySession {
+  return {
+    session_id: crypto.randomUUID(),
+    store_id: storeId,
+    created_at: Date.now(),
+    completed: false,
+  };
+}
+
+function saveStoredSession(storeId: string, session: StoredSurveySession) {
+  window.sessionStorage.setItem(getSessionStorageKey(storeId), JSON.stringify(session));
+}
+
+function reusableStoredSession(session: StoredSurveySession, storeId: string, now: number) {
+  if (session.store_id !== storeId || !SESSION_ID_RE.test(session.session_id)) return false;
+  const age = now - session.created_at;
+  if (!session.completed) return age >= 0 && age <= IN_PROGRESS_SESSION_TTL_MS;
+  const completedAt = session.completed_at ?? session.created_at;
+  return now - completedAt >= 0 && now - completedAt <= COMPLETED_SESSION_BACK_TTL_MS;
+}
+
+function getOrCreateSessionId(storeId: string) {
+  const key = getSessionStorageKey(storeId);
+  try {
+    const existing = window.sessionStorage.getItem(key);
+    const now = Date.now();
+    if (existing) {
+      if (SESSION_ID_RE.test(existing)) {
+        const migrated: StoredSurveySession = {
+          session_id: existing,
+          store_id: storeId,
+          created_at: now,
+          completed: false,
+        };
+        saveStoredSession(storeId, migrated);
+        return migrated.session_id;
+      }
+      const parsed = JSON.parse(existing) as StoredSurveySession;
+      if (reusableStoredSession(parsed, storeId, now)) return parsed.session_id;
+    }
+    const next = createStoredSession(storeId);
+    saveStoredSession(storeId, next);
+    return next.session_id;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+function resetStoredSessionId(storeId: string) {
+  const next = createStoredSession(storeId);
+  try {
+    saveStoredSession(storeId, next);
+  } catch { /* ignore */ }
+  return next.session_id;
+}
+
+function markStoredSessionCompleted(storeId: string, sessionId: string) {
+  try {
+    const key = getSessionStorageKey(storeId);
+    const existing = window.sessionStorage.getItem(key);
+    const now = Date.now();
+    const parsed = existing && !SESSION_ID_RE.test(existing)
+      ? JSON.parse(existing) as StoredSurveySession
+      : {
+        session_id: sessionId,
+        store_id: storeId,
+        created_at: now,
+        completed: false,
+      };
+    if (parsed.session_id !== sessionId) return;
+    saveStoredSession(storeId, {
+      ...parsed,
+      completed: true,
+      completed_at: now,
+    });
+  } catch { /* ignore */ }
+}
 
 function StarRating({
   value,
@@ -197,6 +297,20 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   const [gender, setGender] = useState<string>("");
   const [age, setAge] = useState<string>("");
 
+  const postSurveyEvent = useCallback((payload: Record<string, any>, keepalive = false) => {
+    const body = JSON.stringify(payload);
+    if (keepalive && typeof navigator !== "undefined" && "sendBeacon" in navigator) {
+      const blob = new Blob([body], { type: "application/json" });
+      if (navigator.sendBeacon("/api/survey/event", blob)) return;
+    }
+    fetch("/api/survey/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive,
+    }).catch(() => {});
+  }, []);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setPageError(null);
@@ -221,7 +335,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
     }
 
     // 店舗取得成功後の付随データ。失敗しても notFound にはしない
-    const sid = crypto.randomUUID();
+    const sid = getOrCreateSessionId(params.storeId);
     setSessionId(sid);
     fetch("/api/qr-log", {
       method: "POST",
@@ -343,6 +457,63 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
     };
   };
 
+  const buildSurveyAnswerSnapshots = (): SurveyAnswerSnapshot[] => {
+    const sorted = [...baseQuestions].sort((a, b) => a.order_num - b.order_num);
+    const rows: SurveyAnswerSnapshot[] = sorted
+      .filter((q) => answers[q.id] !== undefined && answers[q.id] !== null && answers[q.id] !== "")
+      .map((q) => ({
+        question_id: q.id,
+        question_order: q.order_num,
+        question_label: q.label,
+        question_type: q.type,
+        answer_value: answers[q.id],
+      }));
+
+    rows.push(
+      {
+        question_id: null,
+        question_order: sorted.length + 1,
+        question_label: "性別",
+        question_type: "select",
+        answer_value: gender,
+      },
+      {
+        question_id: null,
+        question_order: sorted.length + 2,
+        question_label: "年代",
+        question_type: "select",
+        answer_value: age,
+      },
+    );
+
+    return rows;
+  };
+
+  const recordSurveyCompleted = async () => {
+    if (!store || !sessionId) return;
+    const builtAnswers = buildAnswersForGenerate();
+    const payload = {
+      store_id: store.id,
+      session_id: sessionId,
+      event_type: "survey_completed",
+      rating: builtAnswers.rating,
+      answers: buildSurveyAnswerSnapshots(),
+      language: lang,
+      metadata: { source: "review_page" },
+    };
+    try {
+      const res = await fetch("/api/survey/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("survey_completed analytics failed");
+    } catch {
+      setTimeout(() => postSurveyEvent(payload), 1500);
+    }
+    markStoredSessionCompleted(store.id, sessionId);
+  };
+
   const generateAll = async () => {
     if (!store) return;
     setStep("generating");
@@ -367,7 +538,19 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
   };
 
   const handleNext = async () => {
-    if (step === "welcome") { setStep("questions"); return; }
+    if (step === "welcome") {
+      if (store && sessionId) {
+        postSurveyEvent({
+          store_id: store.id,
+          session_id: sessionId,
+          event_type: "survey_started",
+          language: lang,
+          metadata: { source: "review_page" },
+        });
+      }
+      setStep("questions");
+      return;
+    }
     if (step === "questions") {
       if (!isGenderAgePage && currentQuestion?.type === "stars") {
         const rating = answers[currentQuestion.id] || 0;
@@ -378,6 +561,7 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
         }
       }
       if (isGenderAgePage) {
+        await recordSurveyCompleted();
         await generateAll();
       } else {
         setCurrentQ(c => c + 1);
@@ -435,12 +619,30 @@ export default function ReviewPage({ params }: { params: { storeId: string } }) 
     if (!store || !googleReviewTargetUrl) return;
     const text = reviews[selectedStyle];
     navigator.clipboard.writeText(text).then(() => {
+      if (sessionId) {
+        postSurveyEvent({
+          store_id: store.id,
+          session_id: sessionId,
+          event_type: "google_review_clicked",
+          language: lang,
+          metadata: { selected_style: selectedStyle },
+        }, true);
+      }
       setCopied(true);
       setTimeout(() => { window.location.href = googleReviewTargetUrl; }, 500);
     });
   };
 
   const handleRestart = () => {
+    if (store) {
+      const nextSessionId = resetStoredSessionId(store.id);
+      setSessionId(nextSessionId);
+      fetch("/api/qr-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ store_id: store.id, session_id: nextSessionId }),
+      }).catch(() => {});
+    }
     setStep("welcome");
     setCurrentQ(0);
     setAnswers({});

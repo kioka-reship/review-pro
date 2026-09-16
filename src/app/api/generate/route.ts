@@ -8,6 +8,7 @@ import {
   type FactCheckAnswers,
   type FactCheckStore,
 } from "../../../lib/reviewFactCheck";
+import { isValidUuid, recordSurveyEvent } from "../../../lib/surveyAnalytics";
 
 const NG_WORDS = [
   "殺", "死ね", "バカ", "アホ", "クソ", "最悪", "詐欺", "偽物",
@@ -34,8 +35,8 @@ async function getMonthlySessionCount(supabase: ReturnType<typeof getAdminClient
     .select("session_id")
     .eq("store_id", storeId)
     .not("session_id", "is", null)
-    .gte("created_at", firstDay)
-    .lte("created_at", lastDay);
+    .gte("accessed_at", firstDay)
+    .lte("accessed_at", lastDay);
 
   if (!data) return 0;
   const uniqueSessions = new Set(data.map((row: any) => row.session_id));
@@ -442,6 +443,26 @@ export async function POST(req: Request) {
     const prompt = buildSinglePrompt(ctx, styleKey);
     const result = await callOpenAI(langCfg.systemPrompt, prompt);
     const text = finalizePattern(result.ok ? result.content : null, lang, styleKey, permitted, answers, store);
+
+    if (storeId && session_id && isValidUuid(session_id)) {
+      try {
+        const supabase = getAdminClient();
+        await recordSurveyEvent(supabase, {
+          storeId,
+          sessionId: session_id,
+          eventType: result.ok ? "ai_generated" : "ai_generation_failed",
+          language: lang,
+          eventKey: `${styleKey}-${Date.now()}`,
+          metadata: {
+            style: styleKey,
+            language: lang,
+            fallback_used: !result.ok,
+          },
+        });
+      } catch (eventError) {
+        console.error("[generate] survey analytics failed:", eventError);
+      }
+    }
 
     return Response.json({ text });
 

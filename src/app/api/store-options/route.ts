@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../lib/supabase-admin";
+import { listEffectiveOptions } from "../../../lib/planFeatures";
 
 export const dynamic = "force-dynamic";
 
@@ -17,15 +18,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "store_id required" }, { status: 400 });
   }
 
-  const { data, error } = await supabase
-    .from("option_subscriptions")
-    .select("option_key, status")
-    .eq("store_id", store_id)
-    .eq("status", "active");
-
-  if (error) {
+  try {
+    const options = await listEffectiveOptions(supabase, store_id);
+    return NextResponse.json({ options });
+  } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ options: data ?? [] });
 }

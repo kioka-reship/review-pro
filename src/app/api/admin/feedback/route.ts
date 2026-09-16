@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
 import { requireAdminOrStoreOwner } from "../../../../lib/auth";
+import { getFeatureAccess } from "../../../../lib/planFeatures";
 
 export const dynamic = "force-dynamic";
 
@@ -17,19 +18,12 @@ export async function GET(req: NextRequest) {
   // オーナー（result === "user"）の場合: feedback_list 契約日以降のみ返す
   let feedbackListCreatedAt: string | null = null;
   if (result === "user" && store_id) {
-    const { data: optData } = await supabase
-      .from("option_subscriptions")
-      .select("created_at")
-      .eq("store_id", store_id)
-      .eq("option_key", "feedback_list")
-      .eq("status", "active")
-      .maybeSingle();
-
-    if (!optData) {
+    const feedbackList = await getFeatureAccess(supabase, store_id, "feedback_list");
+    if (!feedbackList.enabled) {
       // feedback_list 未契約または非アクティブ → 空を返す
       return NextResponse.json({ feedback: [] });
     }
-    feedbackListCreatedAt = optData.created_at;
+    feedbackListCreatedAt = feedbackList.optionCreatedAt;
   }
 
   let query = supabase
