@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import AnalyticsDashboard from "../../components/mypage/AnalyticsDashboard";
 
 type Store = {
   id: string;
@@ -124,7 +125,7 @@ export default function MyPage() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [options, setOptions] = useState<OptionSub[]>([]);
-  const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "questions" | "feedback" | "cancel" | "qr_analytics">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "billing" | "qr" | "plan" | "options" | "questions" | "feedback" | "cancel" | "qr_analytics" | "analytics">("home");
   const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [feedbackMonth, setFeedbackMonth] = useState("");
   const [qrLogs, setQrLogs] = useState<any[]>([]);
@@ -408,6 +409,7 @@ export default function MyPage() {
           <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
             {[
               { key: "home", label: "🏠 ホーム" },
+              { key: "analytics", label: "📈 成果レポート" },
               { key: "plan", label: "📋 プラン変更" },
               ...(store?.plan === "standard" || store?.plan === "premium" ? [{ key: "options", label: "➕ オプション" }] : []),
               ...(store?.plan !== "light" ? [{ key: "questions", label: "❓ 質問設定" }] : []),
@@ -751,6 +753,11 @@ export default function MyPage() {
                 </button>
               )}
             </div>
+          )}
+
+          {/* 成果レポート */}
+          {activeTab === "analytics" && (
+            <AnalyticsDashboard />
           )}
 
           {/* 低評価フィードバック */}
