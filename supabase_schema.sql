@@ -18,7 +18,7 @@ create table stores (
   monthly_price            int,
   setup_fee_paid_amount    int default 0,
   place_id                 text,
-  status                   text not null default 'active',
+  status                   text not null default '入金待ち',
   pending_plan             text,
   pending_billing_cycle    text,
   downgrade_scheduled_plan text,

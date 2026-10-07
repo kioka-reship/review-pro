@@ -13,6 +13,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "store_id is required" }, { status: 400 });
   }
 
+  const { data: store, error: storeError } = await supabase
+    .from("stores")
+    .select("id, status")
+    .eq("id", store_id)
+    .single();
+
+  if (storeError || !store) {
+    return NextResponse.json({ error: "Store not found" }, { status: 404 });
+  }
+
+  if (store.status !== "契約中") {
+    return NextResponse.json({ error: "Store is inactive" }, { status: 403 });
+  }
+
   const { data, error } = await supabase
     .from("questions")
     .select("*")
