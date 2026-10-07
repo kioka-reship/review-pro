@@ -37,7 +37,7 @@ alter table stores
 add column if not exists billing_provider text default 'manual';
 
 update stores
-set billing_provider = 'manual', updated_at = now()
+set billing_provider = 'manual'
 where billing_provider is null;
 
 -- 確認済みの無料/テスト店舗はSquare課金監視対象外
