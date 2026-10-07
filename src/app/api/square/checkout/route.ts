@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
+import { BILLING_PROVIDER } from "../../../../lib/squareBilling";
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN!;
 const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
@@ -109,6 +110,7 @@ export async function POST(req: NextRequest) {
       .from("stores")
       .update({
         billing_cycle,
+        billing_provider: BILLING_PROVIDER.SQUARE,
         monthly_price: monthlyPrice,
         setup_fee_paid_amount: setupFee,
         setup_fee_paid_plan: plan,

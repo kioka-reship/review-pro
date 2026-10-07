@@ -8,6 +8,15 @@ export const SQUARE_API_BASE = process.env.SQUARE_ENV === "sandbox"
 
 export type ReviewProBillingStatus = "契約中" | "入金待ち" | "停止中" | "仮申込" | "解約予約" | "解約済";
 
+export const BILLING_PROVIDERS = ["square", "manual", "none"] as const;
+export type BillingProvider = typeof BILLING_PROVIDERS[number];
+
+export const BILLING_PROVIDER = {
+  SQUARE: "square",
+  MANUAL: "manual",
+  NONE: "none",
+} as const satisfies Record<string, BillingProvider>;
+
 export type SquareSubscriptionStatus =
   | "PENDING"
   | "ACTIVE"
@@ -74,9 +83,14 @@ export type SyncResult = {
   reason?: string;
 };
 
-export function isSubscriptionRequired(store: { billing_cycle?: string | null }) {
+export function isSquareBillingManaged(store: { billing_provider?: string | null }) {
+  return store.billing_provider === BILLING_PROVIDER.SQUARE;
+}
+
+export function isSubscriptionRequired(store: { billing_cycle?: string | null; billing_provider?: string | null }) {
   // Current checkout creates the first payment separately, then uses Square Subscriptions
   // for ongoing monthly billing for both monthly and yearly contract pricing.
+  if (!isSquareBillingManaged(store)) return false;
   return store.billing_cycle === "monthly" || store.billing_cycle === "yearly" || !store.billing_cycle;
 }
 
@@ -298,6 +312,7 @@ export async function reconcileStoreSubscription(
     id: string;
     status: string | null;
     billing_cycle?: string | null;
+    billing_provider?: string | null;
     subscription_id?: string | null;
     setup_fee_paid_at?: string | null;
   },

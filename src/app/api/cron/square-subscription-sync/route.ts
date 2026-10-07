@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
-import { isSubscriptionRequired, reconcileStoreSubscription } from "../../../../lib/squareBilling";
+import { BILLING_PROVIDER, isSubscriptionRequired, reconcileStoreSubscription } from "../../../../lib/squareBilling";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     details: [] as Array<{
       store_id: string;
       subscription_id: string | null;
+      billing_provider: string | null;
       old_status: string | null;
       new_status: string | null;
       square_status: string | null;
@@ -32,8 +33,9 @@ export async function GET(req: NextRequest) {
 
   const { data: stores, error } = await supabase
     .from("stores")
-    .select("id, status, billing_cycle, subscription_id, setup_fee_paid_at")
+    .select("id, status, billing_cycle, billing_provider, subscription_id, setup_fee_paid_at")
     .in("status", ["契約中", "停止中", "解約予約"])
+    .eq("billing_provider", BILLING_PROVIDER.SQUARE)
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -60,6 +62,7 @@ export async function GET(req: NextRequest) {
     results.details.push({
       store_id: result.storeId,
       subscription_id: result.subscriptionId,
+      billing_provider: store.billing_provider,
       old_status: result.oldStatus,
       new_status: result.newStatus,
       square_status: result.squareStatus,

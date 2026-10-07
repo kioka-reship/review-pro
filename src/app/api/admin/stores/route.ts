@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "../../../../lib/supabase-admin";
 import { requireAdmin } from "../../../../lib/auth";
 import { STORE_STATUSES } from "../../../../lib/storeStatus";
+import { BILLING_PROVIDER } from "../../../../lib/squareBilling";
 
 // 全店舗取得
 export async function GET(req: NextRequest) {
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("stores")
-    .insert({ id, name, type, owner_name, email, password, plan, place_id, status: "契約中" })
+    .insert({ id, name, type, owner_name, email, password, plan, place_id, status: "契約中", billing_provider: BILLING_PROVIDER.MANUAL })
     .select()
     .single();
 

@@ -6,8 +6,10 @@ import { sendAdminNotification } from "../../../../lib/sendAdminNotification";
 import { appendStoreToSheet } from "../../../../lib/google-sheets";
 import { getDefaultQuestionsForType } from "../../../../lib/defaultQuestions";
 import {
+  BILLING_PROVIDER,
   SQUARE_API_BASE,
   SQUARE_API_VERSION,
+  isSquareBillingManaged,
   isSubscriptionRequired,
   logBillingEvent,
   reconcileStoreSubscription,
@@ -161,11 +163,18 @@ async function findStoreByOrderId(supabase: SupabaseClient, orderId: string): Pr
 async function findStoreBySubscriptionId(supabase: SupabaseClient, subscriptionId: string) {
   const { data, error } = await supabase
     .from("stores")
-    .select("id, status, billing_cycle, subscription_id, setup_fee_paid_at")
+    .select("id, status, billing_cycle, billing_provider, subscription_id, setup_fee_paid_at")
     .eq("subscription_id", subscriptionId);
   if (error) throw error;
   if (!data || data.length !== 1) return null;
-  return data[0] as { id: string; status: string; billing_cycle?: string | null; subscription_id?: string | null; setup_fee_paid_at?: string | null };
+  return data[0] as {
+    id: string;
+    status: string;
+    billing_cycle?: string | null;
+    billing_provider?: string | null;
+    subscription_id?: string | null;
+    setup_fee_paid_at?: string | null;
+  };
 }
 
 async function updateStoreFieldsStrict(supabase: SupabaseClient, storeId: string, updates: Record<string, unknown>) {
@@ -322,10 +331,14 @@ async function handleInitialPaymentCompleted(
   eventId: string,
 ) {
   if (customerId) {
-    await updateStoreFieldsStrict(supabase, store.id, { square_customer_id: customerId });
+    await updateStoreFieldsStrict(supabase, store.id, {
+      billing_provider: BILLING_PROVIDER.SQUARE,
+      square_customer_id: customerId,
+    });
   }
 
-  if (isSubscriptionRequired(store)) {
+  const squareManagedStore = { ...store, billing_provider: BILLING_PROVIDER.SQUARE };
+  if (isSubscriptionRequired(squareManagedStore)) {
     if (!customerId) {
       await logBillingEvent(supabase, {
         storeId: store.id,
@@ -344,6 +357,7 @@ async function handleInitialPaymentCompleted(
     const monthlyAmount = store.monthly_price || PLAN_MONTHLY[store.plan] || 4980;
     const subscriptionId = await createSquareSubscription(customerId, store.id, store.plan, billingCycle, monthlyAmount);
     await updateStoreFieldsStrict(supabase, store.id, {
+      billing_provider: BILLING_PROVIDER.SQUARE,
       subscription_id: subscriptionId,
       setup_fee_paid_at: new Date().toISOString(),
     });
@@ -497,6 +511,21 @@ async function handleInvoicePaymentMade(supabase: SupabaseClient, data: any, eve
 
   const store = await findStoreBySubscriptionId(supabase, subscriptionId);
   if (!store) return;
+  if (!isSquareBillingManaged(store)) {
+    await logBillingEvent(supabase, {
+      storeId: store.id,
+      squareEventId: eventId,
+      subscriptionId,
+      oldStatus: store.status,
+      newStatus: store.status,
+      eventType: "invoice_paid_skipped",
+      source: "webhook",
+      success: true,
+      reason: "billing_provider_not_square",
+      details: { billing_provider: store.billing_provider || null },
+    });
+    return;
+  }
   await updateStoreStatusStrict(supabase, store.id, "契約中", {
     squareEventId: eventId,
     subscriptionId,
@@ -512,6 +541,21 @@ async function handleInvoiceScheduledChargeFailed(supabase: SupabaseClient, data
 
   const store = await findStoreBySubscriptionId(supabase, subscriptionId);
   if (!store) return;
+  if (!isSquareBillingManaged(store)) {
+    await logBillingEvent(supabase, {
+      storeId: store.id,
+      squareEventId: eventId,
+      subscriptionId,
+      oldStatus: store.status,
+      newStatus: store.status,
+      eventType: "charge_failed_skipped",
+      source: "webhook",
+      success: true,
+      reason: "billing_provider_not_square",
+      details: { billing_provider: store.billing_provider || null },
+    });
+    return;
+  }
   await updateStoreStatusStrict(supabase, store.id, "停止中", {
     squareEventId: eventId,
     subscriptionId,
@@ -527,6 +571,21 @@ async function handleSubscriptionUpdated(supabase: SupabaseClient, data: any, ev
 
   const store = await findStoreBySubscriptionId(supabase, subscriptionId);
   if (!store) return;
+  if (!isSquareBillingManaged(store)) {
+    await logBillingEvent(supabase, {
+      storeId: store.id,
+      squareEventId: eventId,
+      subscriptionId,
+      oldStatus: store.status,
+      newStatus: store.status,
+      eventType: `${eventType}_skipped`,
+      source: "webhook",
+      success: true,
+      reason: "billing_provider_not_square",
+      details: { billing_provider: store.billing_provider || null },
+    });
+    return;
+  }
 
   const result = await reconcileStoreSubscription(supabase, store, "webhook", eventId);
   if (result.action === "check_failed" && result.reason !== "pending_without_verified_initial_paid_period") {

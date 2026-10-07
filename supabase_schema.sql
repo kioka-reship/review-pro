@@ -15,6 +15,7 @@ create table stores (
   password                 text not null,
   plan                     text not null default 'light',
   billing_cycle            text not null default 'monthly', -- monthly / yearly
+  billing_provider         text not null default 'manual', -- square / manual / none
   monthly_price            int,
   setup_fee_paid_amount    int default 0,
   place_id                 text,
